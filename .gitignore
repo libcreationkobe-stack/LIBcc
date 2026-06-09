@@ -1,0 +1,7 @@
+# clasp
+.clasp.json
+.clasprc.json
+
+# OS / editor
+.DS_Store
+*.log
