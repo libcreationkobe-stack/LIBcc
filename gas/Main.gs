@@ -40,9 +40,8 @@ function processRow(row) {
   let draft;
 
   if (type === '動画') {
-    // パターンA: リール動画 → 文字起こし → 要約
-    const blob = fetchFileBlob_(source, fileRef);
-    const transcript = transcribeAudio(blob);
+    // パターンA: リール動画 → (Notta×Zapierの)文字起こしを受け取る → 要約
+    const transcript = resolveTranscript_(sheet, row, source, fileRef);
     setCell_(sheet, row, CONFIG.COL.TRANSCRIPT, transcript);
     draft = generatePostFromTranscript(transcript, note);
 

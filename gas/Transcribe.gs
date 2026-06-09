@@ -1,38 +1,48 @@
 /**
- * 音声認識（文字起こし）。
+ * 文字起こしの取得（Notta 連携版）。
  *
- * ⚠️ Claude などのテキスト生成AIは「音声・動画から文字起こし」はできません。
- *    ここは音声認識（Speech-to-Text）専用のサービスを呼び出します。
- *    既定では OpenAI Whisper API を使う実装にしています（差し替え可）。
- *    別サービス（Google Cloud Speech-to-Text 等）を使う場合はこの関数を書き換えてください。
+ * ⚠️ Notta は「コードから直接叩ける公開API」を提供していません（自動連携は Zapier 経由）。
+ *    そのため GAS から Notta を直接呼ぶことはせず、
+ *    Notta(+Zapier) が作成した文字起こしテキストを「受け取る」方式にしています。
  *
- * スクリプトプロパティ TRANSCRIBE_API_KEY に Whisper(OpenAI) のAPIキーを設定。
+ * 対応している受け取り方（上から順に判定）:
+ *   1. E列（文字起こし）に既にテキストがある        … Notta×Zapierでシートへ直接書き込む運用
+ *   2. ファイル参照(C列)が .txt / .vtt / .srt のファイル … Notta×ZapierでDriveに保存する運用
  *
- * 注意: Whisper API はファイル25MBまで。長尺・大容量のリールは事前に圧縮するか、
- *       音声だけ抜き出して渡す運用を推奨します（GAS単体では音声抽出はできません）。
- *
- * @param {Blob} mediaBlob 動画または音声の Blob
  * @return {string} 文字起こしテキスト
  */
-function transcribeAudio(mediaBlob) {
-  const apiKey = getProp_('TRANSCRIBE_API_KEY');
+function resolveTranscript_(sheet, row, source, fileRef) {
+  // 1. すでに E列 に文字起こしがあればそれを使う
+  const existing = (getCell_(sheet, row, CONFIG.COL.TRANSCRIPT) || '').toString().trim();
+  if (existing) return existing;
 
-  const res = UrlFetchApp.fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'post',
-    headers: { 'Authorization': 'Bearer ' + apiKey },
-    payload: {
-      file: mediaBlob,
-      model: 'whisper-1',
-      language: 'ja',
-      response_format: 'text'
-    },
-    muteHttpExceptions: true
-  });
-
-  const code = res.getResponseCode();
-  const body = res.getContentText();
-  if (code !== 200) {
-    throw new Error('文字起こし失敗 (HTTP ' + code + '): ' + body);
+  // 2. ファイル参照がテキスト系ファイルなら読み込む
+  if (fileRef && /\.(txt|vtt|srt)$/i.test(fileRef)) {
+    const blob = fetchFileBlob_(source, fileRef);
+    const text = blob.getDataAsString('UTF-8').trim();
+    if (text) return stripCaptionTimestamps_(text);
   }
-  return body.trim();
+
+  throw new Error(
+    '文字起こしが見つかりません。Notta(+Zapier)でリールを文字起こしし、' +
+    'その結果を E列 に入れるか、Driveの .txt ファイルを C列 に指定してください。'
+  );
+}
+
+/**
+ * VTT/SRT形式のときにタイムスタンプ・番号行を除去して本文だけにする。
+ * （プレーンテキストはそのまま返る）
+ */
+function stripCaptionTimestamps_(text) {
+  return text
+    .split(/\r?\n/)
+    .filter(function (line) {
+      var l = line.trim();
+      if (l === '' || l === 'WEBVTT') return false;
+      if (/^\d+$/.test(l)) return false;                       // SRTの連番
+      if (/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->/.test(l)) return false; // タイムコード
+      return true;
+    })
+    .join('\n')
+    .trim();
 }

@@ -2,8 +2,10 @@
  * 設定値。APIキーなどの秘密情報は「スクリプトプロパティ」に保存します。
  * 設定方法: Apps Scriptエディタ →「プロジェクトの設定」→「スクリプト プロパティ」
  *   ANTHROPIC_API_KEY   … Claude(Anthropic) のAPIキー
- *   TRANSCRIBE_API_KEY  … 音声認識(文字起こし)サービスのAPIキー
  *   DROPBOX_TOKEN       … Dropbox のアクセストークン（Dropboxを使う場合）
+ *
+ * 文字起こしは Notta(+Zapier) 側で行い、結果をシートE列またはDriveの.txtで受け取ります。
+ * Notta用のAPIキーはGAS側では不要です（Transcribe.gs を参照）。
  */
 const CONFIG = {
   // 管理用シート名

@@ -2,7 +2,7 @@
 
 スプレッドシートを管理画面にして、**Googleビジネスプロフィール（GBP）の「最新情報」投稿文と写真を自動で下書き準備**するための Google Apps Script プロジェクトです。
 
-- リール動画 → 音声認識で文字起こし → Claude で投稿文に要約（**パターンA**）
+- リール動画 → **Notta(+Zapier)で文字起こし** → Claude で投稿文に要約（**パターンA**）
 - 写真 + メモ → Claude で投稿文に整形（**パターンB**）
 - 完成した投稿文はスプレッドシートに、写真は Drive の「投稿準備済」フォルダに集約
 
@@ -14,7 +14,7 @@
 
 | 機能 | 内容 |
 |------|------|
-| 文字起こし | リール動画（音声）を文字に変換（Whisper 等の音声認識API） |
+| 文字起こし | Notta(+Zapier) でリール動画を文字に変換 → 結果をシート/Driveで受け取り |
 | 文章生成 | 文字起こし結果・メモ・写真情報から GBP 投稿文を Claude が作成 |
 | 写真整理 | Drive / Dropbox から写真を取得し「投稿準備済」フォルダへ |
 | 進捗管理 | スプレッドシートで `下書き作成中 → 確認待ち → 投稿済` を管理 |
@@ -30,7 +30,7 @@ gas/
   SheetService.gs   … シート読み書き
   DriveService.gs   … Google Drive のファイル取得・整理
   DropboxService.gs … Dropbox のファイル取得
-  Transcribe.gs     … 音声認識（文字起こし）
+  Transcribe.gs     … Nottaの文字起こし結果を受け取る（シートE列 / Driveの.txt）
   Claude.gs         … Claude API 呼び出し（投稿文生成）
 docs/
   SETUP.md          … 導入手順・全体設計
