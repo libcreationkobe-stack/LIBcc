@@ -332,35 +332,35 @@ function callClaudeForReview_(data) {
     + '- 一番効く1箇所に絞って指摘する。全部を平均的に指摘しない。\n'
     + '- 前置き・あいさつ・まとめの再掲は書かない。';
 
+  // 基本のリクエスト。effort を上げるほど深く考えるが時間もかかる。
+  // Apps Script の通信は待たされすぎると打ち切られるため low から始める。
+  // 物足りなければ 'medium' や 'high' に変える。
   var payload = {
     model: CLAUDE_MODEL_REVIEW,
     max_tokens: CLAUDE_MAX_TOKENS_REVIEW,
-    fallbacks: 'default',
     thinking: {type: 'adaptive'},
-    // effort を上げるほど深く考えるが時間もかかる。Apps Script の通信は
-    // 待たされすぎると打ち切られるため low から始める。物足りなければ
-    // 'medium' や 'high' に変える。
     output_config: {effort: 'low'},
     system: system,
     messages: [{role: 'user', content: buildReviewPrompt_(data)}]
   };
 
-  var res = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'server-side-fallback-2026-07-01'
-    },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
+  var res = postToClaude_(apiKey, payload);
+
+  // 400 はリクエストの書式をAPIが受け付けなかったということ。
+  // 契約プランによっては thinking や effort が使えないことがあるので、
+  // 一度だけ最小構成に落として送り直す。
+  if (res.getResponseCode() === 400) {
+    Logger.log('1回目が400。最小構成で再送します: ' + res.getContentText());
+    delete payload.thinking;
+    delete payload.output_config;
+    res = postToClaude_(apiKey, payload);
+  }
 
   var code = res.getResponseCode();
   var body = res.getContentText();
   if (code !== 200) {
-    throw new Error('Claude API失敗 (HTTP ' + code + '): ' + body);
+    Logger.log('Claude API失敗: ' + body);
+    throw new Error(claudeErrorMessage_(code, body));
   }
 
   var json = JSON.parse(body);
@@ -377,6 +377,40 @@ function callClaudeForReview_(data) {
 
   if (!text) { throw new Error('Claudeの応答に本文が含まれていません: ' + body); }
   return text;
+}
+
+/** Messages API にPOSTする。 */
+function postToClaude_(apiKey, payload) {
+  return UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+}
+
+/** APIのエラーを、何をすればいいか分かる日本語にする。 */
+function claudeErrorMessage_(code, body) {
+  var detail = body;
+  try {
+    var parsed = JSON.parse(body);
+    if (parsed.error && parsed.error.message) { detail = parsed.error.message; }
+  } catch (e) { /* JSONでなければ本文をそのまま出す */ }
+
+  if (code === 401) {
+    return 'APIキーが正しくありません。スクリプト プロパティの ANTHROPIC_API_KEY を確認してください。\n\n' + detail;
+  }
+  if (code === 400 && detail.indexOf('credit') >= 0) {
+    return 'Anthropicの残高が足りません。platform.claude.com の Billing でチャージしてください。\n\n' + detail;
+  }
+  if (code === 429) {
+    return 'リクエストが多すぎます。少し待ってからもう一度実行してください。\n\n' + detail;
+  }
+  return 'Claude API失敗 (HTTP ' + code + ')\n\n' + detail;
 }
 
 /** 【総評】などの見出しで本文を4つに切り分ける。 */

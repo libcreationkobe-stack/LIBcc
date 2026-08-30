@@ -88,3 +88,12 @@ Claudeに渡すのは、その月と前月の数値、目安、そして
 モデルは `claude-opus-5`、`thinking: adaptive`、`effort: low`。
 effort を上げると深く書くが時間もかかり、Apps Script の通信が打ち切られやすくなる。
 `output_config.effort` の1箇所で変えられる。
+
+アカウントによっては `thinking` や `output_config` が通らず400になるため、
+400が返ったら一度だけそれらを外して再送する（`callClaudeForReview_`）。
+拒否時の自動フォールバック（`fallbacks`）はベータで、使えないアカウントで
+400になるため入れていない。
+
+APIのエラーは `claudeErrorMessage_` で日本語に変換する。
+キー間違い(401)・残高不足・レート制限(429)は、何をすればいいかまで出す。
+全文は Apps Script の実行ログにも残る。
