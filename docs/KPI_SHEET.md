@@ -69,8 +69,16 @@ GAS版とExcel版は数値のまま持ち、表示形式でパーセント表示
 「月次レビュー」シートに 総評／良かった点／ボトルネック／改善アクション を
 Claude が書けるようになる。
 
-事前に「プロジェクトの設定」→「スクリプト プロパティ」で
-`ANTHROPIC_API_KEY` にAnthropicのAPIキーを登録する。
+事前に「プロジェクトの設定」→「スクリプト プロパティ」で登録する。
+
+| プロパティ | 必須 | 中身 |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | 必須 | AnthropicのAPIキー |
+| `ANTHROPIC_WORKSPACE_ID` | 条件付き | `wrkspc_` で始まるワークスペースID |
+
+個人に紐づいたキー（identity-linked）を使う場合、`anthropic-workspace-id`
+ヘッダーが無いと400になる。その場合だけ `ANTHROPIC_WORKSPACE_ID` を足す。
+ワークスペース単位で発行したキーなら不要。
 
 | メニュー | 動き |
 |---|---|

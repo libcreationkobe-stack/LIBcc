@@ -6,7 +6,10 @@
  *
  * 事前準備:
  *   プロジェクトの設定 → スクリプト プロパティ に
- *   ANTHROPIC_API_KEY = Anthropic の APIキー を登録する。
+ *   ANTHROPIC_API_KEY     = Anthropic の APIキー（必須）
+ *   ANTHROPIC_WORKSPACE_ID = ワークスペースID（wrkspc_...）
+ *     個人に紐づいたキーを使う場合のみ必要。ワークスペース単位で
+ *     発行したキーなら不要。
  */
 
 var REVIEW_SHEET_NAME = '月次レビュー';
@@ -381,13 +384,24 @@ function callClaudeForReview_(data) {
 
 /** Messages API にPOSTする。 */
 function postToClaude_(apiKey, payload) {
+  var headers = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  };
+
+  // 個人に紐づいたキー（identity-linked）は、どのワークスペースでの
+  // リクエストかを一緒に送らないと400になる。ワークスペース単位で
+  // 発行したキーの場合は不要なので、設定されていれば載せる。
+  var workspaceId = PropertiesService.getScriptProperties()
+    .getProperty('ANTHROPIC_WORKSPACE_ID');
+  if (workspaceId) {
+    headers['anthropic-workspace-id'] = workspaceId.trim();
+  }
+
   return UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
     method: 'post',
     contentType: 'application/json',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
-    },
+    headers: headers,
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   });
@@ -401,6 +415,15 @@ function claudeErrorMessage_(code, body) {
     if (parsed.error && parsed.error.message) { detail = parsed.error.message; }
   } catch (e) { /* JSONでなければ本文をそのまま出す */ }
 
+  if (detail.indexOf('anthropic-workspace-id') >= 0) {
+    return 'このAPIキーは「個人に紐づいたキー」なので、ワークスペースIDも必要です。\n\n'
+      + '対処は2つ。どちらかでOKです。\n'
+      + '(A) スクリプト プロパティに ANTHROPIC_WORKSPACE_ID を追加し、'
+      + 'platform.claude.com の Settings → Workspaces で開いたワークスペースのID'
+      + '（wrkspc_ で始まる文字列）を入れる。\n'
+      + '(B) platform.claude.com の API Keys で、ワークスペースを指定して'
+      + 'キーを作り直し、ANTHROPIC_API_KEY を差し替える。';
+  }
   if (code === 401) {
     return 'APIキーが正しくありません。スクリプト プロパティの ANTHROPIC_API_KEY を確認してください。\n\n' + detail;
   }
