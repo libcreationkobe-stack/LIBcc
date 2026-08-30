@@ -10,16 +10,25 @@ import argparse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.formatting.rule import CellIsRule
+from openpyxl.formatting.rule import FormulaRule
 
 MONTHS = ["8月", "9月", "10月", "11月", "12月", "1月", "2月",
           "3月", "4月", "5月", "6月", "7月", "8月"]
 
 HEADER_ROW = 2
-FIRST_ROW = 3
-LAST_ROW = FIRST_ROW + len(MONTHS) - 1      # 15
-TOTAL_ROW = LAST_ROW + 1                    # 16
-AVG_ROW = LAST_ROW + 2                      # 17
+GUIDE_ROW = 3                               # 悪い／普通／良いの目安
+FIRST_ROW = 4
+LAST_ROW = FIRST_ROW + len(MONTHS) - 1      # 16
+TOTAL_ROW = LAST_ROW + 1                    # 17
+AVG_ROW = LAST_ROW + 2                      # 18
+
+# 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
+BENCHMARKS = {
+    "O": (0.03, 0.05, "悪い 〜3% / 普通 3〜5% / 良い 5%〜"),
+    "P": (0.05, 0.10, "悪い 〜5% / 普通 5〜10% / 良い 10%〜"),
+    "Q": (0.20, 0.40, "悪い 〜20% / 普通 20〜40% / 良い 40%〜"),
+    "V": (0.00005, 0.0002, "悪い 〜0.005% / 普通 0.005〜0.02% / 良い 0.02%〜"),
+}
 
 # (列, ヘッダー, 種別, 数式テンプレート, 表示形式, 幅)
 #   種別 input = 手入力 / calc = 自動計算
@@ -45,9 +54,16 @@ COLUMNS = [
     ("S", "採用率\n(採用/面接)",                 "calc", '=IFERROR(I{r}/H{r},"")', "0.0%", 13),
     ("T", "LINE→採用率\n(採用/LINE登録)",        "calc", '=IFERROR(I{r}/G{r},"")', "0.0%", 15),
     ("U", "その他採用率\n(採用/その他問合せ)",   "calc", '=IFERROR(K{r}/J{r},"")', "0.0%", 16),
-    ("V", "リーチ→採用率\n(採用合計/リーチ)",    "calc", '=IFERROR(L{r}/D{r},"")', "0.00%", 15),
+    ("V", "リーチ→採用率\n(採用合計/リーチ)",    "calc", '=IFERROR(L{r}/D{r},"")', "0.000%", 15),
     ("W", "1採用あたり\n投稿数",                 "calc", '=IFERROR(B{r}/L{r},"")', "#,##0.0", 13),
 ]
+
+BAD_FILL = PatternFill("solid", fgColor="F4CCCC")
+OK_FILL = PatternFill("solid", fgColor="D9EAD3")
+GOOD_FILL = PatternFill("solid", fgColor="FFF2CC")
+BAD_FONT = Font(color="990000", bold=True, size=10)
+OK_FONT = Font(color="274E13", bold=True, size=10)
+GOOD_FONT = Font(color="7F6000", bold=True, size=10)
 
 TITLE_FILL = PatternFill("solid", fgColor="1F3864")
 INPUT_FILL = PatternFill("solid", fgColor="2E75B6")
@@ -82,6 +98,20 @@ def build(path: str) -> None:
         cell.border = Border(left=THIN, right=THIN, top=THIN, bottom=MED)
         ws.column_dimensions[col].width = width
     ws.row_dimensions[HEADER_ROW].height = 42
+
+    # --- 目安行（悪い／普通／良い）----------------------------------
+    ws[f"A{GUIDE_ROW}"] = "目安"
+    ws[f"A{GUIDE_ROW}"].font = Font(bold=True, size=9)
+    ws[f"A{GUIDE_ROW}"].fill = MONTH_FILL
+    ws[f"A{GUIDE_ROW}"].alignment = Alignment(horizontal="center", vertical="center")
+    for col, _h, _k, _f, _fmt, _w in COLUMNS[1:]:
+        cell = ws[f"{col}{GUIDE_ROW}"]
+        if col in BENCHMARKS:
+            cell.value = BENCHMARKS[col][2]
+        cell.font = Font(size=8)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+    ws.row_dimensions[GUIDE_ROW].height = 30
 
     # --- 明細行 -----------------------------------------------------
     for i, month in enumerate(MONTHS):
@@ -135,20 +165,23 @@ def build(path: str) -> None:
                                  top=MED if row == TOTAL_ROW else THIN, bottom=THIN)
         ws.row_dimensions[row].height = 20
 
-    # --- 率列に色分け（高い＝緑 / 低い＝赤）------------------------
-    rate_cols = [c for c, _h, k, _f, fmt, _w in COLUMNS if k == "calc" and fmt.endswith("%")]
-    for col in rate_cols:
-        rng = f"{col}{FIRST_ROW}:{col}{LAST_ROW}"
-        ws.conditional_formatting.add(rng, CellIsRule(
-            operator="greaterThan", formula=[f"AVERAGE(${col}${FIRST_ROW}:${col}${LAST_ROW})"],
-            font=Font(color="1E6B34", bold=True)))
-        ws.conditional_formatting.add(rng, CellIsRule(
-            operator="lessThan", formula=[f"AVERAGE(${col}${FIRST_ROW}:${col}${LAST_ROW})"],
-            font=Font(color="C00000")))
+    # --- 4つの率を 悪い＝赤 / 普通＝緑 / 良い＝黄色 で色分け ---------
+    for col, (bad, good, _label) in BENCHMARKS.items():
+        rng = f"{col}{FIRST_ROW}:{col}{AVG_ROW}"
+        top = f"${col}{FIRST_ROW}"
+        # 空欄を赤くしないよう ISNUMBER で必ず絞る。
+        tiers = [
+            (f"AND(ISNUMBER({top}),{top}<{bad})", BAD_FILL, BAD_FONT),
+            (f"AND(ISNUMBER({top}),{top}>={bad},{top}<{good})", OK_FILL, OK_FONT),
+            (f"AND(ISNUMBER({top}),{top}>={good})", GOOD_FILL, GOOD_FONT),
+        ]
+        for formula, fill, font in tiers:
+            ws.conditional_formatting.add(
+                rng, FormulaRule(formula=[formula], fill=fill, font=font))
 
-    ws.freeze_panes = "B3"
+    ws.freeze_panes = "B4"
     ws.sheet_view.showGridLines = True
-    ws.auto_filter.ref = f"A{HEADER_ROW}:{get_column_letter(len(COLUMNS))}{LAST_ROW}"
+    ws.auto_filter.ref = f"A{HEADER_ROW}:{get_column_letter(len(COLUMNS))}{HEADER_ROW}"
 
     # --- 指標の定義シート -------------------------------------------
     ws2 = wb.create_sheet("指標の定義")
@@ -174,8 +207,15 @@ def build(path: str) -> None:
         ("V", "リーチ→採用率", "採用数 合計 ÷ リーチ数。全体の最終CVR"),
         ("W", "1採用あたり投稿数", "投稿数 ÷ 採用数 合計。1人採るのに必要な投稿本数"),
         ("", "", ""),
-        ("16行", "合計", "実数は年間合計、率は「合計値どうしを割り直した通期の率」"),
-        ("17行", "平均", "実数は月平均、率は各月の率の単純平均"),
+        ("3行", "目安", "4つの率に 悪い／普通／良い のラインを記載"),
+        ("17行", "合計", "実数は年間合計、率は「合計値どうしを割り直した通期の率」"),
+        ("18行", "平均", "実数は月平均、率は各月の率の単純平均"),
+        ("", "", ""),
+        ("色分け", "赤＝悪い / 緑＝普通 / 黄＝良い", "プロフアクセス率・リンクタップ率・LINE登録率・リーチ→採用率の4列に自動で色が付く"),
+        ("目安", "プロフアクセス率 3〜5%", "Instagram運用の一般的な目標値。3%未満は投稿がプロフィールまで引っ張れていない"),
+        ("目安", "リンクタップ率 5〜10%", "10%が分岐点。10%超ならプロフィール文とハイライトが機能している"),
+        ("目安", "LINE登録率 20〜40%", "LINE友だち追加のCVR一般値。特典と導線が強いと50%超も出る"),
+        ("目安", "リーチ→採用率 0.005〜0.02%", "公開ベンチマークがないため上の3つ＋面接率・採用率から逆算した値"),
     ]
     for i, row in enumerate(defs, start=3):
         for j, v in enumerate(row, start=1):
