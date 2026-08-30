@@ -70,6 +70,7 @@ var COLOR_MONTH_BG = '#f2f2f2';
 var COLOR_BORDER = '#bfbfbf';
 
 var LAST_COL = 23;   // W列
+var MIN_ROWS = 60;   // 説明書きまで収まる行数
 
 /** スプレッドシートを開いたときにメニューを出す。 */
 function onOpen() {
@@ -97,6 +98,10 @@ function setupKpiSheet() {
   sheet.setName(SHEET_NAME);
   if (sheet.getMaxColumns() < LAST_COL) {
     sheet.insertColumnsAfter(sheet.getMaxColumns(), LAST_COL - sheet.getMaxColumns());
+  }
+  // 下の説明書きまで入る行数を確保しておく。CSVから作ったシートは行数が足りないことがある。
+  if (sheet.getMaxRows() < MIN_ROWS) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), MIN_ROWS - sheet.getMaxRows());
   }
 
   writeTitle_(sheet);
@@ -141,10 +146,12 @@ function readExistingInputs_(sheet) {
 }
 
 function writeTitle_(sheet) {
-  var cell = sheet.getRange(TITLE_ROW, 1);
-  cell.setValue('Instagram採用 月次KPI（青の見出し＝入力欄／緑の見出し＝自動計算）');
+  // 1列目は固定するので結合に含めない。含めると setFrozenColumns で弾かれる。
+  // A列も同じ色で塗って、見た目は1本の帯にする。
+  sheet.getRange(TITLE_ROW, 2).setValue('Instagram採用 月次KPI（青の見出し＝入力欄／緑の見出し＝自動計算）');
+  sheet.getRange(TITLE_ROW, 2, 1, LAST_COL - 1).merge();
+
   sheet.getRange(TITLE_ROW, 1, 1, LAST_COL)
-    .merge()
     .setBackground(COLOR_NAVY)
     .setFontColor('#ffffff')
     .setFontWeight('bold')
