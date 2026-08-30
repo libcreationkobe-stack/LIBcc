@@ -51,6 +51,40 @@ var CLAUDE_MAX_TOKENS_REVIEW = 4000;
 
 var SECTION_HEADINGS = ['【総評】', '【良かった点】', '【ボトルネック】', '【改善アクション】'];
 
+/**
+ * 設定の確認用。エディタから直接実行すると、スクリプト プロパティに
+ * 何が保存されているかをダイアログで表示する。
+ * APIキーは全体を出さず、前後だけ見せる。
+ */
+function checkClaudeSettings() {
+  var props = PropertiesService.getScriptProperties().getProperties();
+  var names = Object.keys(props);
+
+  var lines = ['保存されているプロパティ: ' + (names.length ? names.join(', ') : '（1つもありません）'), ''];
+
+  var key = props['ANTHROPIC_API_KEY'];
+  if (!key) {
+    lines.push('✗ ANTHROPIC_API_KEY … 未設定');
+  } else {
+    lines.push('✓ ANTHROPIC_API_KEY … ' + key.slice(0, 14) + '…' + key.slice(-4)
+      + '（' + key.length + '文字）');
+    if (key !== key.trim()) { lines.push('  ⚠ 前後に空白が入っています'); }
+  }
+
+  var ws = props['ANTHROPIC_WORKSPACE_ID'];
+  if (!ws) {
+    lines.push('✗ ANTHROPIC_WORKSPACE_ID … 未設定');
+    lines.push('  → 名前のつづり違い、または「スクリプト プロパティを保存」の押し忘れかもしれません。');
+  } else {
+    lines.push('✓ ANTHROPIC_WORKSPACE_ID … 「' + ws + '」');
+    if (ws.trim().indexOf('wrkspc') !== 0) {
+      lines.push('  ⚠ wrkspc で始まっていません。ワークスペースIDではない値かもしれません。');
+    }
+  }
+
+  SpreadsheetApp.getUi().alert('Claude APIの設定', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
 /** レビューシートを作る／整える。 */
 function buildReviewSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
