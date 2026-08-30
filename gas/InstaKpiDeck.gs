@@ -85,7 +85,7 @@ function buildMonthlyDeck() {
       + '「この月のレポートを作る（総評＋スライド）」を使ってください。');
   }
 
-  SpreadsheetApp.getActive().toast(MONTHS[index] + 'のスライドを作っています…');
+  toast_(MONTHS[index] + 'のスライドを作っています…');
 
   var deckInfo = renderDeck_(index, data, {
     summary: String(review[0]),
@@ -488,15 +488,42 @@ function exportAsPptx_(fileId, name, folder) {
   return folder.createFile(res.getBlob().setName(name + '.pptx'));
 }
 
-/** できたファイルのリンクをダイアログで出す。 */
+/**
+ * できたファイルのリンクを知らせる。
+ * エディタの実行ボタンから動かした場合はスプレッドシートのUIが無いので、
+ * ダイアログは出せない。URLは必ず実行ログに残す。
+ */
 function showDeckLinks_(deckInfo, pptx) {
+  var pptxUrl = pptx.getUrl();
+
+  Logger.log([
+    deckInfo.name + ' を作りました。',
+    '保存先: マイドライブ > ' + DECK_FOLDER_NAME,
+    'スライド（編集用）: ' + deckInfo.url,
+    'PPTX（配布用）: ' + pptxUrl
+  ].join('\n'));
+
   var html = '<div style="font-family:sans-serif;font-size:13px;line-height:1.9">'
     + '<p><b>' + deckInfo.name + '</b> を作りました。</p>'
     + '<p>保存先: マイドライブ &gt; ' + DECK_FOLDER_NAME + '</p>'
     + '<p><a href="' + deckInfo.url + '" target="_blank">Googleスライドで開く（編集用）</a></p>'
-    + '<p><a href="' + pptx.getUrl() + '" target="_blank">PPTXファイルを開く（配布用）</a></p>'
+    + '<p><a href="' + pptxUrl + '" target="_blank">PPTXファイルを開く（配布用）</a></p>'
     + '</div>';
 
-  SpreadsheetApp.getUi().showModalDialog(
-    HtmlService.createHtmlOutput(html).setWidth(420).setHeight(220), 'レポートができました');
+  try {
+    SpreadsheetApp.getUi().showModalDialog(
+      HtmlService.createHtmlOutput(html).setWidth(420).setHeight(220), 'レポートができました');
+  } catch (e) {
+    // UIが使えない実行のされ方。ログにURLを出してあるのでそれで足りる。
+    Logger.log('ダイアログは表示できませんでした（' + e.message + '）。上のURLを使ってください。');
+  }
+}
+
+/** スプレッドシートの右下に出す通知。UIが無い実行ではログに落とす。 */
+function toast_(message) {
+  try {
+    SpreadsheetApp.getActive().toast(message);
+  } catch (e) {
+    Logger.log(message);
+  }
 }
