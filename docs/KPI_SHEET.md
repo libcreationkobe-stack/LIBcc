@@ -2,14 +2,18 @@
 
 数値（入力欄）を入れるだけで、各ファネルの率まで自動で出るシート。
 
-- 生成スクリプト: `tools/build_insta_kpi_sheet.py`
-- 生成物: `docs/Instagram採用KPI管理シート.xlsx`
+- Googleスプレッドシート版: `tools/build_insta_kpi_csv.py` → `docs/Instagram採用KPI管理シート.csv`
+- Excel版（色分け・書式付き）: `tools/build_insta_kpi_sheet.py` → `docs/Instagram採用KPI管理シート.xlsx`
 
 ## 使い方
 
-1. `docs/Instagram採用KPI管理シート.xlsx` をGoogleドライブにアップロード
-2. 右クリック →「アプリで開く」→「Googleスプレッドシート」で変換
-3. 青ヘッダーの列（B〜K）に毎月の実数を入力するだけ。緑ヘッダーの列は数式が入っているので触らない
+Googleスプレッドシート版（`docs/Instagram採用KPI管理シート.csv`）が本命。
+ドライブに直接アップロードするとスプレッドシートとして開ける。
+
+Excel版（`.xlsx`）は色分け・パーセント書式込みだが、Googleスプレッドシートの
+インポートに弾かれることがある。その場合はCSV版を使う。
+
+どちらもB〜K列に毎月の実数を入力するだけ。L列から右は数式なので触らない。
 
 ## 構成
 
@@ -27,6 +31,12 @@
 ## 再生成
 
 ```bash
+python3 tools/build_insta_kpi_csv.py -o "docs/Instagram採用KPI管理シート.csv"
+
 pip install openpyxl
 python3 tools/build_insta_kpi_sheet.py -o "docs/Instagram採用KPI管理シート.xlsx"
 ```
+
+CSV版は率を `TEXT(x,"0.0%")` で文字列として整形しているため、書式設定なしで
+パーセント表示になる。数値として扱いたい場合は `TEXT(...)` を外して
+表示形式をパーセントに変える。
