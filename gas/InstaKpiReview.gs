@@ -25,10 +25,13 @@ var REVIEW_COLUMNS = [
   {col: 'D', header: '良かった点',     width: 280, text: true},
   {col: 'E', header: 'ボトルネック',   width: 280, text: true},
   {col: 'F', header: '改善アクション', width: 340, text: true},
-  {col: 'G', header: '更新日時',       width: 130}
+  {col: 'G', header: '更新日時',       width: 130},
+  {col: 'H', header: 'スライド',       width: 120, link: true},
+  {col: 'I', header: 'PPTX',           width: 110, link: true}
 ];
 
-var REVIEW_LAST_COL = REVIEW_COLUMNS.length;   // 7 (G列)
+var REVIEW_LAST_COL = REVIEW_COLUMNS.length;   // 9 (I列)
+var REVIEW_BODY_COLS = 7;                     // C〜I（総評からリンクまで）
 
 /** Claudeへの依頼で使う指標。KPIシートの列と目安を紐づける。 */
 var REVIEW_METRICS = [
@@ -185,10 +188,10 @@ function buildReviewSheet() {
       .setWrap(true);
 
     if (saved[MONTHS[i] + '_' + i]) {
-      sheet.getRange(row, 3, 1, 5).setValues([saved[MONTHS[i] + '_' + i]]);
+      sheet.getRange(row, 3, 1, REVIEW_BODY_COLS).setValues([saved[MONTHS[i] + '_' + i]]);
     }
     sheet.getRange(row, 3, 1, 4).setVerticalAlignment('top').setWrap(true);
-    sheet.getRange(row, 7).setVerticalAlignment('middle').setHorizontalAlignment('center');
+    sheet.getRange(row, 7, 1, 3).setVerticalAlignment('middle').setHorizontalAlignment('center');
     sheet.setRowHeight(row, 120);
   }
 
@@ -209,10 +212,15 @@ function buildReviewSheet() {
   SpreadsheetApp.getActive().toast('月次レビューシートを用意しました。');
 }
 
-/** 作り直す前に、書いてあるレビュー本文を月ごとに退避する。 */
+/**
+ * 作り直す前に、書いてあるレビュー本文とリンクを月ごとに退避する。
+ * リンク列は表示文字ではなく数式で持ち越す。
+ */
 function readExistingReviews_(sheet) {
   var saved = {};
-  var values = sheet.getDataRange().getValues();
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+  var formulas = range.getFormulas();
 
   for (var i = 0; i < MONTHS.length; i++) {
     var row = REVIEW_FIRST_ROW + i - 1;   // 0始まり
@@ -221,8 +229,9 @@ function readExistingReviews_(sheet) {
 
     var body = [];
     var hasText = false;
-    for (var c = 2; c <= 6; c++) {
-      var v = values[row][c];
+    for (var c = 2; c < 2 + REVIEW_BODY_COLS; c++) {
+      var f = formulas[row] ? formulas[row][c] : '';
+      var v = f ? f : values[row][c];
       body.push(v === null || v === undefined ? '' : v);
       if (String(v).trim() !== '') { hasText = true; }
     }

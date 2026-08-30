@@ -98,6 +98,7 @@ function buildMonthlyDeck() {
   DriveApp.getFileById(deckInfo.id).moveTo(folder);
   var pptx = exportAsPptx_(deckInfo.id, deckInfo.name, folder);
 
+  writeDeckLinks_(reviewSheet, index, deckInfo.url, pptx.getUrl());
   showDeckLinks_(deckInfo, pptx);
 }
 
@@ -517,6 +518,13 @@ function showDeckLinks_(deckInfo, pptx) {
     // UIが使えない実行のされ方。ログにURLを出してあるのでそれで足りる。
     Logger.log('ダイアログは表示できませんでした（' + e.message + '）。上のURLを使ってください。');
   }
+}
+
+/** レビューシートのH・I列に、その月のレポートへのリンクを書く。 */
+function writeDeckLinks_(sheet, index, deckUrl, pptxUrl) {
+  var row = REVIEW_FIRST_ROW + index;
+  sheet.getRange(row, 8).setFormula('=HYPERLINK("' + deckUrl + '","スライドを開く")');
+  sheet.getRange(row, 9).setFormula('=HYPERLINK("' + pptxUrl + '","PPTXを開く")');
 }
 
 /** スプレッドシートの右下に出す通知。UIが無い実行ではログに落とす。 */
