@@ -8,6 +8,7 @@
 | Googleスプレッドシートに数式・色分けを入れる（本命） | `gas/InstaKpiSheet.gs` |
 | 空のシートをGoogleドライブに作る | `tools/build_insta_kpi_csv.py` → `docs/Instagram採用KPI管理シート.csv` |
 | Excel版（色分け・書式込み） | `tools/build_insta_kpi_sheet.py` → `docs/Instagram採用KPI管理シート.xlsx` |
+| 月次レビュー（総評をClaudeに書かせる） | `gas/InstaKpiReview.gs` |
 
 Googleスプレッドシートは xlsx のインポートを弾くことがあるため、
 スプレッドシートで使う場合は CSV を上げてから GAS を実行する流れが確実。
@@ -61,3 +62,29 @@ python3 tools/build_insta_kpi_sheet.py -o "docs/Instagram採用KPI管理シー�
 
 CSV版は率を `TEXT(x,"0.0%")` で文字列に整形しているため、書式設定なしでパーセント表示になる。
 GAS版とExcel版は数値のまま持ち、表示形式でパーセント表示にしている（色分けにはこちらが必要）。
+
+## 月次レビュー
+
+`gas/InstaKpiReview.gs` を同じApps Scriptプロジェクトに置くと、
+「月次レビュー」シートに 総評／良かった点／ボトルネック／改善アクション を
+Claude が書けるようになる。
+
+事前に「プロジェクトの設定」→「スクリプト プロパティ」で
+`ANTHROPIC_API_KEY` にAnthropicのAPIキーを登録する。
+
+| メニュー | 動き |
+|---|---|
+| 月次レビューシートを作る | 13ヶ月分の行とKPIシート参照の数値サマリーを用意する。書き込み済みの本文は引き継ぐ |
+| この月の総評をAIに書かせる | 選択中の行の月について、C〜F列を書く。もう一度実行すると上書き |
+
+Claudeに渡すのは、その月と前月の数値、目安、そして
+`judge_()` で先に判定した 悪い／普通／良い のラベル。
+判定をコード側で確定させてから渡すことで、
+モデルが目安を読み違えて別の水準だと言い出すことがなくなる。
+
+応答は `【総評】` などの見出しで4つに切り分けて各列に入れる
+（`parseSections_`）。見出しが取れなかった場合は全文を総評列に入れて取りこぼさない。
+
+モデルは `claude-opus-5`、`thinking: adaptive`、`effort: low`。
+effort を上げると深く書くが時間もかかり、Apps Script の通信が打ち切られやすくなる。
+`output_config.effort` の1箇所で変えられる。

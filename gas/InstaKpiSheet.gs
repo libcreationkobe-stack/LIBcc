@@ -77,6 +77,9 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('KPIシート')
     .addItem('シートを整える（数式・色分けを入れ直す）', 'setupKpiSheet')
+    .addSeparator()
+    .addItem('月次レビューシートを作る', 'buildReviewSheet')
+    .addItem('この月の総評をAIに書かせる', 'writeReviewForSelectedMonth')
     .addToUi();
 }
 
