@@ -157,7 +157,7 @@ function renderSummary_(slide, index, data) {
   deltaText_(slide, PAD + 22, y + 148, heroW - 44, data, '採用数 合計');
 
   var tiles = [
-    {label: 'リーチ数', key: 'リーチ数', unit: ''},
+    {label: 'リーチ数', key: 'リーチ数', unit: 'アカウント'},
     {label: 'LINE登録', key: 'LINE登録数', unit: '件'},
     {label: '面接', key: '面接数', unit: '件'}
   ];
@@ -292,7 +292,7 @@ function renderTwoColumn_(slide, index, review) {
     card_(slide, c.x, 100, colW, 214);
     box_(slide, c.x, 100, colW, 4, c.accent);
     text_(slide, c.x + 20, 116, colW - 40, 22, c.title, {size: 14, color: c.accent, bold: true});
-    text_(slide, c.x + 20, 146, colW - 40, 152, c.body || '（記載なし）',
+    text_(slide, c.x + 20, 146, colW - 40, 152, String(c.body || '').trim() || '（記載なし）',
       {size: 12, color: C_INK, lineSpacing: 130});
   });
 }
@@ -348,15 +348,21 @@ function box_(slide, x, y, w, h, color, radius) {
   return shape;
 }
 
-/** 文字。余白ゼロの透明な箱に入れる。 */
+/**
+ * 文字。透明な箱に入れて置く。
+ * 中身が空だと getTextStyle が「has no text」で落ちるため、その場合は何も置かない。
+ */
 function text_(slide, x, y, w, h, content, opt) {
+  var body = String(content === null || content === undefined ? '' : content);
+  if (body.trim() === '') { return null; }
+
   var o = opt || {};
   var shape = slide.insertShape(SlidesApp.ShapeType.TEXT_BOX, x, y, w, h);
   shape.getFill().setTransparent();
   shape.getBorder().setTransparent();
 
   var range = shape.getText();
-  range.setText(String(content));
+  range.setText(body);
 
   var style = range.getTextStyle();
   style.setFontFamily(FONT)
