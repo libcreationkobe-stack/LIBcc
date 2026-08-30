@@ -86,6 +86,12 @@ function setupKpiSheet() {
 
   var saved = readExistingInputs_(sheet);
 
+  // 2回目以降の実行に備えて、固定と結合を先に解除しておく。
+  // 固定列が残ったままタイトル行を結合しようとすると Google 側で弾かれる。
+  sheet.setFrozenRows(0);
+  sheet.setFrozenColumns(0);
+  sheet.getDataRange().breakApart();
+
   sheet.clear();
   sheet.clearConditionalFormatRules();
   sheet.setName(SHEET_NAME);
