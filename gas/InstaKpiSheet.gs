@@ -81,6 +81,9 @@ function onOpen() {
     .addItem('月次レビューシートを作る', 'buildReviewSheet')
     .addItem('この月の総評をAIに書かせる', 'writeReviewForSelectedMonth')
     .addSeparator()
+    .addItem('この月のレポートを作る（総評＋スライド）', 'buildMonthlyReport')
+    .addItem('この月のスライドだけ作り直す', 'buildMonthlyDeck')
+    .addSeparator()
     .addItem('Claude APIの設定を確認する', 'checkClaudeSettings')
     .addToUi();
 }
