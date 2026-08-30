@@ -52,14 +52,13 @@ var CLAUDE_MAX_TOKENS_REVIEW = 4000;
 var SECTION_HEADINGS = ['【総評】', '【良かった点】', '【ボトルネック】', '【改善アクション】'];
 
 /**
- * 設定の確認用。エディタから直接実行すると、スクリプト プロパティに
- * 何が保存されているかをダイアログで表示する。
- * APIキーは全体を出さず、前後だけ見せる。
+ * 設定の確認用。エディタかメニューから実行すると、スクリプト プロパティの
+ * 中身を表示したうえで、実際にAPIを1回叩いて結果まで見せる。
+ * APIキーは全体を出さず、前後だけ表示する。
  */
 function checkClaudeSettings() {
   var props = PropertiesService.getScriptProperties().getProperties();
   var names = Object.keys(props);
-
   var lines = ['保存されているプロパティ: ' + (names.length ? names.join(', ') : '（1つもありません）'), ''];
 
   var key = props['ANTHROPIC_API_KEY'];
@@ -72,17 +71,56 @@ function checkClaudeSettings() {
   }
 
   var ws = props['ANTHROPIC_WORKSPACE_ID'];
-  if (!ws) {
-    lines.push('✗ ANTHROPIC_WORKSPACE_ID … 未設定');
-    lines.push('  → 名前のつづり違い、または「スクリプト プロパティを保存」の押し忘れかもしれません。');
+  lines.push(ws
+    ? '・ANTHROPIC_WORKSPACE_ID … 「' + ws + '」'
+    : '・ANTHROPIC_WORKSPACE_ID … 未設定（レガシーキーなら不要）');
+
+  lines.push('', '─── 接続テスト ───');
+  if (key) {
+    lines.push(pingClaude_(key));
   } else {
-    lines.push('✓ ANTHROPIC_WORKSPACE_ID … 「' + ws + '」');
-    if (ws.trim().indexOf('wrkspc') !== 0) {
-      lines.push('  ⚠ wrkspc で始まっていません。ワークスペースIDではない値かもしれません。');
-    }
+    lines.push('APIキーが無いのでテストできません。');
   }
 
   SpreadsheetApp.getUi().alert('Claude APIの設定', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/** ごく短いリクエストを1回だけ送って、通るかどうかを確かめる。 */
+function pingClaude_(apiKey) {
+  var res = postToClaude_(apiKey, {
+    model: CLAUDE_MODEL_REVIEW,
+    max_tokens: 16,
+    messages: [{role: 'user', content: 'ping'}]
+  });
+
+  var code = res.getResponseCode();
+  var body = res.getContentText();
+  Logger.log('接続テスト HTTP ' + code + ': ' + body);
+
+  if (code === 200) {
+    return '✓ 成功（HTTP 200）。総評を書ける状態です。';
+  }
+
+  var detail = body;
+  try {
+    var parsed = JSON.parse(body);
+    if (parsed.error && parsed.error.message) { detail = parsed.error.message; }
+  } catch (e) { /* JSONでなければ本文をそのまま出す */ }
+
+  if (detail.indexOf('anthropic-workspace-id') >= 0) {
+    return '✗ HTTP ' + code + '：まだ「個人に紐づいたキー」が使われています。\n'
+      + '新しいキーが保存されていない可能性が高いです。\n'
+      + '→ プロジェクトの設定 → スクリプト プロパティ で ANTHROPIC_API_KEY の値を\n'
+      + '　 新しいキーに置き換え、必ず「スクリプト プロパティを保存」を押してください。';
+  }
+  if (code === 401) {
+    return '✗ HTTP 401：キーが正しくありません。コピー漏れが無いか確認してください。';
+  }
+  if (detail.indexOf('credit') >= 0 || detail.indexOf('balance') >= 0) {
+    return '✗ HTTP ' + code + '：残高が足りません。\n'
+      + 'platform.claude.com の Billing でチャージしてください。';
+  }
+  return '✗ HTTP ' + code + '\n' + detail;
 }
 
 /** レビューシートを作る／整える。 */
