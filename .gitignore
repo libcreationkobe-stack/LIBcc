@@ -5,3 +5,6 @@
 # OS / editor
 .DS_Store
 *.log
+
+# design canvas の書き出し（作業ファイルから再生成できる）
+design/**/atelier-forcal-top.html
