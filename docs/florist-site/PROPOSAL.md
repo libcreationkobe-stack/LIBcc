@@ -290,8 +290,16 @@ Kannax の TOP は「**不安を潰しながら信頼を積み上げて CTA に�
 - **花の線画をあしらいとして使う。** 5弁の花のマーク、枝もの、薔薇の線画をSVGで作成。
   写真がまだない段階でも画面が持つ効果もある。
 - **料金は掲載しない。** 相談 → お見積りの導線のみ。
-- 書体: 見出し=明朝（Shippori Mincho）／本文=ゴシックLight（Zen Kaku Gothic New）／
-  欧文=Cormorant Garamond。Wix Studio にも同じ組み合わせで持ち込める。
+- **書体: ゴシック体で統一（Noto Sans JP）。** 参考サイト（Kannax）の見出しが
+  明朝ではなくゴシックのため、そちらに合わせた。
+  - 見出し: Noto Sans JP 700 / 字間を広く（0.11〜0.13em）
+  - 本文: Noto Sans JP 300〜400
+  - 数字（01〜06、割引率、実績）: ゴシック
+  - **ロゴ「AtelierForcal」と引用符のみ Cormorant Garamond（セリフ）**
+    店舗様のロゴがセリフのため、そこだけ残している
+  - Noto Sans JP は Google Fonts のため Wix Studio でもそのまま使える
+- 参考サイトに倣い、リード文の下に `- ESTABLISHED ［ 年 ］ -` を配置。
+  創業年が判明したら埋める。
 
 デザイン案（PC・スマホ）: `design/florist-top/` の作業ファイルを参照。
 
