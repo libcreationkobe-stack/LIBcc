@@ -33,6 +33,11 @@ var C_INK_OK = '#0b6b0b';
 var C_INK_WARN = '#8a6100';
 var C_INK_BAD = '#8f2020';
 
+var C_SERIES_SALES = '#2a78d6';   // 売上・残高
+var C_SERIES_PAID = '#eb6834';    // 支払
+var C_SERIES_RATE = '#1baf7a';    // 利益率
+var C_LINE_GUIDE = '#9a9a94';     // 安全ラインなどの目安線
+
 var YEN = '¥#,##0;[Red]-¥#,##0';
 var PCT = '0.0%';
 
@@ -301,7 +306,7 @@ function buildCashFlow_(ss, pl) {
 
   // 月次テーブル
   var headers = ['月', '売上', '支払', '営業収支', '法人税等 積立', '消費税 積立', '納税（予定）',
-                 '月初残高', '月末残高', '判定'];
+                 '月初残高', '月末残高', '判定', '安全ライン', '利益率'];
   tableHeader_(sheet, tableHead, headers);
 
   var corpAnnual = '$B$' + (top + 5);
@@ -336,6 +341,10 @@ function buildCashFlow_(ss, pl) {
       '=IF(NOT(ISNUMBER(I' + r + ')),"—",IF(I' + r + '<0,"危険：残高がマイナス",'
       + 'IF(I' + r + '<' + safety + ',"注意：安全ラインを下回る","良好")))');
 
+    // グラフ用。安全ラインは各行に同じ値を置いて、残高と重ねて描けるようにする。
+    sheet.getRange(r, 11).setFormula('=' + safety).setNumberFormat(YEN);
+    sheet.getRange(r, 12).setFormula('=IFERROR(D' + r + '/B' + r + ',"")').setNumberFormat(PCT);
+
     sheet.getRange(r, 2, 1, 8).setNumberFormat(YEN);
     sheet.getRange(r, 10).setHorizontalAlignment('center');
     sheet.setRowHeight(r, 22);
@@ -345,7 +354,7 @@ function buildCashFlow_(ss, pl) {
   statusRules_(sheet, 'J' + first + ':J' + last);
   sheet.getRange('I' + first + ':I' + last).setFontWeight('bold');
 
-  sheet.getRange(last + 2, 2, 1, 9).merge().setValue(
+  sheet.getRange(last + 2, 2, 1, 11).merge().setValue(
     '※ 納税（予定）は決算月から逆算した概算です。中間納付は前期の法人税が20万円を超えた年だけ発生します。'
     + '消費税は設定の「課税事業者になる事業年度の開始」以降のみ積み立てます。')
     .setFontSize(9).setFontColor(C_SUB).setWrap(true);
@@ -353,8 +362,68 @@ function buildCashFlow_(ss, pl) {
   sheet.setColumnWidth(1, 70);
   for (var c = 2; c <= 9; c++) { sheet.setColumnWidth(c, 112); }
   sheet.setColumnWidth(10, 170);
+  sheet.setColumnWidth(11, 110);
+  sheet.setColumnWidth(12, 90);
+
+  addYearCharts_(sheet, tableHead, first, last);
+
   sheet.setFrozenRows(tableHead);
   sheet.setFrozenColumns(1);
+}
+
+/**
+ * 1年分をまとめて見るグラフ。表の下に3つ並べる。
+ * 売上と支払は月ごとの量の比較なので棒、残高は水準の推移なので折れ線にする。
+ * 金額と率は単位が違うので同じグラフに混ぜない。
+ */
+function addYearCharts_(sheet, headRow, first, last) {
+  var months = 'A' + headRow + ':A' + last;
+  var top = last + 4;
+
+  // 売上と支払（棒・2系列）
+  sheet.insertChart(sheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(sheet.getRange('A' + headRow + ':C' + last))
+    .setNumHeaders(1)
+    .setPosition(top, 1, 0, 0)
+    .setOption('title', '売上と支払（1年）')
+    .setOption('width', 900).setOption('height', 320)
+    .setOption('colors', [C_SERIES_SALES, C_SERIES_PAID])
+    .setOption('legend', {position: 'top'})
+    .setOption('hAxis', {title: ''})
+    .setOption('vAxis', {format: '¥#,##0', gridlines: {color: '#e8e8e4'}})
+    .build());
+
+  // 月末残高と安全ライン（折れ線・2系列）
+  sheet.insertChart(sheet.newChart()
+    .setChartType(Charts.ChartType.LINE)
+    .addRange(sheet.getRange(months))
+    .addRange(sheet.getRange('I' + headRow + ':I' + last))
+    .addRange(sheet.getRange('K' + headRow + ':K' + last))
+    .setNumHeaders(1)
+    .setPosition(top + 18, 1, 0, 0)
+    .setOption('title', '月末残高の推移（1年）')
+    .setOption('width', 900).setOption('height', 320)
+    .setOption('colors', [C_SERIES_SALES, C_LINE_GUIDE])
+    .setOption('legend', {position: 'top'})
+    .setOption('pointSize', 5)
+    .setOption('series', {1: {lineDashStyle: [4, 4], pointSize: 0}})
+    .setOption('vAxis', {format: '¥#,##0', gridlines: {color: '#e8e8e4'}})
+    .build());
+
+  // 利益率（棒・1系列）
+  sheet.insertChart(sheet.newChart()
+    .setChartType(Charts.ChartType.COLUMN)
+    .addRange(sheet.getRange(months))
+    .addRange(sheet.getRange('L' + headRow + ':L' + last))
+    .setNumHeaders(1)
+    .setPosition(top + 36, 1, 0, 0)
+    .setOption('title', '利益率の推移（1年）')
+    .setOption('width', 900).setOption('height', 300)
+    .setOption('colors', [C_SERIES_RATE])
+    .setOption('legend', {position: 'none'})
+    .setOption('vAxis', {format: '0%', gridlines: {color: '#e8e8e4'}})
+    .build());
 }
 
 /**
@@ -781,6 +850,8 @@ function resetSheet_(ss, name) {
   // 覆いきれず「結合範囲のすべてのセルを選択する必要があります」で落ちる。
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  // clear ではグラフは消えない。放っておくと作り直すたびに増える。
+  sheet.getCharts().forEach(function (c) { sheet.removeChart(c); });
   sheet.clear();
   sheet.clearConditionalFormatRules();
   return sheet;
