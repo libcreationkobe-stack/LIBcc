@@ -165,8 +165,9 @@ function plLookup_(plName, labelRef, monthRef) {
 /* ---------------- 設定タブ ---------------- */
 
 function buildConfigSheet_(ss, pl) {
-  var sheet = resetSheet_(ss, SHEET_CONFIG);
+  // 消す前に読む。resetSheet_ のあとでは空のシートを読むことになる。
   var saved = readConfigValues_(ss);
+  var sheet = resetSheet_(ss, SHEET_CONFIG);
 
   title_(sheet, '設定', '色のついたセルだけ埋めてください。ここを変えると全タブの計算が変わります。', 4);
 
@@ -544,9 +545,10 @@ function buildTaxCalendar_(ss) {
  * 日付を入れると下に日付順の一覧が出るので、月内のどこで現金が出るか分かる。
  */
 function buildPaymentSheet_(ss, pl) {
-  var sheet = resetSheet_(ss, SHEET_PAY);
+  // 支払日などの入力も、消す前に読んでおく。
   var saved = readPaymentDetails_(ss);
   var items = readPlItems_(ss, pl);
+  var sheet = resetSheet_(ss, SHEET_PAY);
 
   title_(sheet, '支払い予定',
     '支払日と方法を一度入れておけば、毎月「いつ現金が出るか」が下に日付順で並びます。', 5);
