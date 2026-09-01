@@ -373,16 +373,16 @@ function buildCashFlow_(ss, pl) {
 
 /**
  * 1年分をまとめて見るグラフ。表の下に3つ並べる。
- * 売上と支払は月ごとの量の比較なので棒、残高は水準の推移なので折れ線にする。
+ * どれも推移を追う形なので折れ線で揃える。
  * 金額と率は単位が違うので同じグラフに混ぜない。
  */
 function addYearCharts_(sheet, headRow, first, last) {
   var months = 'A' + headRow + ':A' + last;
   var top = last + 4;
 
-  // 売上と支払（棒・2系列）
+  // 売上と支払（折れ線・2系列）
   sheet.insertChart(sheet.newChart()
-    .setChartType(Charts.ChartType.COLUMN)
+    .setChartType(Charts.ChartType.LINE)
     .addRange(sheet.getRange('A' + headRow + ':C' + last))
     .setNumHeaders(1)
     .setPosition(top, 1, 0, 0)
@@ -390,7 +390,7 @@ function addYearCharts_(sheet, headRow, first, last) {
     .setOption('width', 900).setOption('height', 320)
     .setOption('colors', [C_SERIES_SALES, C_SERIES_PAID])
     .setOption('legend', {position: 'top'})
-    .setOption('hAxis', {title: ''})
+    .setOption('pointSize', 5)
     .setOption('vAxis', {format: '¥#,##0', gridlines: {color: '#e8e8e4'}})
     .build());
 
@@ -411,9 +411,9 @@ function addYearCharts_(sheet, headRow, first, last) {
     .setOption('vAxis', {format: '¥#,##0', gridlines: {color: '#e8e8e4'}})
     .build());
 
-  // 利益率（棒・1系列）
+  // 利益率（折れ線・1系列）。棒にしたければ COLUMN に変える。
   sheet.insertChart(sheet.newChart()
-    .setChartType(Charts.ChartType.COLUMN)
+    .setChartType(Charts.ChartType.LINE)
     .addRange(sheet.getRange(months))
     .addRange(sheet.getRange('L' + headRow + ':L' + last))
     .setNumHeaders(1)
@@ -422,6 +422,7 @@ function addYearCharts_(sheet, headRow, first, last) {
     .setOption('width', 900).setOption('height', 300)
     .setOption('colors', [C_SERIES_RATE])
     .setOption('legend', {position: 'none'})
+    .setOption('pointSize', 5)
     .setOption('vAxis', {format: '0%', gridlines: {color: '#e8e8e4'}})
     .build());
 }
