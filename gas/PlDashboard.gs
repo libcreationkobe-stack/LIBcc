@@ -17,6 +17,7 @@ var SHEET_DASH = 'ダッシュボード';
 var SHEET_CASH = '資金繰り予測';
 var SHEET_TAX = '納税カレンダー';
 var SHEET_PAY = '支払い予定';
+var SHEET_DAILY = '月内の資金繰り';
 
 var C_NAVY = '#1f3864';
 var C_HEAD = '#3e63a3';
@@ -103,7 +104,7 @@ function setupManagementSheets() {
 
   // 先に全タブの器を作る。参照先のタブが無い状態で数式を書くと、
   // Googleスプレッドシートがその参照を #REF! に固定してしまう。
-  [SHEET_CONFIG, SHEET_CASH, SHEET_DASH, SHEET_TAX, SHEET_PAY].forEach(function (name) {
+  [SHEET_CONFIG, SHEET_CASH, SHEET_DASH, SHEET_TAX, SHEET_PAY, SHEET_DAILY].forEach(function (name) {
     if (!ss.getSheetByName(name)) { ss.insertSheet(name); }
   });
 
@@ -113,6 +114,7 @@ function setupManagementSheets() {
   buildDashboard_(ss, pl);
   buildTaxCalendar_(ss);
   buildPaymentSheet_(ss, pl);
+  buildDailyCash_(ss, pl);
 
   toast_('経営管理タブを整えました。まず「設定」を埋めてください。');
 }
@@ -298,7 +300,8 @@ function buildCashFlow_(ss, pl) {
     .setFontSize(9).setFontColor(C_SUB);
 
   // 月次テーブル
-  var headers = ['月', '売上', '支払', '営業収支', '法人税等 積立', '消費税 積立', '納税（予定）', '月末残高', '判定'];
+  var headers = ['月', '売上', '支払', '営業収支', '法人税等 積立', '消費税 積立', '納税（予定）',
+                 '月初残高', '月末残高', '判定'];
   tableHeader_(sheet, tableHead, headers);
 
   var corpAnnual = '$B$' + (top + 5);
@@ -324,32 +327,32 @@ function buildCashFlow_(ss, pl) {
       '=IF(A' + r + '=(MOD(' + closeRef + '+2-1,12)+1&"月"),' + corpAnnual + '+' + consAnnual + ',0)'
       + '+IF(A' + r + '=(MOD(' + closeRef + '+8-1,12)+1&"月"),' + corpAnnual + '/2,0)');
 
-    // 基準月は「月初の残高」として扱い、その月の収支も足す。月が飛ばない。
+    // 月初残高は、基準月なら入力値、それ以降は前月の月末残高を引き継ぐ。
     sheet.getRange(r, 8).setFormula(
-      '=IF($A' + r + '=' + startMonth + ',' + cfg_('cashOnHand') + '+D' + r + '-G' + r + ','
-      + (i === 0 ? '""' : 'IF(ISNUMBER(H' + (r - 1) + '),H' + (r - 1) + '+D' + r + '-G' + r + ',"")')
-      + ')');
-    sheet.getRange(r, 9).setFormula(
-      '=IF(NOT(ISNUMBER(H' + r + ')),"—",IF(H' + r + '<0,"危険：残高がマイナス",'
-      + 'IF(H' + r + '<' + safety + ',"注意：安全ラインを下回る","良好")))');
+      '=IF($A' + r + '=' + startMonth + ',' + cfg_('cashOnHand') + ','
+      + (i === 0 ? '""' : 'IF(ISNUMBER(I' + (r - 1) + '),I' + (r - 1) + ',"")') + ')');
+    sheet.getRange(r, 9).setFormula('=IF(ISNUMBER(H' + r + '),H' + r + '+D' + r + '-G' + r + ',"")');
+    sheet.getRange(r, 10).setFormula(
+      '=IF(NOT(ISNUMBER(I' + r + ')),"—",IF(I' + r + '<0,"危険：残高がマイナス",'
+      + 'IF(I' + r + '<' + safety + ',"注意：安全ラインを下回る","良好")))');
 
-    sheet.getRange(r, 2, 1, 7).setNumberFormat(YEN);
-    sheet.getRange(r, 9).setHorizontalAlignment('center');
+    sheet.getRange(r, 2, 1, 8).setNumberFormat(YEN);
+    sheet.getRange(r, 10).setHorizontalAlignment('center');
     sheet.setRowHeight(r, 22);
   });
 
   banding_(sheet, first, last, headers.length);
-  statusRules_(sheet, 'I' + first + ':I' + last);
-  sheet.getRange('H' + first + ':H' + last).setFontWeight('bold');
+  statusRules_(sheet, 'J' + first + ':J' + last);
+  sheet.getRange('I' + first + ':I' + last).setFontWeight('bold');
 
-  sheet.getRange(last + 2, 1, 1, 9).merge().setValue(
+  sheet.getRange(last + 2, 1, 1, 10).merge().setValue(
     '※ 納税（予定）は決算月から逆算した概算です。中間納付は前期の法人税が20万円を超えた年だけ発生します。'
     + '消費税は設定の「課税事業者になる事業年度の開始」以降のみ積み立てます。')
     .setFontSize(9).setFontColor(C_SUB).setWrap(true);
 
   sheet.setColumnWidth(1, 70);
-  for (var c = 2; c <= 8; c++) { sheet.setColumnWidth(c, 118); }
-  sheet.setColumnWidth(9, 170);
+  for (var c = 2; c <= 9; c++) { sheet.setColumnWidth(c, 112); }
+  sheet.setColumnWidth(10, 170);
   sheet.setFrozenRows(tableHead);
   sheet.setFrozenColumns(1);
 }
@@ -441,11 +444,14 @@ function buildDashboard_(ss, pl) {
     ['利益率が目標を下回る', '=IF(B7=0,"—",IF(B10<' + cfg_('targetMargin')
       + ',"該当：目標'+'"&TEXT(' + cfg_('targetMargin') + ',"0%")&"に対して"&TEXT(B10,"0.0%"),"問題なし"))'],
     ['この先、残高がマイナスになる月がある',
-     '=IF(COUNTIF(' + cash + '$I$13:$I$24,"危険*")>0,"該当："&COUNTIF(' + cash
-     + '$I$13:$I$24,"危険*")&"ヶ月ある。資金繰り予測を確認","問題なし")'],
+     '=IF(COUNTIF(' + cash + '$J$13:$J$24,"危険*")>0,"該当："&COUNTIF(' + cash
+     + '$J$13:$J$24,"危険*")&"ヶ月ある。資金繰り予測を確認","問題なし")'],
     ['この先、安全ラインを下回る月がある',
-     '=IF(COUNTIF(' + cash + '$I$13:$I$24,"注意*")>0,"該当："&COUNTIF(' + cash
-     + '$I$13:$I$24,"注意*")&"ヶ月ある","問題なし")'],
+     '=IF(COUNTIF(' + cash + '$J$13:$J$24,"注意*")>0,"該当："&COUNTIF(' + cash
+     + '$J$13:$J$24,"注意*")&"ヶ月ある","問題なし")'],
+    ['月の途中で残高がマイナスになる',
+     '=IF(COUNTIF(\'' + SHEET_DAILY + '\'!$E$15:$E$45,"危険*")>0,'
+     + '"該当：月内の資金繰りを確認。入金前に出金が集中しています","問題なし")'],
     ['預金残高が未入力', '=IF(' + cfg_('cashOnHand') + '<=0,"該当：設定タブに現在の預金残高を入れてください","問題なし")']
   ];
   checks.forEach(function (c, i) {
@@ -454,10 +460,10 @@ function buildDashboard_(ss, pl) {
     sheet.getRange(r, 2, 1, 4).merge().setFormula(c[1]).setFontSize(10).setWrap(true);
     sheet.setRowHeight(r, 22);
   });
-  dangerRules_(sheet, 'B21:B25');
+  dangerRules_(sheet, 'B21:B26');
 
-  section_(sheet, 27, '年間の見通し', 5);
-  writeRows_(sheet, 28, [
+  section_(sheet, 28, '年間の見通し', 5);
+  writeRows_(sheet, 29, [
     ['年間着地 売上', '=' + cash + '$B$7', YEN],
     ['年間着地 利益', '=' + cash + '$B$8', YEN],
     ['法人税等 年間見込み', '=' + cash + '$B$9', YEN],
@@ -630,6 +636,137 @@ function refreshPaymentItems() {
   if (!pl) { throw new Error('PLの入力表が見つかりません。'); }
   buildPaymentSheet_(ss, pl);
   toast_('支払い予定の項目を読み直しました。');
+}
+
+/* ---------------- 月内の資金繰り ---------------- */
+
+/** 入金予定の初期値。実際の入出金のリズムに合わせて書き換える。 */
+var INCOME_DEFAULTS = [
+  ['25日の入金', 25, 0.5, ''],
+  ['月末の入金', 31, 0.5, ''],
+  ['', '', '', ''],
+  ['', '', '', '']
+];
+
+var DAILY_INCOME_FIRST = 8;
+var DAILY_INCOME_LAST = 11;
+var DAILY_DAY_FIRST = 15;
+
+/**
+ * 月内の日ごとの残高。出金が月の前半、入金が後半にあると、
+ * 月末が黒字でも途中で一度ショートすることがある。月単位では見えない。
+ */
+function buildDailyCash_(ss, pl) {
+  var saved = readIncomePlan_(ss);
+  var sheet = resetSheet_(ss, SHEET_DAILY);
+  var plName = pl.getName();
+  var cash = "'" + SHEET_CASH + "'!";
+  var pay = "'" + SHEET_PAY + "'!";
+  var month = "'" + SHEET_DASH + "'!$B$4";
+
+  title_(sheet, '月内の資金繰り',
+    '月末が黒字でも、月の途中で現金が尽きれば止まります。日ごとの残高を追う表です。', 6);
+
+  sheet.getRange(3, 1).setValue('対象月').setFontWeight('bold');
+  sheet.getRange(3, 2).setFormula('=' + month).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(3, 3).setValue('← ダッシュボードで選んだ月と連動します')
+    .setFontSize(9).setFontColor(C_SUB);
+
+  sheet.getRange(4, 1).setValue('月初残高').setFontWeight('bold');
+  sheet.getRange(4, 2).setFormula(
+    '=IFERROR(INDEX(' + cash + '$H$13:$H$24,MATCH($B$3,' + cash + '$A$13:$A$24,0)),0)')
+    .setNumberFormat(YEN).setBackground(C_CALC).setHorizontalAlignment('right');
+  sheet.getRange(4, 3).setValue('資金繰り予測から引いています')
+    .setFontSize(9).setFontColor(C_SUB);
+
+  // 入金予定
+  section_(sheet, 6, '入金予定（入金日と、月の売上に対する割合）', 6);
+  tableHeader_(sheet, 7, ['入金元', '入金日', '売上に対する割合', '固定額（あれば優先）', '今月の入金額', '']);
+  var sales = plLookup_(plName, cfg_('rowSales'), month);
+  for (var i = 0; i < INCOME_DEFAULTS.length; i++) {
+    var r = DAILY_INCOME_FIRST + i;
+    var d = saved[i] || INCOME_DEFAULTS[i];
+    sheet.getRange(r, 1).setValue(d[0]).setBackground(C_INPUT);
+    sheet.getRange(r, 2).setValue(d[1]).setBackground(C_INPUT)
+      .setNumberFormat('0"日"').setHorizontalAlignment('center');
+    sheet.getRange(r, 3).setValue(d[2]).setBackground(C_INPUT).setNumberFormat('0%');
+    sheet.getRange(r, 4).setValue(d[3]).setBackground(C_INPUT).setNumberFormat(YEN);
+    sheet.getRange(r, 5).setFormula(
+      '=IF($A' + r + '="",0,IF($D' + r + '<>"",$D' + r + ',' + sales + '*$C' + r + '))')
+      .setNumberFormat(YEN).setBackground(C_CALC);
+    sheet.setRowHeight(r, 21);
+  }
+  sheet.getRange(DAILY_INCOME_LAST + 1, 1, 1, 6).merge().setValue(
+    '月末の入金は「31日」として入れてください（末日として扱います）。'
+    + '割合の合計が100%になるようにすると、月の売上と入金額が合います。')
+    .setFontSize(9).setFontColor(C_SUB).setWrap(true);
+
+  // 日別の残高
+  section_(sheet, 13, '日ごとの残高', 6);
+  tableHeader_(sheet, 14, ['日', '入金', '出金', '残高', '判定', 'その日に出ていくもの']);
+
+  var incomeDay = '$B$' + DAILY_INCOME_FIRST + ':$B$' + DAILY_INCOME_LAST;
+  var incomeAmt = '$E$' + DAILY_INCOME_FIRST + ':$E$' + DAILY_INCOME_LAST;
+  var taxThisMonth = 'IFERROR(INDEX(' + cash + '$G$13:$G$24,MATCH($B$3,' + cash + '$A$13:$A$24,0)),0)';
+
+  for (var day = 1; day <= 31; day++) {
+    var r = DAILY_DAY_FIRST + day - 1;
+    sheet.getRange(r, 1).setValue(day).setNumberFormat('0"日"')
+      .setHorizontalAlignment('center').setFontWeight(day === 31 ? 'bold' : 'normal');
+
+    sheet.getRange(r, 2).setFormula('=SUMIF(' + incomeDay + ',$A' + r + ',' + incomeAmt + ')');
+    sheet.getRange(r, 3).setFormula(
+      '=SUMIF(' + pay + '$B$5:$B$200,$A' + r + ',' + pay + '$E$5:$E$200)'
+      + (day === 31 ? '+' + taxThisMonth : ''));
+    sheet.getRange(r, 4).setFormula(
+      '=' + (day === 1 ? '$B$4' : 'D' + (r - 1)) + '+B' + r + '-C' + r);
+    sheet.getRange(r, 5).setFormula(
+      '=IF(D' + r + '<0,"危険：資金ショート",IF(AND(C' + r + '>0,D' + r + '=MIN($D$'
+      + DAILY_DAY_FIRST + ':$D$' + (DAILY_DAY_FIRST + 30) + ')),"注意：今月の底",""))');
+    sheet.getRange(r, 6).setFormula(
+      '=IFERROR(TEXTJOIN("、",TRUE,FILTER(' + pay + '$A$5:$A$200,' + pay + '$B$5:$B$200=$A' + r + ')),"")'
+      + (day === 31 ? '&IF(' + taxThisMonth + '>0,"、納税","")' : ''));
+
+    sheet.getRange(r, 2, 1, 3).setNumberFormat(YEN);
+    sheet.getRange(r, 5).setHorizontalAlignment('center');
+    sheet.getRange(r, 6).setFontSize(9).setFontColor(C_SUB);
+    sheet.setRowHeight(r, 20);
+  }
+  var dayLast = DAILY_DAY_FIRST + 30;
+  banding_(sheet, DAILY_DAY_FIRST, dayLast, 6);
+  statusRules_(sheet, 'E' + DAILY_DAY_FIRST + ':E' + dayLast);
+  sheet.getRange('D' + DAILY_DAY_FIRST + ':D' + dayLast).setFontWeight('bold');
+
+  var sum = dayLast + 2;
+  section_(sheet, sum, '今月いちばん細るところ', 6);
+  writeRows_(sheet, sum + 1, [
+    ['最低残高', '=MIN($D$' + DAILY_DAY_FIRST + ':$D$' + dayLast + ')', YEN],
+    ['その日', '=IFERROR(INDEX($A$' + DAILY_DAY_FIRST + ':$A$' + dayLast
+      + ',MATCH(B' + (sum + 1) + ',$D$' + DAILY_DAY_FIRST + ':$D$' + dayLast + ',0)),"")', '0"日"']
+  ]);
+  sheet.getRange(sum + 3, 1).setValue('判定').setFontWeight('bold');
+  sheet.getRange(sum + 3, 2).setFormula(
+    '=IF(B' + (sum + 1) + '<0,"危険：この日に足りません","問題なし")')
+    .setHorizontalAlignment('center').setFontWeight('bold');
+  dangerRules_(sheet, 'B' + (sum + 3));
+
+  sheet.setColumnWidth(1, 60);
+  for (var c = 2; c <= 4; c++) { sheet.setColumnWidth(c, 120); }
+  sheet.setColumnWidth(5, 150);
+  sheet.setColumnWidth(6, 300);
+  sheet.setFrozenRows(14);
+}
+
+/** 作り直す前に、入金予定の入力を退避する。 */
+function readIncomePlan_(ss) {
+  var sheet = ss.getSheetByName(SHEET_DAILY);
+  if (!sheet) { return {}; }
+  var out = {};
+  for (var i = 0; i < INCOME_DEFAULTS.length; i++) {
+    var row = sheet.getRange(DAILY_INCOME_FIRST + i, 1, 1, 4).getValues()[0];
+    if (String(row[0]).trim() !== '') { out[i] = row; }
+  }
+  return out;
 }
 
 /* ---------------- 見た目の部品 ---------------- */
