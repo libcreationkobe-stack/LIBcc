@@ -114,7 +114,7 @@ function setupManagementSheets() {
   buildTaxCalendar_(ss);
   buildPaymentSheet_(ss, pl);
 
-  SpreadsheetApp.getActive().toast('経営管理タブを整えました。まず「設定」を埋めてください。');
+  toast_('経営管理タブを整えました。まず「設定」を埋めてください。');
 }
 
 /* ---------------- PL表の読み取り ---------------- */
@@ -627,7 +627,7 @@ function refreshPaymentItems() {
   var pl = findPlSheet_(ss);
   if (!pl) { throw new Error('PLの入力表が見つかりません。'); }
   buildPaymentSheet_(ss, pl);
-  SpreadsheetApp.getActive().toast('支払い予定の項目を読み直しました。');
+  toast_('支払い予定の項目を読み直しました。');
 }
 
 /* ---------------- 見た目の部品 ---------------- */
@@ -639,9 +639,9 @@ function resetSheet_(ss, name) {
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
   sheet.getDataRange().breakApart();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
   sheet.clear();
   sheet.clearConditionalFormatRules();
-  sheet.clearDataValidations();
   return sheet;
 }
 
@@ -718,4 +718,13 @@ function addTextRules_(sheet, a1, specs) {
       .build());
   });
   sheet.setConditionalFormatRules(rules);
+}
+
+/** スプレッドシートの右下に出す通知。エディタから実行したときはログに落とす。 */
+function toast_(message) {
+  try {
+    SpreadsheetApp.getActive().toast(message);
+  } catch (e) {
+    Logger.log(message);
+  }
 }
