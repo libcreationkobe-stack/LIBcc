@@ -137,7 +137,9 @@ function buildReviewSheet() {
   }
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
-  sheet.getDataRange().breakApart();
+  // 結合はシート全体を指定して解除する。getDataRange だと結合範囲を
+  // 覆いきれず「結合範囲のすべてのセルを選択する必要があります」で落ちる。
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.clear();
 
   var lastRow = REVIEW_FIRST_ROW + MONTHS.length - 1;
