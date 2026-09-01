@@ -203,7 +203,7 @@ function buildConfigSheet_(ss, pl) {
     row += 1;
   });
 
-  sheet.getRange(row + 1, 1, 1, 4).merge()
+  sheet.getRange(row + 1, 2, 1, 3).merge()
     .setValue('※ ここで出る税額はすべて資金繰りのための概算です。実際の申告・納付額は顧問税理士に確認してください。')
     .setFontSize(9).setFontColor(C_INK_BAD).setWrap(true);
 
@@ -261,7 +261,7 @@ function buildCashFlow_(ss, pl) {
   var months = fiscalMonths_(closing);
 
   title_(sheet, '資金繰り予測',
-    '黒字でも現金が尽きれば止まります。残高がマイナスになる月を先に見つけるための表です。', 9);
+    '黒字でも現金が尽きれば止まります。残高がマイナスになる月を先に見つけるための表です。', 10);
 
   var top = 4;    // 年間の見通しブロック
   var tableHead = 12;
@@ -277,7 +277,7 @@ function buildCashFlow_(ss, pl) {
   var annualProfit = '$B$' + (top + 4);
   var annualSales = '$B$' + (top + 3);
 
-  section_(sheet, top - 1, '年間の見通し（実績のある月から年換算）', 8);
+  section_(sheet, top - 1, '年間の見通し（実績のある月から年換算）', 10);
   var view = [
     ['経過月数（売上が入っている月）', '=' + elapsed, '0"ヶ月"'],
     ['累計売上', '=SUM(' + salesRange + ')', YEN],
@@ -345,7 +345,7 @@ function buildCashFlow_(ss, pl) {
   statusRules_(sheet, 'J' + first + ':J' + last);
   sheet.getRange('I' + first + ':I' + last).setFontWeight('bold');
 
-  sheet.getRange(last + 2, 1, 1, 10).merge().setValue(
+  sheet.getRange(last + 2, 2, 1, 9).merge().setValue(
     '※ 納税（予定）は決算月から逆算した概算です。中間納付は前期の法人税が20万円を超えた年だけ発生します。'
     + '消費税は設定の「課税事業者になる事業年度の開始」以降のみ積み立てます。')
     .setFontSize(9).setFontColor(C_SUB).setWrap(true);
@@ -696,7 +696,7 @@ function buildDailyCash_(ss, pl) {
       .setNumberFormat(YEN).setBackground(C_CALC);
     sheet.setRowHeight(r, 21);
   }
-  sheet.getRange(DAILY_INCOME_LAST + 1, 1, 1, 6).merge().setValue(
+  sheet.getRange(DAILY_INCOME_LAST + 1, 2, 1, 5).merge().setValue(
     '月末の入金は「31日」として入れてください（末日として扱います）。'
     + '割合の合計が100%になるようにすると、月の売上と入金額が合います。')
     .setFontSize(9).setFontColor(C_SUB).setWrap(true);
@@ -784,19 +784,36 @@ function resetSheet_(ss, name) {
   return sheet;
 }
 
+/**
+ * 見出しの帯。1列目を固定するタブがあるため、結合は2列目から始める。
+ * 結合が固定の境目をまたぐと Google スプレッドシートに弾かれる。
+ * 色は行全体に敷くので、見た目は1本の帯になる。
+ */
 function title_(sheet, heading, note, width) {
-  sheet.getRange(1, 1, 1, width).merge().setValue(heading)
-    .setBackground(C_NAVY).setFontColor('#ffffff').setFontWeight('bold').setFontSize(13)
-    .setVerticalAlignment('middle');
+  sheet.getRange(1, 1, 1, width).setBackground(C_NAVY);
+  bandText_(sheet, 1, width, heading,
+    {size: 13, color: '#ffffff', bold: true, middle: true});
   sheet.setRowHeight(1, 30);
-  sheet.getRange(2, 1, 1, width).merge().setValue(note)
-    .setFontSize(9).setFontColor(C_SUB);
+  bandText_(sheet, 2, width, note, {size: 9, color: C_SUB});
 }
 
 function section_(sheet, row, label, width) {
-  sheet.getRange(row, 1, 1, width).merge().setValue(label)
-    .setBackground(C_HEAD).setFontColor('#ffffff').setFontWeight('bold').setFontSize(10);
+  sheet.getRange(row, 1, 1, width).setBackground(C_HEAD);
+  bandText_(sheet, row, width, label, {size: 10, color: '#ffffff', bold: true});
   sheet.setRowHeight(row, 24);
+}
+
+/** 2列目から右を結合して文字を置く。幅が2未満なら結合しない。 */
+function bandText_(sheet, row, width, value, opt) {
+  var col = width >= 2 ? 2 : 1;
+  if (width >= 3) { sheet.getRange(row, col, 1, width - 1).merge(); }
+  var cell = sheet.getRange(row, col)
+    .setValue(value)
+    .setFontSize(opt.size)
+    .setFontColor(opt.color)
+    .setFontWeight(opt.bold ? 'bold' : 'normal');
+  if (opt.middle) { cell.setVerticalAlignment('middle'); }
+  return cell;
 }
 
 function tableHeader_(sheet, row, headers) {
