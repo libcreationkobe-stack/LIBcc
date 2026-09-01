@@ -11,7 +11,7 @@ function onOpen() {
     .addToUi();
 
   ui.createMenu('請求書')
-    .addItem('請求書PDFを作成（前月ぶん）', 'runCreateInvoices')
+    .addItem('請求書PDFを作成（' + defaultTargetMonth_() + 'ぶん）', 'runCreateInvoices')
     .addItem('対象年月を指定して作成…', 'runCreateInvoicesForMonth')
     .addItem('作り直す（発行済みも上書き）…', 'runRecreateInvoices')
     .addSeparator()
@@ -73,9 +73,12 @@ function runRecreateInvoices() {
 /** メニュー: 毎月の自動作成をON。 */
 function runEnableInvoiceTrigger() {
   setupMonthlyInvoiceTrigger();
+  const monthWord = INVOICE_CONFIG.TARGET_MONTH_OFFSET === 0
+    ? 'その月'
+    : Math.abs(INVOICE_CONFIG.TARGET_MONTH_OFFSET) + 'か月' + (INVOICE_CONFIG.TARGET_MONTH_OFFSET < 0 ? '前' : '先') + 'の月';
   SpreadsheetApp.getUi().alert(
     '毎月 ' + INVOICE_CONFIG.TRIGGER_DAY_OF_MONTH + '日 の ' + INVOICE_CONFIG.TRIGGER_HOUR + '時ごろに、' +
-    '前月ぶんの請求書PDFを自動作成します。'
+    monthWord + 'ぶんの請求書PDFを自動作成します。'
   );
 }
 
@@ -141,6 +144,6 @@ function formatInvoiceResult_(result) {
   if (result.created.length === 0 && result.skipped.length === 0 && result.errors.length === 0) {
     lines.push('', '「請求明細」シートに ' + result.month + ' の行が見つかりませんでした。');
   }
-  lines.push('', 'PDFは Drive の「' + INVOICE_CONFIG.PDF_FOLDER_NAME + '/' + result.month + '」に保存されます。');
+  lines.push('', 'PDFは Drive の「' + describeSaveLocation_(result.month) + '」に保存されます。');
   return lines.join('\n');
 }

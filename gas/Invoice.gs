@@ -185,7 +185,7 @@ function loadClients_() {
     clients[id] = {
       id: id,
       name: String(row[col.NAME - 1]).trim(),
-      honorific: String(row[col.HONORIFIC - 1] || '御中').trim(),
+      honorific: String(row[col.HONORIFIC - 1] || INVOICE_CONFIG.DEFAULT_HONORIFIC).trim(),
       contact: String(row[col.CONTACT - 1] || '').trim(),
       postal: String(row[col.POSTAL - 1] || '').trim(),
       address: String(row[col.ADDRESS - 1] || '').trim(),
@@ -268,16 +268,74 @@ function buildInvoiceNo_(month, clientId) {
   return INVOICE_CONFIG.INVOICE_NO_PREFIX + '-' + month.replace('-', '') + '-' + clientId;
 }
 
-/** PDFのファイル名（拡張子なし）。 */
-function buildPdfFileName_(invoice) {
-  const safeName = invoice.client.name.replace(/[\\/:*?"<>|]/g, '_');
-  return '請求書_' + invoice.month.replace('-', '') + '_' + safeName;
+/** 'yyyy-MM' → その月の1日の Date。 */
+function monthToDate_(month) {
+  const parts = month.split('-');
+  return new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
 }
 
-/** 請求書PDFの保存先フォルダ（「請求書PDF/<対象年月>」）を取得（無ければ作成）。 */
+/** PDFのファイル名（拡張子なし）。PDF_NAME_TEMPLATE の {…} を差し替える。 */
+function buildPdfFileName_(invoice) {
+  const d = monthToDate_(invoice.month);
+  const fmt = function (pattern) {
+    return Utilities.formatDate(d, INVOICE_CONFIG.TIMEZONE, pattern);
+  };
+  const tokens = {
+    '{yyyyMM}': fmt('yyyyMM'),
+    '{yyyy}': fmt('yyyy'),
+    '{MM}': fmt('MM'),
+    '{M}': fmt('M'),
+    '{請求先名}': invoice.client.name,
+    '{請求書番号}': invoice.invoiceNo
+  };
+  const name = INVOICE_CONFIG.PDF_NAME_TEMPLATE.replace(
+    /\{yyyyMM\}|\{yyyy\}|\{MM\}|\{M\}|\{請求先名\}|\{請求書番号\}/g,
+    function (token) { return tokens[token]; }
+  );
+  // Driveのファイル名に使えない文字だけを除く（「:」はそのまま使えます）
+  return name.replace(/[\\/*?"<>|]/g, '_').trim();
+}
+
+/**
+ * 請求書PDFの保存先フォルダを取得する。
+ * 親フォルダ（PDF_PARENT_FOLDER）の下に月フォルダ（MONTH_FOLDER_FORMAT）を用意します。
+ * 同じ名前の月フォルダが既にあれば、新しく作らずそのフォルダに保存します。
+ */
 function getInvoiceFolder_(month) {
-  const root = getOrCreateFolder_(DriveApp.getRootFolder(), INVOICE_CONFIG.PDF_FOLDER_NAME);
-  return getOrCreateFolder_(root, month);
+  const folderName = Utilities.formatDate(
+    monthToDate_(month), INVOICE_CONFIG.TIMEZONE, INVOICE_CONFIG.MONTH_FOLDER_FORMAT
+  );
+  return getOrCreateFolder_(getInvoiceParentFolder_(), folderName);
+}
+
+/** 月フォルダを置く親フォルダ。PDF_PARENT_FOLDER が空ならマイドライブ直下に作る。 */
+function getInvoiceParentFolder_() {
+  const ref = String(INVOICE_CONFIG.PDF_PARENT_FOLDER || '').trim();
+  if (!ref) return getOrCreateFolder_(DriveApp.getRootFolder(), INVOICE_CONFIG.PDF_FOLDER_NAME);
+  try {
+    return DriveApp.getFolderById(extractFolderId_(ref));
+  } catch (e) {
+    throw new Error(
+      '保存先フォルダが見つかりません。InvoiceConfig.gs の PDF_PARENT_FOLDER に、' +
+      'DriveのフォルダURL（.../drive/folders/xxxx）を貼り直してください。'
+    );
+  }
+}
+
+/** DriveのフォルダURL（.../folders/<id>）またはIDから、フォルダIDを取り出す。 */
+function extractFolderId_(ref) {
+  const m = ref.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return extractDriveId_(ref);
+}
+
+/** 保存先を人が読める形で返す（ダイアログ表示用）。 */
+function describeSaveLocation_(month) {
+  const folderName = Utilities.formatDate(
+    monthToDate_(month), INVOICE_CONFIG.TIMEZONE, INVOICE_CONFIG.MONTH_FOLDER_FORMAT
+  );
+  const parent = INVOICE_CONFIG.PDF_PARENT_FOLDER ? '指定フォルダ' : INVOICE_CONFIG.PDF_FOLDER_NAME;
+  return parent + ' / ' + folderName;
 }
 
 function getOrCreateFolder_(parent, name) {

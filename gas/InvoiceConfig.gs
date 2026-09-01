@@ -14,20 +14,33 @@ const INVOICE_CONFIG = {
   ITEM_SHEET_NAME: '請求明細',
   LOG_SHEET_NAME: '請求書ログ',
 
-  // PDFの保存先 Drive フォルダ名（自動作成されます。中に年月フォルダを作ります）
+  // PDFの保存先。
+  //   PDF_PARENT_FOLDER   … 毎月のフォルダを置く親フォルダ。DriveのURLかフォルダIDを入れます。
+  //                         空欄ならマイドライブ直下に PDF_FOLDER_NAME のフォルダを作ります。
+  //   MONTH_FOLDER_FORMAT … 月フォルダの名前。同じ名前のフォルダが既にあればそれを使い、
+  //                         無ければ自動で作ります（手動で作っているフォルダ名に合わせてください）。
+  //                         例: 'yyyy年M月' → 2026年8月 ／ 'yyyy-MM' → 2026-08 ／ 'yyyy年M月請求書'
+  PDF_PARENT_FOLDER: '',
   PDF_FOLDER_NAME: '請求書PDF',
+  MONTH_FOLDER_FORMAT: 'yyyy年M月',
+
+  // PDFのファイル名（拡張子なし）。{yyyy} {M} {MM} {yyyyMM} {請求先名} {請求書番号} が使えます。
+  PDF_NAME_TEMPLATE: '{M}月分請求書:{請求先名}様',
 
   TIMEZONE: 'Asia/Tokyo',
 
-  // 自動実行の対象月。-1 = 実行日の1か月前（例: 9/1に実行 → 8月分）
-  TARGET_MONTH_OFFSET: -1,
+  // 自動実行の対象月。0 = 実行日と同じ月（当月25日発行 → 当月末払い の運用）。
+  // 前月ぶんを翌月に発行する運用なら -1 にしてください。
+  TARGET_MONTH_OFFSET: 0,
 
   // 毎月の自動実行タイミング（setupMonthlyInvoiceTrigger で使用）
-  TRIGGER_DAY_OF_MONTH: 1,
+  TRIGGER_DAY_OF_MONTH: 25,
   TRIGGER_HOUR: 8,
 
   // 請求書番号の形式: <PREFIX>-<対象年月>-<請求先ID> （例: INV-202608-C001）
+  // PDFに印字される見出しは INVOICE_NO_LABEL で変えられます（例: '伝票番号'）。
   INVOICE_NO_PREFIX: 'INV',
+  INVOICE_NO_LABEL: '請求書番号',
 
   // 消費税の端数処理: 'floor'（切り捨て） / 'round'（四捨五入） / 'ceil'（切り上げ）
   TAX_ROUNDING: 'floor',
@@ -36,7 +49,10 @@ const INVOICE_CONFIG = {
   DEFAULT_TAX_RATE: 10,
 
   // 請求先マスタの支払期日ルールが空のときの既定値
-  DEFAULT_DUE_RULE: '翌月末',
+  DEFAULT_DUE_RULE: '当月末',
+
+  // 請求先マスタの敬称が空のときの既定値
+  DEFAULT_HONORIFIC: '御中',
 
   // true にすると、PDFを添付したGmailの「下書き」も作成します（送信はしません）。
   // ※ appsscript.json の gmail.compose スコープが必要です。使わない場合は false のままでOK。
@@ -45,17 +61,17 @@ const INVOICE_CONFIG = {
 
   // 自社（請求書の発行者）情報
   ISSUER: {
-    NAME: '株式会社サンプル',
-    REGISTRATION_NO: 'T1234567890123',   // 適格請求書発行事業者の登録番号（インボイス番号）
-    POSTAL_CODE: '650-0001',
-    ADDRESS: '兵庫県神戸市中央区〇〇1-2-3',
-    TEL: '078-000-0000',
-    EMAIL: 'info@example.com',
-    BANK: 'サンプル銀行 神戸支店 普通 1234567 カ）サンプル'
+    NAME: '株式会社LIB creation.',
+    REGISTRATION_NO: '',   // 適格請求書発行事業者の登録番号（T+13桁）。入れると請求書に印字されます
+    POSTAL_CODE: '650-0023',
+    ADDRESS: '兵庫県神戸市中央区栄町通5丁目2-2 REALIZE KOBE 203',
+    TEL: '078-381-5216 / 080-3208-0310',
+    EMAIL: 'lib.creation.kobe@gmail.com',
+    BANK: 'GMOあおぞらネット銀行 法人営業部 普通 1376427 カ）リブクリエイション'
   },
 
-  // 請求書の下部に入れる一言（不要なら空文字に）
-  FOOTER_NOTE: 'お忙しいところ恐れ入りますが、お支払期日までにお振込みくださいますようお願い申し上げます。',
+  // 請求書の備考欄に入れる文言（改行は \n）。不要なら空文字に。
+  FOOTER_NOTE: '※振込手数料は貴社ご負担にてお願い申し上げます。\n今後とも何卒よろしくお願い申し上げます。',
 
   // 請求先マスタの列番号（1始まり）
   CLIENT_COL: {
