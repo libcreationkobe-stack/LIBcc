@@ -101,9 +101,16 @@ function setupManagementSheets() {
       + '設定タブの「PLシート名」に名前を入れてください。');
   }
 
+  // 先に全タブの器を作る。参照先のタブが無い状態で数式を書くと、
+  // Googleスプレッドシートがその参照を #REF! に固定してしまう。
+  [SHEET_CONFIG, SHEET_CASH, SHEET_DASH, SHEET_TAX, SHEET_PAY].forEach(function (name) {
+    if (!ss.getSheetByName(name)) { ss.insertSheet(name); }
+  });
+
+  // 参照される側から順に作る（設定 → 資金繰り → ダッシュボード → …）。
   buildConfigSheet_(ss, pl);
-  buildDashboard_(ss, pl);
   buildCashFlow_(ss, pl);
+  buildDashboard_(ss, pl);
   buildTaxCalendar_(ss);
   buildPaymentSheet_(ss, pl);
 
