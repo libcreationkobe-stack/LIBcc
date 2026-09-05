@@ -19,11 +19,23 @@
 
 var IG_ACCOUNT_PROP = 'IG_ACCOUNT_ID';
 
-/** 取りに行く指標と、KPIシートのどの列に入れるか。 */
-var IG_METRICS = [
+/**
+ * 日ごとの推移で取れる指標。period=day で日別に返るので、月ぶんを足す。
+ */
+var IG_DAILY_METRICS = [
   {api: 'reach',         key: 'リーチ数'},
-  {api: 'views',         key: '表示回数', fallback: 'impressions'},
   {api: 'profile_views', key: 'プロフィール表示'}
+];
+
+/**
+ * 合計値でしか取れない指標。metric_type=total_value を付けないと弾かれる。
+ * 表示回数（views）は日別では取れず、この形でしか返らない。
+ * 保存とシェアは別々に返るので、足して「保存＋シェア」にする。
+ */
+var IG_TOTAL_METRICS = [
+  {api: 'views',  key: '表示回数'},
+  {api: 'saves',  key: '保存・シェア'},
+  {api: 'shares', key: '保存・シェア'}
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -40,7 +52,6 @@ function importInstagramInsights() {
   var token = metaToken_();
   var account = igAccount_(token);
   var start = igStartMonth_(ss);
-  var metrics = igActiveMetrics_();
 
   var today = new Date();
   var wrote = [];
@@ -54,7 +65,7 @@ function importInstagramInsights() {
 
     var got;
     try {
-      got = igFetchMonth_(token, account.id, span, metrics);
+      got = igFetchMonth_(token, account.id, span);
     } catch (e) {
       failed.push(MONTHS[i] + '：' + e.message);
       continue;
@@ -83,7 +94,7 @@ function importInstagramInsights() {
     lines.push('フォロワー数：' + followers.toLocaleString()
       + '人（今日の数字なので、一番新しい月にだけ入れています）');
   }
-  lines.push('', '保存＋シェアとLINE友だち追加から下は、APIに無いので手入力のままです。');
+  lines.push('', 'LINE友だち追加から下は、APIに無いので手入力のままです。');
 
   var message = lines.join('\n');
   Logger.log(message);
@@ -185,15 +196,22 @@ function igAskAccount_(list) {
 
 /** トークンで見えるページと、それに紐付いたInstagramアカウント。 */
 function igListAccounts_(token) {
+  // ページとInstagramの紐付きは2通りある。
+  // instagram_business_account は新しい繋ぎ方、connected_instagram_account は古い繋ぎ方。
+  // 片方しか見ないと、繋いでいるのに一覧に出てこないアカウントが出る。
   var url = igUrl_('me/accounts',
-    {fields: 'name,instagram_business_account{id,username}', limit: 100}, token);
+    {fields: 'name,instagram_business_account{id,username},connected_instagram_account{id,username}',
+     limit: 100}, token);
   var data = igRequest_(url).data || [];
 
   var out = [];
+  var seen = {};
   data.forEach(function (page) {
-    var ig = page.instagram_business_account;
-    if (!ig) { return; }
-    out.push({id: ig.id, username: ig.username || ig.id, page: page.name});
+    [page.instagram_business_account, page.connected_instagram_account].forEach(function (ig) {
+      if (!ig || !ig.id || seen[ig.id]) { return; }
+      seen[ig.id] = true;
+      out.push({id: ig.id, username: ig.username || ig.id, page: page.name});
+    });
   });
   return out;
 }
@@ -201,25 +219,62 @@ function igListAccounts_(token) {
 /* ---------------- 取得 ---------------- */
 
 /**
- * その月のリーチ・表示回数・プロフィール表示。
+ * その月の実績。取り方が違う2種類を、それぞれの形で聞きに行く。
  *
  * アカウントのインサイトは1回で30日ぶんまでしか返らないので、
- * 月を前半と後半に割って2回聞き、日付で重複を除いてから足す。
+ * 月を前半と後半に割って2回聞く。日別のほうは end_time の日付で
+ * 重複を除いてから足す。
+ *
+ * どれか1つが取れなくても、取れた指標だけは書き込む。
+ * Metaは版によって指標の扱いを変えるので、全部か無かにしない。
  */
-function igFetchMonth_(token, accountId, span, metrics) {
-  var mid = new Date(span.first.getFullYear(), span.first.getMonth(), 15);
-  var windows = [
-    {since: metaDate_(span.first), until: metaDate_(mid)},
-    {since: metaDate_(new Date(span.first.getFullYear(), span.first.getMonth(), 16)),
-     until: span.until}
-  ];
+function igFetchMonth_(token, accountId, span) {
+  var windows = igWindows_(span);
+  var out = {};
 
-  var seen = {};   // 指標 → 日付 → 値。同じ日を二重に数えない。
+  var days = igDailySeries_(token, accountId, windows);
+  IG_DAILY_METRICS.forEach(function (m) {
+    var byDay = days[m.api];
+    if (!byDay) { return; }
+    var total = 0;
+    Object.keys(byDay).forEach(function (d) { total += byDay[d]; });
+    if (total > 0) { out[m.key] = total; }
+  });
+
+  var totals = igTotalValues_(token, accountId, windows);
+  IG_TOTAL_METRICS.forEach(function (m) {
+    var v = totals[m.api];
+    if (typeof v !== 'number') { return; }
+    // 保存とシェアは同じ列に足し込む。
+    out[m.key] = (out[m.key] || 0) + v;
+  });
+
+  return Object.keys(out).length ? out : null;
+}
+
+/** 月を前半・後半に割る。1回で30日ぶんまでしか返らないため。 */
+function igWindows_(span) {
+  var y = span.first.getFullYear();
+  var m = span.first.getMonth();
+  return [
+    {since: metaDate_(span.first), until: metaDate_(new Date(y, m, 15))},
+    {since: metaDate_(new Date(y, m, 16)), until: span.until}
+  ];
+}
+
+/** 日ごとに返る指標。指標名 → 日付 → 値。 */
+function igDailySeries_(token, accountId, windows) {
+  var seen = {};
+  var metrics = IG_DAILY_METRICS.map(function (m) { return m.api; });
+
   windows.forEach(function (w) {
-    var url = igUrl_(accountId + '/insights',
-      {metric: metrics.join(','), period: 'day', since: w.since, until: w.until}, token);
-    var data = igRequest_(url).data || [];
-    data.forEach(function (m) {
+    var data = igTry_(function () {
+      return igRequest_(igUrl_(accountId + '/insights',
+        {metric: metrics.join(','), period: 'day', since: w.since, until: w.until}, token));
+    });
+    if (!data) { return; }
+
+    (data.data || []).forEach(function (m) {
       seen[m.name] = seen[m.name] || {};
       (m.values || []).forEach(function (v) {
         var day = String(v.end_time || '').slice(0, 10);
@@ -227,17 +282,45 @@ function igFetchMonth_(token, accountId, span, metrics) {
       });
     });
   });
+  return seen;
+}
 
+/** 合計値でしか返らない指標。指標名 → その月の合計。 */
+function igTotalValues_(token, accountId, windows) {
   var out = {};
-  var has = false;
-  IG_METRICS.forEach(function (m) {
-    var days = seen[m.api] || seen[m.fallback];
-    if (!days) { return; }
-    var total = 0;
-    Object.keys(days).forEach(function (d) { total += days[d]; });
-    if (total > 0) { out[m.key] = total; has = true; }
+  var metrics = [];
+  IG_TOTAL_METRICS.forEach(function (m) {
+    if (metrics.indexOf(m.api) < 0) { metrics.push(m.api); }
   });
-  return has ? out : null;
+
+  windows.forEach(function (w) {
+    var data = igTry_(function () {
+      return igRequest_(igUrl_(accountId + '/insights',
+        {metric: metrics.join(','), period: 'day', metric_type: 'total_value',
+         since: w.since, until: w.until}, token));
+    });
+    if (!data) { return; }
+
+    (data.data || []).forEach(function (m) {
+      var v = m.total_value && m.total_value.value;
+      if (typeof v !== 'number') { return; }
+      out[m.name] = (out[m.name] || 0) + v;
+    });
+  });
+  return out;
+}
+
+/**
+ * 取れなければ諦めて null。指標の扱いは版で変わるので、
+ * 1つ落ちただけで月ごと失敗させない。理由はログに残す。
+ */
+function igTry_(fn) {
+  try {
+    return fn();
+  } catch (e) {
+    Logger.log('取得を1つ諦めました: ' + e.message);
+    return null;
+  }
 }
 
 /** いまのフォロワー数。過去にさかのぼっては取れない。 */
@@ -251,19 +334,6 @@ function igFollowers_(token, accountId) {
   }
 }
 
-/**
- * 使える指標の名前。表示回数はAPIの版で views と impressions が入れ替わるので、
- * 一度失敗したら控えの名前に切り替えて、次からはそちらを使う。
- */
-var IG_METRIC_CACHE_ = null;
-
-function igActiveMetrics_() {
-  if (!IG_METRIC_CACHE_) {
-    IG_METRIC_CACHE_ = IG_METRICS.map(function (m) { return m.api; });
-  }
-  return IG_METRIC_CACHE_;
-}
-
 /* ---------------- 通信 ---------------- */
 
 function igUrl_(path, params, token) {
@@ -274,30 +344,12 @@ function igUrl_(path, params, token) {
   return 'https://graph.facebook.com/' + META_API_VERSION + '/' + path + '?' + query.join('&');
 }
 
-/**
- * 1回叩く。指標名が受け付けられなかったときだけ、控えの名前に入れ替えて1度やり直す。
- * Metaは版によって metric の名前を入れ替えるので、そこだけ自動で吸収する。
- */
-function igRequest_(url, retried) {
+/** 1回叩く。失敗したら、次に何をすればいいか分かる文にして投げる。 */
+function igRequest_(url) {
   var res = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
   var code = res.getResponseCode();
-  var body = res.getContentText();
-  if (code === 200) { return JSON.parse(body); }
-
-  var message = metaErrorMessage_(code, body);
-  if (!retried && /metric/i.test(message)) {
-    var swapped = url;
-    IG_METRICS.forEach(function (m) {
-      if (m.fallback && swapped.indexOf(m.api) >= 0) {
-        swapped = swapped.replace(m.api, m.fallback);
-        IG_METRIC_CACHE_ = igActiveMetrics_().map(function (name) {
-          return name === m.api ? m.fallback : name;
-        });
-      }
-    });
-    if (swapped !== url) { return igRequest_(swapped, true); }
-  }
-  throw new Error(message);
+  if (code === 200) { return JSON.parse(res.getContentText()); }
+  throw new Error(metaErrorMessage_(code, res.getContentText()));
 }
 
 /** 集計の開始年月。広告タブの設定を使い回す。 */
