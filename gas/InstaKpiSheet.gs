@@ -99,6 +99,15 @@ var RANK_COLORS = {
   C: {bg: '#f4cccc', fg: '#990000'}
 };
 
+/**
+ * 0を表示しない書式にする。書式の3つ目の区画（ゼロのときの表示）を空にする。
+ * 使っていないチャネルの行が 0 と ¥0 と 0.0% で埋まると、
+ * 実際に動いている数字が読めなくなる。値は0のまま、見た目だけ消す。
+ */
+function hideZero_(format) {
+  return format + ';-' + format + ';';
+}
+
 /** 合計行だけを縦に切り出す絶対範囲。{指標名} は書き込むときに列文字へ変わる。 */
 function monthRange_(token) {
   return '$' + token + '$' + FIRST_ROW + ':$' + token + '$' + LAST_ROW;
@@ -212,9 +221,9 @@ var CALC_COLUMNS = [
   {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115},
   {key: '総合スコア',       header: '総合スコア\n(他の月との比較)',
-   formula: rankScoreFormula_(), format: '0', width: 105},
+   formula: rankScoreFormula_(), format: '0', width: 105, keepZero: true},
   {key: 'ランク',           header: 'ランク\nS / A / B / C',
-   formula: rankLetterFormula_(), format: '@', width: 85}
+   formula: rankLetterFormula_(), format: '@', width: 85, keepZero: true}
 ];
 
 var ALL_COLUMNS = INPUT_COLUMNS.concat(MONTH_COLUMNS).concat(CALC_COLUMNS);
@@ -773,7 +782,7 @@ function writeMonthBlocks_(sheet, saved) {
         } else if (body.hasOwnProperty(c.key)) {
           cell.setValue(body[c.key]);
         }
-        cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
+        cell.setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
       });
       writeCalcCells_(sheet, r);
       sheet.setRowHeight(r, 21);
@@ -785,13 +794,13 @@ function writeMonthBlocks_(sheet, saved) {
       var letter = col_(c.key);
       sheet.getRange(letter + total)
         .setFormula('=SUM(' + letter + first + ':' + letter + (total - 1) + ')')
-        .setNumberFormat(c.money ? '¥#,##0' : '#,##0');
+        .setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
     });
     MONTH_COLUMNS.forEach(function (c) {
       var body = saved[m + '|' + TOTAL_LABEL] || {};
       var cell = sheet.getRange(col_(c.key) + total);
       if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
-      cell.setNumberFormat('#,##0');
+      cell.setNumberFormat(hideZero_('#,##0'));
       // 目標は手で決める数字。自動計算の欄と見分けが付くようにしておく。
       if (c.goal) { cell.setBackground(COLOR_SETTING_BG).setFontWeight('bold'); }
     });
@@ -822,17 +831,26 @@ function writeCalcCells_(sheet, row) {
 function writeYearRows_(sheet) {
   var channelCol = '$B$' + FIRST_ROW + ':$B$' + LAST_ROW;
 
+  var viewRange = '$' + col_('表示回数') + '$' + FIRST_ROW + ':$' + col_('表示回数') + '$' + LAST_ROW;
+
   [{row: YEAR_TOTAL_ROW, label: '年間合計', fn: 'SUMIF'},
-   {row: YEAR_AVG_ROW, label: '月平均', fn: 'AVERAGEIF'}].forEach(function (spec) {
+   {row: YEAR_AVG_ROW, label: '月平均', fn: 'AVERAGEIFS'}].forEach(function (spec) {
     sheet.getRange(spec.row, 1, 1, 2).merge().setValue(spec.label)
       .setFontWeight('bold').setHorizontalAlignment('center');
 
     INPUT_COLUMNS.concat(MONTH_COLUMNS).forEach(function (c) {
       var letter = col_(c.key);
       var range = '$' + letter + '$' + FIRST_ROW + ':$' + letter + '$' + LAST_ROW;
+      // 月平均は、数字を入れていない月（合計0）を混ぜない。
+      // 混ぜると、まだ埋めていない月のぶんだけ平均が下がる。
+      var formula = spec.fn === 'SUMIF'
+        ? '=IFERROR(SUMIF(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),0)'
+        : '=IFERROR(AVERAGEIFS(' + range + ',' + channelCol + ',"' + TOTAL_LABEL + '",'
+          + viewRange + ',">0"),"")';
       sheet.getRange(letter + spec.row)
-        .setFormula('=IFERROR(' + spec.fn + '(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),0)')
-        .setNumberFormat(c.money ? '¥#,##0' : (spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0'));
+        .setFormula(formula)
+        .setNumberFormat(hideZero_(
+          c.money ? '¥#,##0' : (spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0')));
     });
     writeCalcCells_(sheet, spec.row);
 
@@ -864,7 +882,11 @@ function applyConditionalFormats_(sheet) {
     // シート上で数字を直せば、色分けもその場で変わる。
     var bad = '$' + letter + '$' + BAD_ROW;
     var good = '$' + letter + '$' + GOOD_ROW;
-    var guard = 'ISNUMBER(' + cell + '),ISNUMBER(' + bad + '),ISNUMBER(' + good + ')';
+    // その行が動いていなければ色を付けない。やっていないチャネルの
+    // 0.0% を赤く塗ると、本当に悪い数字が埋もれる。
+    var active = 'N($' + col_('表示回数') + FIRST_ROW + ')>0';
+    var guard = 'ISNUMBER(' + cell + '),' + active
+              + ',ISNUMBER(' + bad + '),ISNUMBER(' + good + ')';
     // 空欄を赤くしないよう ISNUMBER で必ず絞る。
     [[cell + '<' + bad, BAD],
      [cell + '>=' + bad + ',' + cell + '<' + good, OK],
@@ -929,7 +951,7 @@ function writeGoalBlock_(sheet, savedGoal) {
       var cell = sheet.getRange(row, 3);
       if (String(r[1]).charAt(0) === '=') { cell.setFormula(r[1]); }
       else if (r[1] !== '') { cell.setValue(r[1]); }
-      cell.setNumberFormat(r[2]).setHorizontalAlignment('right').setFontWeight('bold')
+      cell.setNumberFormat(hideZero_(r[2])).setHorizontalAlignment('right').setFontWeight('bold')
         .setBackground(r[4] ? COLOR_SETTING_BG : COLOR_CALC_BG)
         .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
     }

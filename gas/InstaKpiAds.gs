@@ -110,7 +110,9 @@ function adPullFormula_(kpiKey, channel, monthIndex) {
   var adKey = AD_TO_KPI[kpiKey];
   var platformIndex = PAID_CHANNELS.indexOf(channel);
   if (!adKey || platformIndex < 0) { return null; }
-  return "='" + AD_SHEET_NAME + "'!" + adCol_(adKey) + adRow_(monthIndex, platformIndex);
+  // 空欄をそのまま引くと0になる。入れていない月は空のままにする。
+  var ref = "'" + AD_SHEET_NAME + "'!" + adCol_(adKey) + adRow_(monthIndex, platformIndex);
+  return '=IF(' + ref + '="","",' + ref + ')';
 }
 
 /* ---------------- 組み立て ---------------- */
@@ -220,7 +222,7 @@ function writeAdMonthBlocks_(sheet, saved) {
       AD_INPUT_COLUMNS.forEach(function (c) {
         var cell = sheet.getRange(adCol_(c.key) + r);
         if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
-        cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
+        cell.setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
       });
       writeAdCalcCells_(sheet, r);
       sheet.setRowHeight(r, 21);
@@ -231,7 +233,7 @@ function writeAdMonthBlocks_(sheet, saved) {
       var letter = adCol_(c.key);
       sheet.getRange(letter + total)
         .setFormula('=SUM(' + letter + first + ':' + letter + (total - 1) + ')')
-        .setNumberFormat(c.money ? '¥#,##0' : '#,##0');
+        .setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
     });
     writeAdCalcCells_(sheet, total);
     sheet.getRange(total, 2, 1, AD_LAST_COL - 1)
