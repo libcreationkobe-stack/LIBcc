@@ -269,8 +269,12 @@ function metaErrorMessage_(code, body) {
   var message = error.message || body.slice(0, 300);
 
   if (error.code === 190) {
-    return 'トークンが無効か期限切れです（' + message + '）\n'
-         + 'ビジネス設定でシステムユーザーのトークンを発行し直してください。';
+    var expired = /expired/i.test(message)
+      ? 'トークンの期限が切れています。'
+      : 'トークンが無効です。';
+    return expired + '（' + message + '）\n'
+         + 'ビジネス設定で「システムユーザー」を作り、有効期限を無期限にしてトークンを\n'
+         + '発行し直してください。グラフAPIエクスプローラで出したトークンは数時間で切れます。';
   }
   if (error.code === 100 && /version/i.test(message)) {
     return 'APIのバージョンが古くなっています（' + message + '）\n'

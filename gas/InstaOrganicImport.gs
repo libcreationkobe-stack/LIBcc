@@ -296,15 +296,22 @@ function igAskAccount_(list) {
 function igListAccounts_(token) {
   var out = [];
   var seen = {};
+  var firstError = null;
 
   var pageFields = 'name,instagram_business_account{id,username},'
                  + 'connected_instagram_account{id,username},instagram_accounts{id,username}';
 
   var collect = function (path) {
-    var data = igTry_(function () {
-      return igRequest_(igUrl_(path, {fields: pageFields, limit: 100}, token));
-    });
-    if (!data) { return; }
+    var data;
+    try {
+      data = igRequest_(igUrl_(path, {fields: pageFields, limit: 100}, token));
+    } catch (e) {
+      // 1つ落ちても他は試すが、理由は覚えておく。
+      // 全部落ちたときに「見つかりません」とだけ言うと、原因を探す先を間違える。
+      if (!firstError) { firstError = e; }
+      Logger.log('一覧の取得を1つ諦めました: ' + e.message);
+      return;
+    }
 
     (data.data || []).forEach(function (page) {
       igAddAccounts_(page, out, seen);
@@ -326,6 +333,8 @@ function igListAccounts_(token) {
     });
   }
 
+  // 1件も取れず、しかも通信そのものが失敗していたなら、そちらが本当の原因。
+  if (!out.length && firstError) { throw firstError; }
   return out;
 }
 
