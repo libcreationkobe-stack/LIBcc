@@ -36,6 +36,15 @@ var IG_METRICS = [
   {api: 'shares',        key: '保存・シェア'}   // 保存とシェアは足して1列に入れる
 ];
 
+/**
+ * 取れたら嬉しいが、無くても困らない指標。
+ * 上の5つとは別に聞く。混ぜて1回で聞くと、これが弾かれたときに
+ * 全部が巻き添えで落ちてしまうため。
+ */
+var IG_EXTRA_METRICS = [
+  {api: 'profile_links_taps', key: 'リンククリック'}
+];
+
 /* ---------------- 入口 ---------------- */
 
 /** メニューから実行する。今日までの月をまとめて取り込む。 */
@@ -346,22 +355,27 @@ function igAddAccounts_(page, out, seen) {
 function igFetchMonth_(token, accountId, span) {
   var totals = {};
 
-  igWindows_(span).forEach(function (w) {
-    var data = igTry_(function () {
-      return igRequest_(igUrl_(accountId + '/insights',
-        {metric: igMetricNames_().join(','), period: 'day', metric_type: 'total_value',
-         since: w.since, until: w.until}, token));
-    });
-    if (!data) { return; }
+  var ask = function (names) {
+    igWindows_(span).forEach(function (w) {
+      var data = igTry_(function () {
+        return igRequest_(igUrl_(accountId + '/insights',
+          {metric: names.join(','), period: 'day', metric_type: 'total_value',
+           since: w.since, until: w.until}, token));
+      });
+      if (!data) { return; }
 
-    (data.data || []).forEach(function (m) {
-      var v = m.total_value && m.total_value.value;
-      if (typeof v === 'number') { totals[m.name] = (totals[m.name] || 0) + v; }
+      (data.data || []).forEach(function (m) {
+        var v = m.total_value && m.total_value.value;
+        if (typeof v === 'number') { totals[m.name] = (totals[m.name] || 0) + v; }
+      });
     });
-  });
+  };
+
+  ask(igMetricNames_());
+  ask(IG_EXTRA_METRICS.map(function (m) { return m.api; }));
 
   var out = {};
-  IG_METRICS.forEach(function (m) {
+  IG_METRICS.concat(IG_EXTRA_METRICS).forEach(function (m) {
     var v = totals[m.api];
     if (typeof v !== 'number') { return; }
     out[m.key] = (out[m.key] || 0) + v;
