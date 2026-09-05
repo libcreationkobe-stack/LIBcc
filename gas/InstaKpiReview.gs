@@ -33,23 +33,26 @@ var REVIEW_COLUMNS = [
 var REVIEW_LAST_COL = REVIEW_COLUMNS.length;   // 9 (I列)
 var REVIEW_BODY_COLS = 7;                     // C〜I（総評からリンクまで）
 
-/** Claudeへの依頼で使う指標。KPIシートの合計行から引く。 */
+/** Claudeへの依頼で使う指標。列はKPIシートの定義から名前で引く。 */
 var REVIEW_METRICS = [
-  {label: '投稿数',             col: 'C'},
-  {label: '表示回数',           col: 'D'},
-  {label: 'リーチ数',           col: 'E'},
-  {label: 'プロフ表示率',       col: 'N', rate: true, bench: 'N'},
-  {label: 'リンククリック率',   col: 'O', rate: true, bench: 'O'},
-  {label: 'LINE登録率',         col: 'P', rate: true, bench: 'P'},
-  {label: 'エントリー率',       col: 'Q', rate: true},
-  {label: '面接率',             col: 'R', rate: true},
-  {label: '採用率(面接→採用)',  col: 'S', rate: true},
-  {label: 'LINE友だち追加',     col: 'H'},
-  {label: 'LINE友だち総数',     col: 'L'},
-  {label: 'エントリー数',       col: 'I'},
-  {label: '面接数',             col: 'J'},
-  {label: '採用数',             col: 'K'},
-  {label: '表示→採用率',        col: 'T', rate: true, bench: 'T'}
+  {label: '投稿数',            key: '投稿数'},
+  {label: '広告費',            key: '広告費', money: true},
+  {label: '表示回数',          key: '表示回数'},
+  {label: 'リーチ数',          key: 'リーチ数'},
+  {label: 'プロフ表示率',      key: 'プロフ表示率',     rate: true, bench: true},
+  {label: 'リンククリック率',  key: 'リンククリック率', rate: true, bench: true},
+  {label: 'LINE登録率',        key: 'LINE登録率',       rate: true, bench: true},
+  {label: 'エントリー率',      key: 'エントリー率',     rate: true},
+  {label: '面接率',            key: '面接率',           rate: true},
+  {label: '採用率(面接→採用)', key: '採用率',           rate: true},
+  {label: 'LINE友だち追加',    key: 'LINE友だち追加'},
+  {label: 'LINE友だち総数',    key: 'LINE友だち総数'},
+  {label: 'エントリー数',      key: 'エントリー数'},
+  {label: '面接数',            key: '面接'},
+  {label: '採用数',            key: '採用数'},
+  {label: '表示→採用率',       key: '表示→採用率',      rate: true, bench: true},
+  {label: '採用単価',          key: '採用単価',         money: true},
+  {label: 'LINE登録単価',      key: 'LINE登録単価',     money: true}
 ];
 
 var CLAUDE_MODEL_REVIEW = 'claude-opus-5';
@@ -250,13 +253,15 @@ function readExistingReviews_(sheet) {
 /** B列に出す数値サマリーの数式。KPIシートを参照する。 */
 function summaryFormula_(kpiRow) {
   var s = "'" + SHEET_NAME + "'!";
-  return '=IFERROR(IF(' + s + 'D' + kpiRow + '=0,"（KPIシートに数値が未入力）",'
-    + '"表示 "&TEXT(' + s + 'D' + kpiRow + ',"#,##0")'
-    + '&"　プロフ "&TEXT(' + s + 'N' + kpiRow + ',"0.0%")'
-    + '&"　クリック "&TEXT(' + s + 'O' + kpiRow + ',"0.0%")'
-    + '&"　LINE "&' + s + 'H' + kpiRow + '&"人"'
-    + '&"　応募 "&' + s + 'I' + kpiRow + '&"件"'
-    + '&"　採用 "&' + s + 'K' + kpiRow + '&"人"),"")';
+  var at = function (key) { return s + col_(key) + kpiRow; };
+  return '=IFERROR(IF(' + at('表示回数') + '=0,"（KPIシートに数値が未入力）",'
+    + '"表示 "&TEXT(' + at('表示回数') + ',"#,##0")'
+    + '&"　プロフ "&TEXT(' + at('プロフ表示率') + ',"0.0%")'
+    + '&"　クリック "&TEXT(' + at('リンククリック率') + ',"0.0%")'
+    + '&"　LINE "&' + at('LINE友だち追加') + '&"人"'
+    + '&"　応募 "&' + at('エントリー数') + '&"件"'
+    + '&"　採用 "&' + at('採用数') + '&"人"'
+    + '&IF(' + at('広告費') + '>0,"　広告費 "&TEXT(' + at('広告費') + ',"¥#,##0"),"")),"")';
 }
 
 /** メニュー用。選択中の行の月について総評を書かせる。 */
@@ -306,7 +311,7 @@ function selectedMonthIndex_(ss, sheet) {
 
   var kpi = ss.getSheetByName(SHEET_NAME);
   for (var i = MONTHS.length - 1; i >= 0; i--) {
-    var v = kpi.getRange('D' + summaryRow_(i)).getValue();
+    var v = kpi.getRange(col_('表示回数') + summaryRow_(i)).getValue();
     if (v !== '' && v !== null && v !== 0) { return i; }
   }
   throw new Error('KPIシートにまだ数値が入っていません。');
@@ -318,20 +323,23 @@ function collectMonthData_(index) {
   var row = summaryRow_(index);
 
   var metrics = REVIEW_METRICS.map(function (m) {
+    var value = kpi.getRange(col_(m.key) + row).getValue();
     return {
       label: m.label,
-      value: kpi.getRange(m.col + row).getValue(),
+      value: value,
       rate: !!m.rate,
-      judgement: m.bench ? judge_(m.bench, kpi.getRange(m.col + row).getValue()) : ''
+      money: !!m.money,
+      judgement: m.bench ? judge_(m.key, value) : ''
     };
   });
 
   var prev = null;
   if (index > 0) {
     var prevRow = summaryRow_(index - 1);
-    if (kpi.getRange('D' + prevRow).getValue() !== '') {
+    if (kpi.getRange(col_('表示回数') + prevRow).getValue() !== '') {
       prev = REVIEW_METRICS.map(function (m) {
-        return {label: m.label, value: kpi.getRange(m.col + prevRow).getValue(), rate: !!m.rate};
+        return {label: m.label, value: kpi.getRange(col_(m.key) + prevRow).getValue(),
+                rate: !!m.rate, money: !!m.money};
       });
     }
   }
@@ -339,7 +347,7 @@ function collectMonthData_(index) {
   return {
     month: MONTHS[index],
     prevMonth: index > 0 ? MONTHS[index - 1] : '',
-    reach: kpi.getRange('D' + row).getValue(),
+    reach: kpi.getRange(col_('表示回数') + row).getValue(),
     channels: readChannelRows_(kpi, index),
     metrics: metrics,
     prev: prev
@@ -349,25 +357,28 @@ function collectMonthData_(index) {
 /** その月のチャネル別の実績。スライドの比較に使う。 */
 function readChannelRows_(kpi, index) {
   var first = channelFirstRow_(index);
-  var values = kpi.getRange(first, 2, CHANNELS.length, 10).getValues();
+  var pick = ['表示回数', '広告費', 'LINE友だち追加', 'エントリー数', '採用数'];
   return CHANNELS.map(function (name, i) {
-    var v = values[i];
+    var row = first + i;
+    var out = {name: name};
+    pick.forEach(function (key) { out[key] = kpi.getRange(col_(key) + row).getValue(); });
     return {
       name: name,
-      views: v[2],      // D 表示回数
-      line: v[6],       // H LINE友だち追加
-      entry: v[7],      // I エントリー数
-      hires: v[9]       // K 採用数
+      views: out['表示回数'],
+      cost: out['広告費'],
+      line: out['LINE友だち追加'],
+      entry: out['エントリー数'],
+      hires: out['採用数']
     };
   });
 }
 
-/** 目安に照らして 悪い／普通／良い を返す。 */
-function judge_(benchCol, value) {
+/** 目安に照らして 悪い／普通／良い を返す。指標名で引く。 */
+function judge_(key, value) {
   if (typeof value !== 'number') { return ''; }
   for (var i = 0; i < BENCHMARKS.length; i++) {
     var b = BENCHMARKS[i];
-    if (b.col !== benchCol) { continue; }
+    if (b.key !== key) { continue; }
     if (value < b.bad) { return '悪い'; }
     if (value < b.good) { return '普通'; }
     return '良い';
@@ -377,9 +388,8 @@ function judge_(benchCol, value) {
 
 /** 目安を文章にする（Claudeに判断基準を渡すため）。 */
 function benchmarkText_() {
-  var names = {N: 'プロフ表示率', O: 'リンククリック率', P: 'LINE登録率', T: '表示→採用率'};
   return BENCHMARKS.map(function (b) {
-    return '- ' + names[b.col] + '：' + b.labels.join(' / ');
+    return '- ' + b.key + '：' + b.labels.join(' / ');
   }).join('\n');
 }
 
@@ -388,6 +398,7 @@ function formatValue_(m) {
   if (m.value === '' || m.value === null || m.value === undefined) { return '（未入力）'; }
   if (typeof m.value !== 'number') { return String(m.value); }
   if (m.rate) { return (m.value * 100).toFixed(m.value < 0.001 ? 3 : 1) + '%'; }
+  if (m.money) { return '¥' + Math.round(m.value).toLocaleString(); }
   return Math.round(m.value).toLocaleString();
 }
 
@@ -411,16 +422,22 @@ function buildReviewPrompt_(data) {
   lines.push('', '【指標の目安】', benchmarkText_());
   lines.push('', '【ファネルの流れ】',
     '表示 → リーチ → プロフィール表示 → リンククリック → LINE友だち追加 → エントリー → 面接 → 採用。',
-    '数字はInstagram・TikTok・X・YouTube・YouTubeショートの合計です。');
+    '数字は ' + CHANNELS.join('・') + ' の合計です。');
 
   if (data.channels) {
     lines.push('', '【チャネル別の実績（表示回数／LINE追加／エントリー／採用）】');
     data.channels.forEach(function (c) {
-      if (!c.views && !c.line && !c.hires) { return; }
-      lines.push('- ' + c.name + '：表示 ' + (c.views || 0).toLocaleString()
-        + ' / LINE ' + (c.line || 0) + ' / 応募 ' + (c.entry || 0) + ' / 採用 ' + (c.hires || 0));
+      if (!c.views && !c.line && !c.hires && !c.cost) { return; }
+      var line = '- ' + c.name + '：表示 ' + (c.views || 0).toLocaleString()
+        + ' / LINE ' + (c.line || 0) + ' / 応募 ' + (c.entry || 0) + ' / 採用 ' + (c.hires || 0);
+      if (c.cost) {
+        line += ' / 広告費 ¥' + Math.round(c.cost).toLocaleString();
+        if (c.hires) { line += '（採用単価 ¥' + Math.round(c.cost / c.hires).toLocaleString() + '）'; }
+      }
+      lines.push(line);
     });
     lines.push('どのチャネルが効いているかにも触れてください。');
+    lines.push('広告（Meta広告・TikTokプロモート）は、採用単価が見合っているかを必ず評価してください。');
   }
 
   return lines.join('\n');

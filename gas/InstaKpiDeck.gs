@@ -54,24 +54,24 @@ var C_TRACK = '#e8eaee';     // バーの下地
 /** 上部のセクションナビ。現在地を濃く出す。 */
 var NAV = ['サマリー', 'チャネル別', 'ファネル', '目安との比較', '総評', 'アクション'];
 
-/** ファネルの各段。rateCol は前の段からの転換率。 */
+/** ファネルの各段。rate は前の段からの転換率の指標名。 */
 var FUNNEL_STAGES = [
-  {name: '表示回数',         countCol: 'D', rateCol: null, bench: null},
-  {name: 'リーチ',           countCol: 'E', rateCol: 'M',  bench: null},
-  {name: 'プロフィール表示', countCol: 'F', rateCol: 'N',  bench: 'N'},
-  {name: 'リンククリック',   countCol: 'G', rateCol: 'O',  bench: 'O'},
-  {name: 'LINE友だち追加',   countCol: 'H', rateCol: 'P',  bench: 'P'},
-  {name: 'エントリー',       countCol: 'I', rateCol: 'Q',  bench: null},
-  {name: '面接',             countCol: 'J', rateCol: 'R',  bench: null},
-  {name: '採用',             countCol: 'K', rateCol: 'S',  bench: null}
+  {name: '表示回数',         count: '表示回数',         rate: null,               bench: false},
+  {name: 'リーチ',           count: 'リーチ数',         rate: 'リーチ率',         bench: false},
+  {name: 'プロフィール表示', count: 'プロフィール表示', rate: 'プロフ表示率',     bench: true},
+  {name: 'リンククリック',   count: 'リンククリック',   rate: 'リンククリック率', bench: true},
+  {name: 'LINE友だち追加',   count: 'LINE友だち追加',   rate: 'LINE登録率',       bench: true},
+  {name: 'エントリー',       count: 'エントリー数',     rate: 'エントリー率',     bench: false},
+  {name: '面接',             count: '面接',             rate: '面接率',           bench: false},
+  {name: '採用',             count: '採用数',           rate: '採用率',           bench: false}
 ];
 
 /** 目安つきの4指標。 */
 var METER_METRICS = [
-  {name: 'プロフ表示率',     col: 'N', bench: 'N', note: '投稿からプロフィールへの興味喚起'},
-  {name: 'リンククリック率', col: 'O', bench: 'O', note: 'プロフィール文と導線の出来'},
-  {name: 'LINE登録率',       col: 'P', bench: 'P', note: 'LP・登録導線の出来'},
-  {name: '表示→採用率',      col: 'T', bench: 'T', note: '全体の最終CVR'}
+  {key: 'プロフ表示率',     note: '投稿からプロフィールへの興味喚起'},
+  {key: 'リンククリック率', note: 'プロフィール文と導線の出来'},
+  {key: 'LINE登録率',       note: 'LP・登録導線の出来'},
+  {key: '表示→採用率',      note: '全体の最終CVR'}
 ];
 
 /** 用語解説スライドに載せる内容。 */
@@ -81,7 +81,8 @@ var GLOSSARY = [
   ['リンククリック率', 'リンククリック ÷ プロフィール表示。プロフィール文と導線の出来。10%が分岐点。'],
   ['LINE登録率', 'LINE友だち追加 ÷ リンククリック。LPと登録導線の出来。20〜40%が一般的。'],
   ['エントリー率', 'エントリー数 ÷ LINE友だち追加。LINE内トークの出来。業種差が大きいため目安は置いていない。'],
-  ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。目安は暫定値なので、実績が溜まったら自社の値に置き換える。']
+  ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。目安は暫定値なので、実績が溜まったら自社の値に置き換える。'],
+  ['採用単価', '広告費 ÷ 採用数。Meta広告とTikTokプロモートの判断はこの数字で行う。自社の許容上限と比べる。']
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -279,13 +280,17 @@ function renderChannels_(slide, index, data) {
 
   var nameW = 150;
   var barX = PAD + nameW;
-  var barW = BODY_W - nameW - 330;
+  var barW = BODY_W - nameW - 420;
   var maxViews = Math.max.apply(null, rows.map(function (c) { return Number(c.views) || 0; })) || 1;
 
-  var cols = [{label: 'LINE追加', key: 'line'}, {label: 'エントリー', key: 'entry'}, {label: '採用', key: 'hires'}];
+  var cols = [{label: 'LINE追加', key: 'line'}, {label: '採用', key: 'hires'},
+              {label: '広告費', key: 'cost', money: true}, {label: '採用単価', key: 'cpa', money: true}];
+  rows.forEach(function (c) {
+    c.cpa = (c.cost && c.hires) ? Math.round(c.cost / c.hires) : '';
+  });
   text_(slide, barX, body.top - 18, barW, 12, '表示回数', {size: 9, color: C_INK_FAINT});
   cols.forEach(function (c, i) {
-    text_(slide, barX + barW + 20 + i * 100, body.top - 18, 90, 12, c.label,
+    text_(slide, barX + barW + 16 + i * 100, body.top - 18, 92, 12, c.label,
       {size: 9, color: C_INK_FAINT, align: 'right'});
   });
 
@@ -305,16 +310,29 @@ function renderChannels_(slide, index, data) {
     }
 
     cols.forEach(function (col, j) {
-      text_(slide, barX + barW + 20 + j * 100, y + 3, 90, textH, num_(c[col.key]),
-        {size: 12, color: col.key === 'hires' ? C_NAVY : C_INK,
+      var v = c[col.key];
+      var shown = (v === '' || v === null || v === undefined || v === 0) ? '—'
+        : (col.money ? '¥' + num_(v) : num_(v));
+      text_(slide, barX + barW + 16 + j * 100, y + 3, 92, textH, shown,
+        {size: 11, color: col.key === 'hires' ? C_NAVY : C_INK,
          bold: col.key === 'hires', align: 'right'});
     });
   });
 
   var best = rows.slice().sort(function (a, b) { return (b.hires || 0) - (a.hires || 0); })[0];
-  commentBox_(slide, body, '見どころ',
-    '採用数がいちばん多いのは' + best.name + '（' + num_(best.hires) + '人）。'
-    + '表示回数の割に採用が少ないチャネルは、投稿の中身か導線のどちらかが合っていません。');
+  var note = '採用数がいちばん多いのは' + best.name + '（' + num_(best.hires) + '人）。'
+    + '表示回数の割に採用が少ないチャネルは、投稿の中身か導線のどちらかが合っていません。';
+
+  var paid = rows.filter(function (c) { return c.cost; });
+  if (paid.length) {
+    var cheapest = paid.slice().sort(function (a, b) {
+      return (a.cpa || Infinity) - (b.cpa || Infinity);
+    })[0];
+    note += cheapest.cpa
+      ? '　広告では' + cheapest.name + 'の採用単価が最も安く ¥' + num_(cheapest.cpa) + '。'
+      : '　広告費は出ているが採用に至っていないチャネルがあります。';
+  }
+  commentBox_(slide, body, '見どころ', note);
 }
 
 function renderFunnel_(slide, index, bottleneck) {
@@ -340,14 +358,14 @@ function renderFunnel_(slide, index, bottleneck) {
   var textH = Math.max(10, rowH - 6);   // 行が詰まっても文字箱が重ならないようにする
   FUNNEL_STAGES.forEach(function (stage, i) {
     var y = body.top + i * rowH;
-    var count = kpi.getRange(stage.countCol + row).getValue();
-    var rate = stage.rateCol ? kpi.getRange(stage.rateCol + row).getValue() : null;
+    var count = kpi.getRange(col_(stage.count) + row).getValue();
+    var rate = stage.rate ? kpi.getRange(col_(stage.rate) + row).getValue() : null;
 
     text_(slide, PAD, y + 3, nameW, textH, stage.name, {size: 11, color: C_INK, bold: true});
     box_(slide, trackX, y + Math.max(4, rowH / 2 - 6), trackW, 13, C_TRACK, 3);
 
     if (typeof rate === 'number' && rate > 0) {
-      var tier = stage.bench ? judge_(stage.bench, rate) : '';
+      var tier = stage.bench ? judge_(stage.rate, rate) : '';
       box_(slide, trackX, y + Math.max(4, rowH / 2 - 6), Math.max(6, Math.min(1, rate) * trackW), 13,
         tier ? TIER_STYLE[tier].bar : C_NAVY, 3);
       text_(slide, rateX, y + 3, 62, textH, pct_(rate, 1), {size: 11, color: C_INK, bold: true});
@@ -377,12 +395,12 @@ function renderMeters_(slide, index) {
 
   METER_METRICS.forEach(function (m, i) {
     var y = body.top + i * rowH;
-    var value = kpi.getRange(m.col + row).getValue();
-    var bench = benchmarkFor_(m.bench);
-    var tier = judge_(m.bench, value);
+    var value = kpi.getRange(col_(m.key) + row).getValue();
+    var bench = benchmarkFor_(m.key);
+    var tier = judge_(m.key, value);
     var max = bench.good * 2;   // 「良い」の線がちょうど真ん中に来る
 
-    text_(slide, PAD, y, labelW - 10, 18, m.name, {size: 11, color: C_INK, bold: true});
+    text_(slide, PAD, y, labelW - 10, 18, m.key, {size: 11, color: C_INK, bold: true});
     text_(slide, PAD, y + 19, labelW - 10, 14, m.note, {size: 8, color: C_INK_FAINT});
 
     box_(slide, trackX, y + 3, trackW, 16, C_TRACK, 3);
@@ -607,9 +625,9 @@ function prevMetric_(data, label) {
   return null;
 }
 
-function benchmarkFor_(col) {
+function benchmarkFor_(key) {
   for (var i = 0; i < BENCHMARKS.length; i++) {
-    if (BENCHMARKS[i].col === col) { return BENCHMARKS[i]; }
+    if (BENCHMARKS[i].key === key) { return BENCHMARKS[i]; }
   }
   return null;
 }

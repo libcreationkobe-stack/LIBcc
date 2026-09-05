@@ -18,7 +18,11 @@ var MONTHS = ['8月', '9月', '10月', '11月', '12月', '1月', '2月',
               '3月', '4月', '5月', '6月', '7月', '8月'];
 
 /** 追うチャネル。増減させたら setupKpiSheet を実行し直す。 */
-var CHANNELS = ['Instagram', 'TikTok', 'X', 'YouTube', 'YouTubeショート', 'その他'];
+var CHANNELS = ['Instagram', 'TikTok', 'X', 'YouTube', 'YouTubeショート',
+                'Facebook', 'Meta広告', 'TikTokプロモート'];
+
+/** 広告費が発生するチャネル。0円のままだと単価が出ないので目印にする。 */
+var PAID_CHANNELS = ['Meta広告', 'TikTokプロモート'];
 
 var TOTAL_LABEL = '合計';
 var ROWS_PER_MONTH = CHANNELS.length + 1;   // チャネル行＋合計行
@@ -31,36 +35,88 @@ var LAST_ROW = FIRST_ROW + MONTHS.length * ROWS_PER_MONTH - 1;
 var YEAR_TOTAL_ROW = LAST_ROW + 2;
 var YEAR_AVG_ROW = LAST_ROW + 3;
 
-/** チャネルごとに手で入れる列（C〜K）。 */
+/**
+ * 列の定義。key は参照用の名前、header は画面に出す文字。
+ * 数式は {指標名} を書いておくと、書き込むときに列文字へ差し替わる。
+ * 列を足したり並べ替えても、参照している側を直さなくてよい。
+ */
 var INPUT_COLUMNS = [
-  {col: 'C', header: '投稿数', width: 70},
-  {col: 'D', header: '表示回数\n(インプ・再生)', width: 110},
-  {col: 'E', header: 'リーチ数\n(取れる媒体のみ)', width: 110},
-  {col: 'F', header: 'プロフィール表示', width: 110},
-  {col: 'G', header: 'リンククリック', width: 100},
-  {col: 'H', header: 'LINE友だち追加', width: 105},
-  {col: 'I', header: 'エントリー数', width: 95},
-  {col: 'J', header: '面接', width: 65},
-  {col: 'K', header: '採用数', width: 75}
+  {key: '投稿数',           header: '投稿数',                  width: 70},
+  {key: '広告費',           header: '広告費',                  width: 90,  money: true},
+  {key: '表示回数',         header: '表示回数\n(インプ・再生)', width: 105},
+  {key: 'リーチ数',         header: 'リーチ数\n(取れる媒体のみ)', width: 105},
+  {key: 'プロフィール表示', header: 'プロフィール表示',        width: 105},
+  {key: 'リンククリック',   header: 'リンククリック',          width: 95},
+  {key: 'LINE友だち追加',   header: 'LINE友だち追加',          width: 100},
+  {key: 'エントリー数',     header: 'エントリー数',            width: 90},
+  {key: '面接',             header: '面接',                    width: 60},
+  {key: '採用数',           header: '採用数',                  width: 70}
 ];
 
-/** 月ぜんぶで1つの数字。合計行にだけ入れる（L列）。 */
+/** 月ぜんぶで1つの数字。合計行にだけ入れる。 */
 var MONTH_COLUMNS = [
-  {col: 'L', header: 'LINE友だち\n総数(月末)', width: 105}
+  {key: 'LINE友だち総数', header: 'LINE友だち\n総数(月末)', width: 100}
 ];
 
-/** 自動計算する率（M〜U）。 */
+/** 自動計算する率と単価。 */
 var CALC_COLUMNS = [
-  {col: 'M', header: 'リーチ率\n(リーチ÷表示)',        formula: '=IFERROR(E{r}/D{r},"")',  format: '0.0%',    width: 105},
-  {col: 'N', header: 'プロフ表示率\n(プロフ÷リーチ)',  formula: '=IFERROR(F{r}/E{r},"")',  format: '0.0%',    width: 115},
-  {col: 'O', header: 'リンククリック率\n(クリック÷プロフ)', formula: '=IFERROR(G{r}/F{r},"")', format: '0.0%', width: 125},
-  {col: 'P', header: 'LINE登録率\n(登録÷クリック)',    formula: '=IFERROR(H{r}/G{r},"")',  format: '0.0%',    width: 115},
-  {col: 'Q', header: 'エントリー率\n(応募÷LINE登録)',  formula: '=IFERROR(I{r}/H{r},"")',  format: '0.0%',    width: 115},
-  {col: 'R', header: '面接率\n(面接÷エントリー)',      formula: '=IFERROR(J{r}/I{r},"")',  format: '0.0%',    width: 110},
-  {col: 'S', header: '採用率\n(採用÷面接)',            formula: '=IFERROR(K{r}/J{r},"")',  format: '0.0%',    width: 100},
-  {col: 'T', header: '表示→採用率\n(採用÷表示回数)',   formula: '=IFERROR(K{r}/D{r},"")',  format: '0.000%',  width: 115},
-  {col: 'U', header: '1採用あたり\n投稿数',            formula: '=IFERROR(C{r}/K{r},"")',  format: '#,##0.0', width: 100}
+  {key: 'リーチ率',         header: 'リーチ率\n(リーチ÷表示)',
+   formula: '=IFERROR({リーチ数}{r}/{表示回数}{r},"")', format: '0.0%', width: 100},
+  {key: 'プロフ表示率',     header: 'プロフ表示率\n(プロフ÷リーチ)',
+   formula: '=IFERROR({プロフィール表示}{r}/{リーチ数}{r},"")', format: '0.0%', width: 110},
+  {key: 'リンククリック率', header: 'リンククリック率\n(クリック÷プロフ)',
+   formula: '=IFERROR({リンククリック}{r}/{プロフィール表示}{r},"")', format: '0.0%', width: 120},
+  {key: 'LINE登録率',       header: 'LINE登録率\n(登録÷クリック)',
+   formula: '=IFERROR({LINE友だち追加}{r}/{リンククリック}{r},"")', format: '0.0%', width: 110},
+  {key: 'エントリー率',     header: 'エントリー率\n(応募÷LINE登録)',
+   formula: '=IFERROR({エントリー数}{r}/{LINE友だち追加}{r},"")', format: '0.0%', width: 110},
+  {key: '面接率',           header: '面接率\n(面接÷エントリー)',
+   formula: '=IFERROR({面接}{r}/{エントリー数}{r},"")', format: '0.0%', width: 105},
+  {key: '採用率',           header: '採用率\n(採用÷面接)',
+   formula: '=IFERROR({採用数}{r}/{面接}{r},"")', format: '0.0%', width: 95},
+  {key: '表示→採用率',      header: '表示→採用率\n(採用÷表示回数)',
+   formula: '=IFERROR({採用数}{r}/{表示回数}{r},"")', format: '0.000%', width: 110},
+  {key: '1採用あたり投稿数', header: '1採用あたり\n投稿数',
+   formula: '=IFERROR({投稿数}{r}/{採用数}{r},"")', format: '#,##0.0', width: 95},
+  {key: '採用単価',         header: '採用単価\n(広告費÷採用数)',
+   formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{採用数}{r}),"")', format: '¥#,##0', width: 110},
+  {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
+   formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115}
 ];
+
+var ALL_COLUMNS = INPUT_COLUMNS.concat(MONTH_COLUMNS).concat(CALC_COLUMNS);
+var LAST_COL = 2 + ALL_COLUMNS.length;   // A列=月, B列=チャネル
+
+/** 指標名 → 列文字。列を並べ替えてもここが自動で追従する。 */
+var KPI_COL = (function () {
+  var map = {};
+  ALL_COLUMNS.forEach(function (c, i) { map[c.key] = columnLetter_(3 + i); });
+  return map;
+})();
+
+/** 1始まりの列番号を A, B, ... AA のような文字にする。 */
+function columnLetter_(index) {
+  var letter = '';
+  while (index > 0) {
+    var rem = (index - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    index = Math.floor((index - 1) / 26);
+  }
+  return letter;
+}
+
+/** 指標名から列文字を返す。他のファイルからも使う。 */
+function col_(key) {
+  if (!KPI_COL[key]) { throw new Error('KPIシートに「' + key + '」の列がありません。'); }
+  return KPI_COL[key];
+}
+
+/** 数式の {指標名} を列文字に、{r} を行番号に差し替える。 */
+function resolveFormula_(template, row) {
+  return template.replace(/\{([^}]+)\}/g, function (whole, name) {
+    return name === 'r' ? String(row) : col_(name);
+  });
+}
 
 /**
  * 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
@@ -68,10 +124,10 @@ var CALC_COLUMNS = [
  * 実績が溜まったらチャネルの実態に合わせて書き換える。
  */
 var BENCHMARKS = [
-  {col: 'N', bad: 0.03,    good: 0.05,   labels: ['悪い 〜3%',      '普通 3〜5%',        '良い 5%〜']},
-  {col: 'O', bad: 0.05,    good: 0.10,   labels: ['悪い 〜5%',      '普通 5〜10%',       '良い 10%〜']},
-  {col: 'P', bad: 0.20,    good: 0.40,   labels: ['悪い 〜20%',     '普通 20〜40%',      '良い 40%〜']},
-  {col: 'T', bad: 0.00005, good: 0.0002, labels: ['悪い 〜0.005%',  '普通 0.005〜0.02%', '良い 0.02%〜']}
+  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05,   labels: ['悪い 〜3%',     '普通 3〜5%',        '良い 5%〜']},
+  {key: 'リンククリック率', bad: 0.05,    good: 0.10,   labels: ['悪い 〜5%',     '普通 5〜10%',       '良い 10%〜']},
+  {key: 'LINE登録率',       bad: 0.20,    good: 0.40,   labels: ['悪い 〜20%',    '普通 20〜40%',      '良い 40%〜']},
+  {key: '表示→採用率',      bad: 0.00005, good: 0.0002, labels: ['悪い 〜0.005%', '普通 0.005〜0.02%', '良い 0.02%〜']}
 ];
 
 var BAD = {bg: '#f4cccc', fg: '#990000'};
@@ -87,8 +143,7 @@ var COLOR_TOTAL_BG = '#fff2cc';
 var COLOR_MONTH_BG = '#f2f2f2';
 var COLOR_BORDER = '#bfbfbf';
 
-var LAST_COL = 21;   // U列
-var MIN_ROWS = 130;
+var MIN_ROWS = 190;
 
 /** スプレッドシートを開いたときにメニューを出す。 */
 function onOpen() {
@@ -159,8 +214,9 @@ function setupKpiSheet() {
 }
 
 /**
- * 入力済みの数字を退避する。
- * 新しい形（月＋チャネル）と、Instagramだけだった古い形の両方を読む。
+ * 入力済みの数字を退避する。値は指標名で持つので、
+ * 列を足したり並べ替えたりしても正しい列に戻る。
+ * Instagramだけだった古い形も読み、Instagram行へ移す。
  */
 function readExistingInputs_(sheet) {
   var saved = {};
@@ -177,24 +233,17 @@ function readExistingInputs_(sheet) {
   }
   if (headRow < 0) { return saved; }
 
-  if (isOld) {
-    // 旧レイアウト（1月1行・Instagramのみ）。並び順で月に当てる。
-    var seen = 0;
-    for (var d = headRow + 1; d < values.length && seen < MONTHS.length; d++) {
-      if (!/^\d+月$/.test(String(values[d][0]).trim())) { continue; }
-      var old = values[d];
-      // 旧: B投稿数 Cインプ Dリーチ Eプロフ Fタップ GLINE H面接 I採用 Jその他問合せ K採用その他
-      var row = [old[1], old[2], old[3], old[4], old[5], old[6],
-                 old[9], old[7], num_(old[8]) + num_(old[10])];
-      if (row.some(function (v) { return v !== '' && v !== null; })) {
-        saved[seen + '|' + CHANNELS[0]] = row;
-      }
-      seen++;
-    }
-    return saved;
-  }
+  if (isOld) { return readOldLayout_(values, headRow); }
 
-  // 新レイアウト。月ラベルはブロックの先頭行にしか入らないので持ち回る。
+  // 見出しの文字から「この列は何の指標か」を引く。
+  var byHeader = {};
+  ALL_COLUMNS.forEach(function (c) { byHeader[c.header] = c.key; });
+  var colKey = {};
+  values[headRow].forEach(function (h, i) {
+    var key = byHeader[String(h)];
+    if (key) { colKey[i] = key; }
+  });
+
   var monthIndex = -1;
   var lastMonth = '';
   for (var i = headRow + 1; i < values.length; i++) {
@@ -203,15 +252,37 @@ function readExistingInputs_(sheet) {
     if (/^\d+月$/.test(label) && label !== lastMonth) { monthIndex++; lastMonth = label; }
     if (monthIndex < 0 || !channel) { continue; }
 
-    var body = values[i].slice(2, 2 + INPUT_COLUMNS.length);
-    if (channel === TOTAL_LABEL) {
-      var friends = values[i][11];
-      if (friends !== '' && friends !== null) { saved[monthIndex + '|' + TOTAL_LABEL] = [friends]; }
-      continue;
-    }
-    if (body.some(function (v) { return v !== '' && v !== null; })) {
-      saved[monthIndex + '|' + channel] = body;
-    }
+    var body = {};
+    var has = false;
+    Object.keys(colKey).forEach(function (idx) {
+      var v = values[i][idx];
+      if (v === '' || v === null || typeof v === 'string') { return; }
+      body[colKey[idx]] = v;
+      has = true;
+    });
+    if (has) { saved[monthIndex + '|' + channel] = body; }
+  }
+  return saved;
+}
+
+/** Instagramだけだった古い形（1月1行）を読む。 */
+function readOldLayout_(values, headRow) {
+  var saved = {};
+  var seen = 0;
+  for (var d = headRow + 1; d < values.length && seen < MONTHS.length; d++) {
+    if (!/^\d+月$/.test(String(values[d][0]).trim())) { continue; }
+    var o = values[d];
+    // 旧: B投稿数 Cインプ Dリーチ Eプロフ Fタップ GLINE H面接 I採用 Jその他問合せ K採用その他
+    var body = {
+      '投稿数': o[1], '表示回数': o[2], 'リーチ数': o[3], 'プロフィール表示': o[4],
+      'リンククリック': o[5], 'LINE友だち追加': o[6], 'エントリー数': o[9],
+      '面接': o[7], '採用数': num_(o[8]) + num_(o[10])
+    };
+    var has = Object.keys(body).some(function (k) {
+      return typeof body[k] === 'number' && body[k] !== 0;
+    });
+    if (has) { saved[seen + '|' + CHANNELS[0]] = body; }
+    seen++;
   }
   return saved;
 }
@@ -257,7 +328,7 @@ function writeGuideRow_(sheet) {
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
 
   BENCHMARKS.forEach(function (b) {
-    sheet.getRange(b.col + GUIDE_ROW).setRichTextValue(buildGuideText_(b.labels));
+    sheet.getRange(col_(b.key) + GUIDE_ROW).setRichTextValue(buildGuideText_(b.labels));
   });
   sheet.getRange(GUIDE_ROW, 1, 1, LAST_COL)
     .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
@@ -291,12 +362,16 @@ function writeMonthBlocks_(sheet, saved) {
 
     CHANNELS.forEach(function (channel, i) {
       var r = first + i;
-      sheet.getRange(r, 2).setValue(channel).setFontSize(10).setFontWeight('bold');
-      var key = m + '|' + channel;
-      if (saved[key]) {
-        sheet.getRange(r, 3, 1, INPUT_COLUMNS.length).setValues([saved[key]]);
-      }
-      sheet.getRange(r, 3, 1, INPUT_COLUMNS.length).setNumberFormat('#,##0');
+      var paid = PAID_CHANNELS.indexOf(channel) >= 0;
+      sheet.getRange(r, 2).setValue(channel).setFontSize(10).setFontWeight('bold')
+        .setFontColor(paid ? '#8a6100' : '#303030');
+
+      var body = saved[m + '|' + channel] || {};
+      INPUT_COLUMNS.forEach(function (c) {
+        var cell = sheet.getRange(col_(c.key) + r);
+        if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
+        cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
+      });
       writeCalcCells_(sheet, r);
       sheet.setRowHeight(r, 21);
     });
@@ -304,14 +379,16 @@ function writeMonthBlocks_(sheet, saved) {
     // 合計行。チャネル行を足し上げる。
     sheet.getRange(total, 2).setValue(TOTAL_LABEL).setFontWeight('bold');
     INPUT_COLUMNS.forEach(function (c) {
-      sheet.getRange(c.col + total)
-        .setFormula('=SUM(' + c.col + first + ':' + c.col + (total - 1) + ')')
-        .setNumberFormat('#,##0');
+      var letter = col_(c.key);
+      sheet.getRange(letter + total)
+        .setFormula('=SUM(' + letter + first + ':' + letter + (total - 1) + ')')
+        .setNumberFormat(c.money ? '¥#,##0' : '#,##0');
     });
     MONTH_COLUMNS.forEach(function (c) {
-      var saved2 = saved[m + '|' + TOTAL_LABEL];
-      if (saved2) { sheet.getRange(c.col + total).setValue(saved2[0]); }
-      sheet.getRange(c.col + total).setNumberFormat('#,##0');
+      var body = saved[m + '|' + TOTAL_LABEL] || {};
+      var cell = sheet.getRange(col_(c.key) + total);
+      if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
+      cell.setNumberFormat('#,##0');
     });
     writeCalcCells_(sheet, total);
     sheet.getRange(total, 2, 1, LAST_COL - 1).setBackground(COLOR_TOTAL_BG).setFontWeight('bold');
@@ -325,8 +402,8 @@ function writeMonthBlocks_(sheet, saved) {
 /** 率の列に数式と表示形式を入れる。 */
 function writeCalcCells_(sheet, row) {
   CALC_COLUMNS.forEach(function (c) {
-    sheet.getRange(c.col + row)
-      .setFormula(c.formula.replace(/\{r\}/g, String(row)))
+    sheet.getRange(col_(c.key) + row)
+      .setFormula(resolveFormula_(c.formula, row))
       .setNumberFormat(c.format)
       .setHorizontalAlignment('right')
       .setBackground(COLOR_CALC_BG);
@@ -343,10 +420,11 @@ function writeYearRows_(sheet) {
       .setFontWeight('bold').setHorizontalAlignment('center');
 
     INPUT_COLUMNS.concat(MONTH_COLUMNS).forEach(function (c) {
-      var range = '$' + c.col + '$' + FIRST_ROW + ':$' + c.col + '$' + LAST_ROW;
-      sheet.getRange(c.col + spec.row)
+      var letter = col_(c.key);
+      var range = '$' + letter + '$' + FIRST_ROW + ':$' + letter + '$' + LAST_ROW;
+      sheet.getRange(letter + spec.row)
         .setFormula('=IFERROR(' + spec.fn + '(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),0)')
-        .setNumberFormat(spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0');
+        .setNumberFormat(c.money ? '¥#,##0' : (spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0'));
     });
     writeCalcCells_(sheet, spec.row);
 
@@ -358,9 +436,10 @@ function writeYearRows_(sheet) {
 
   // 友だち総数は積み上げないので、合計行は最後の月の値にする。
   MONTH_COLUMNS.forEach(function (c) {
-    sheet.getRange(c.col + YEAR_TOTAL_ROW)
-      .setFormula('=IFERROR(LOOKUP(2,1/(' + c.col + FIRST_ROW + ':' + c.col + LAST_ROW + '<>""),'
-        + c.col + FIRST_ROW + ':' + c.col + LAST_ROW + '),0)');
+    var letter = col_(c.key);
+    var range = letter + FIRST_ROW + ':' + letter + LAST_ROW;
+    sheet.getRange(letter + YEAR_TOTAL_ROW)
+      .setFormula('=IFERROR(LOOKUP(2,1/(' + range + '<>""),' + range + '),0)');
   });
 }
 
@@ -368,8 +447,9 @@ function writeYearRows_(sheet) {
 function applyConditionalFormats_(sheet) {
   var rules = [];
   BENCHMARKS.forEach(function (b) {
-    var range = sheet.getRange(b.col + FIRST_ROW + ':' + b.col + YEAR_AVG_ROW);
-    var cell = '$' + b.col + FIRST_ROW;
+    var letter = col_(b.key);
+    var range = sheet.getRange(letter + FIRST_ROW + ':' + letter + YEAR_AVG_ROW);
+    var cell = '$' + letter + FIRST_ROW;
     // 空欄を赤くしないよう ISNUMBER で必ず絞る。
     [[cell + '<' + b.bad, BAD],
      [cell + '>=' + b.bad + ',' + cell + '<' + b.good, OK],
@@ -387,8 +467,9 @@ function writeNotes_(sheet) {
   var start = YEAR_AVG_ROW + 2;
   var notes = [
     ['■ 使い方'],
-    ['月ごとにチャネルの行が並んでいます。C〜K列に数字を入れるだけ。合計行と率は自動です。'],
-    ['LINE友だち総数（L列）は月全体の数字なので、合計行にだけ入れてください。'],
+    ['月ごとにチャネルの行が並んでいます。左の入力欄に数字を入れるだけ。合計行と率は自動です。'],
+    ['LINE友だち総数は月全体の数字なので、合計行にだけ入れてください。'],
+    ['広告費はMeta広告・TikTokプロモートの行に入れます。入れると採用単価とLINE登録単価が出ます。'],
     ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
     [''],
     ['■ 色分け（プロフ表示率／リンククリック率／LINE登録率／表示→採用率）'],
@@ -405,7 +486,10 @@ function writeNotes_(sheet) {
     ['LINE友だち総数', '月末時点の友だち数（ストック）。合計行にだけ入れる'],
     ['エントリー数', '応募・問い合わせの件数'],
     ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR'],
-    ['1採用あたり投稿数', '1人採るのに何本投稿したか。チャネルの効率比較に使う']
+    ['1採用あたり投稿数', '1人採るのに何本投稿したか。オーガニックの効率比較に使う'],
+    ['広告費', 'そのチャネルにその月かけた金額。オーガニックの行は空欄でよい'],
+    ['採用単価', '広告費 ÷ 採用数。広告を続けるか止めるかはこの数字で決める'],
+    ['LINE登録単価', '広告費 ÷ LINE友だち追加。採用が出る前でも広告の良し悪しが早く分かる']
   ];
 
   notes.forEach(function (n, i) {
