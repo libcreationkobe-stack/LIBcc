@@ -75,8 +75,18 @@ var RANK_METRICS = [
   {key: '定着率',       weight: 0.10}    // 採用の質
 ];
 
-/** ランクの切れ目。上から何割の位置にいるかで決める。 */
-var RANK_CUTS = [{rank: 'S', at: 0.80}, {rank: 'A', at: 0.55}, {rank: 'B', at: 0.30}];
+/**
+ * ランクの切れ目。上から何割の位置にいるかで決める。
+ * 相対評価はそのままだと「必ず下位3割がC」になる。人に任せるときは
+ * それが効かないので、甘めを既定にしてCを下位1割だけに絞っている。
+ */
+var RANK_MOODS = [
+  {name: '評価：甘め（人に任せるとき）', cuts: {S: 0.70, A: 0.40, B: 0.10}},
+  {name: '評価：ふつう',                 cuts: {S: 0.80, A: 0.55, B: 0.30}},
+  {name: '評価：厳しめ',                 cuts: {S: 0.88, A: 0.65, B: 0.45}}
+];
+
+var RANK_MOOD_CELL = '$F$' + PRESET_ROW;
 
 /** 何ヶ月ぶんたまったらランクを出すか。少なすぎる比較は意味がない。 */
 var RANK_MIN_MONTHS = 3;
@@ -119,15 +129,35 @@ function rankScoreFormula_() {
        + 'IFERROR(ROUND(100*(' + terms + '),0),""))))';
 }
 
-/** ランクの数式。スコアが全体の何割の位置にいるかで S/A/B/C を決める。 */
+/** 厳しさのプルダウンから、その段の切れ目を選ぶ式。 */
+function rankCutFormula_(rank) {
+  var m = {};
+  RANK_MOODS.forEach(function (x) { m[x.name] = x.cuts[rank]; });
+  return 'IF(' + RANK_MOOD_CELL + '="' + RANK_MOODS[0].name + '",' + m[RANK_MOODS[0].name]
+       + ',IF(' + RANK_MOOD_CELL + '="' + RANK_MOODS[2].name + '",' + m[RANK_MOODS[2].name]
+       + ',' + m[RANK_MOODS[1].name] + '))';
+}
+
+/**
+ * ランクの数式。スコアが全体の何割の位置にいるかで S/A/B/C を決める。
+ * ただし先月よりスコアが上がっていれば C は付けない。
+ * 相対評価は伸びていても順位が上がらなければ下がるので、
+ * 「改善したのにCだった」を潰しておかないと、任された側が続かない。
+ */
 function rankLetterFormula_() {
   var range = monthRange_('{総合スコア}');
-  var p = 'PERCENTRANK(FILTER(' + range + ',' + monthsWithData_()
-        + ',ISNUMBER(' + range + ')),{総合スコア}{r})';
-  var conds = RANK_CUTS.map(function (c) {
-    return p + '>=' + c.at + ',"' + c.rank + '"';
+  var conds = ['S', 'A', 'B'].map(function (r) {
+    return 'p>=' + rankCutFormula_(r) + ',"' + r + '"';
   }).join(',');
-  return '=IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(IFS(' + conds + ',TRUE,"C"),""))';
+
+  return '=IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(LET('
+       + 's,{総合スコア}{r},'
+       + 'p,PERCENTRANK(FILTER(' + range + ',' + monthsWithData_() + ',ISNUMBER(' + range + ')),s),'
+       + 'prev,IF({r}-' + ROWS_PER_MONTH + '<' + FIRST_ROW + ',"",'
+       + 'IFERROR(OFFSET({総合スコア}{r},-' + ROWS_PER_MONTH + ',0),"")),'
+       + 'base,IFS(' + conds + ',TRUE,"C"),'
+       + 'IF(AND(base="C",ISNUMBER(prev),s>prev),"B",base)'
+       + '),""))';
 }
 
 /** 自動計算する率と単価。 */
@@ -416,7 +446,7 @@ function setupKpiSheet() {
   }
 
   writeTitle_(sheet);
-  writePresetRow_(sheet, bench.preset);
+  writePresetRow_(sheet, bench.preset, bench.mood);
   writeHeaders_(sheet);
   writeBenchmarkRows_(sheet, bench.values);
   writeMonthBlocks_(sheet, saved);
@@ -434,7 +464,7 @@ function setupKpiSheet() {
  * まだ無ければ空を返し、書き込み側が初期値で埋める。
  */
 function readBenchmarkSettings_(sheet) {
-  var out = {preset: '', values: {}};
+  var out = {preset: '', mood: '', values: {}};
   try {
     var head = sheet.getRange(HEAD_ROW, 1, 1, LAST_COL).getValues()[0];
     if (String(head[0]).trim() !== '月') { return out; }   // 旧レイアウトなら読まない
@@ -452,6 +482,7 @@ function readBenchmarkSettings_(sheet) {
       }
     });
     out.preset = String(sheet.getRange(PRESET_ROW, 3).getValue() || '');
+    out.mood = String(sheet.getRange(PRESET_ROW, 6).getValue() || '');
   } catch (err) {
     // 形が違えば初期値でやり直す。
   }
@@ -601,7 +632,7 @@ function writeHeaders_(sheet) {
 
 /** 見出しのすぐ下に、悪い／普通／良いの目安を色付きで書く。 */
 /** 業種のプルダウン。選ぶと下の2行が入れ替わる。 */
-function writePresetRow_(sheet, current) {
+function writePresetRow_(sheet, current, currentMood) {
   var names = INDUSTRY_PRESETS.map(function (p) { return p.name; });
   var value = names.indexOf(current) >= 0 ? current : names[0];
 
@@ -620,9 +651,22 @@ function writePresetRow_(sheet, current) {
     .setHelpText('選ぶと下の2行（赤・黄色のライン）が入れ替わります。')
     .build());
 
-  sheet.getRange(PRESET_ROW, 6, 1, LAST_COL - 5).merge()
-    .setValue('▲ 選ぶと下の2行が入れ替わります。数字はいつでも直接書き換えられます（書き換えると業種は「'
-              + PRESET_FREE + '」にしておくと分かりやすい）')
+  var moods = RANK_MOODS.map(function (m) { return m.name; });
+  var moodValue = moods.indexOf(currentMood) >= 0 ? currentMood : moods[0];
+  var moodCell = sheet.getRange(PRESET_ROW, 6, 1, 2);
+  moodCell.merge().setValue(moodValue)
+    .setBackground(COLOR_SETTING_BG).setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+  moodCell.setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(moods, true)
+    .setAllowInvalid(false)
+    .setHelpText('右端のランク（S/A/B/C）の付き方が変わります。人に任せるときは甘めのままで。')
+    .build());
+
+  sheet.getRange(PRESET_ROW, 8, 1, LAST_COL - 7).merge()
+    .setValue('▲ 左＝業種の目安（下の2行が入れ替わります／数字は直接書き換えてもOK）　'
+              + '右＝ランクの厳しさ（甘め＝Cは下位1割だけ。先月よりスコアが上がった月にはCを付けません）')
     .setFontSize(9).setFontColor('#595959').setVerticalAlignment('middle');
   sheet.setRowHeight(PRESET_ROW, 24);
 }
@@ -837,8 +881,10 @@ function writeNotes_(sheet) {
     ['■ ランク（S / A / B / C）'],
     ['色分けが「世間の目安と比べてどうか」なのに対して、ランクは「自社の他の月と比べてどうか」です。'],
     ['合計行にだけ出ます。採用数40%・表示→採用率25%・LINE登録率15%・プロフ表示率10%・定着率10%で総合スコアを出し、'],
-    ['そのスコアが12ヶ月の中で上位20%ならS、上位45%までA、上位70%までB、それ以下がCになります。'],
-    ['相対評価なので、全体が伸びれば同じ数字でもランクは下がります。「先月の自分より良いか」を見るための欄です。'],
+    ['そのスコアが他の月と比べて上のほうならS、下のほうならCになります。切れ目は2行目右の「評価：〜」で変えられます。'],
+    ['甘め＝Cは下位1割だけ／ふつう＝下位3割／厳しめ＝下位4割強。人に任せているうちは甘めのままで十分です。'],
+    ['相対評価はそのままだと、毎月かならず誰かがCになります。それを避けるため、'],
+    ['先月よりスコアが上がった月にはCを付けません（伸びているのにCが出ると、任された側が続かないため）。'],
     ['数字が入っている月が3ヶ月に満たないうちは空欄のままです（比べる相手がいないため）。'],
     [''],
     ['■ 指標の意味'],
