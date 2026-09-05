@@ -114,6 +114,8 @@ function checkInstagramSettings() {
       var list = igListAccounts_(token);
       lines.push('', '見えているアカウント：');
       list.forEach(function (a) { lines.push('　@' + a.username + '（' + a.page + '）'); });
+      lines.push('', '※ ここに出ないアカウントは、メニューの'
+        + '「InstagramアカウントIDを直接入れる」で指定できます。');
       if (!list.length) {
         lines.push('　ありません。トークンに instagram_basic と pages_show_list が'
           + '入っているか確認してください。');
@@ -134,6 +136,36 @@ function resetInstagramAccount() {
   SpreadsheetApp.getActive().toast('次の取り込みのときに、もう一度アカウントを選びます。');
 }
 
+/**
+ * InstagramアカウントIDを手で入れる。
+ *
+ * ページとの繋ぎ方によっては、権限があるのに一覧へ出てこないアカウントがある。
+ * その場合の逃げ道。IDが正しいかどうかは、ユーザー名を引いて確かめる。
+ */
+function setInstagramAccountId() {
+  var ui = SpreadsheetApp.getUi();
+  var res = ui.prompt('InstagramアカウントIDを直接入れる',
+    'アクセストークンデバッガーの instagram_basic の欄に並んでいる、'
+    + '17841… で始まる番号です。', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) { return; }
+
+  var id = res.getResponseText().replace(/[^0-9]/g, '');
+  if (!id) { return; }
+
+  var token = metaToken_();
+  var name;
+  try {
+    name = igRequest_(igUrl_(id, {fields: 'username'}, token)).username;
+  } catch (e) {
+    ui.alert('そのIDでは読めませんでした', e.message + '\n\nIDを確かめてください。',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  PropertiesService.getScriptProperties().setProperty(IG_ACCOUNT_PROP, id);
+  ui.alert('設定しました', '@' + (name || id) + ' の数字を取り込みます。', ui.ButtonSet.OK);
+}
+
 /* ---------------- アカウントの解決 ---------------- */
 
 /**
@@ -144,6 +176,22 @@ function igAccount_(token) {
   var props = PropertiesService.getScriptProperties();
   var saved = props.getProperty(IG_ACCOUNT_PROP);
   var list = igListAccounts_(token);
+
+  // 手でIDを入れた場合、一覧に出てこなくてもそのまま使う。
+  if (saved) {
+    var known = false;
+    list.forEach(function (a) { if (a.id === saved) { known = true; } });
+    if (!known) {
+      try {
+        var name = igRequest_(igUrl_(saved, {fields: 'username'}, token)).username;
+        return {id: saved, username: name || saved, page: '（IDを直接指定）'};
+      } catch (e) {
+        // 読めないIDなら、覚えているものを捨てて選び直す。
+        props.deleteProperty(IG_ACCOUNT_PROP);
+        saved = null;
+      }
+    }
+  }
 
   if (!list.length) {
     throw new Error(
@@ -198,17 +246,25 @@ function igListAccounts_(token) {
   // instagram_business_account は新しい繋ぎ方、connected_instagram_account は古い繋ぎ方。
   // 片方しか見ないと、繋いでいるのに一覧に出てこないアカウントが出る。
   var url = igUrl_('me/accounts',
-    {fields: 'name,instagram_business_account{id,username},connected_instagram_account{id,username}',
+    {fields: 'name,instagram_business_account{id,username},'
+           + 'connected_instagram_account{id,username},instagram_accounts{id,username}',
      limit: 100}, token);
   var data = igRequest_(url).data || [];
 
   var out = [];
   var seen = {};
+  var add = function (ig, pageName) {
+    if (!ig || !ig.id || seen[ig.id]) { return; }
+    seen[ig.id] = true;
+    out.push({id: ig.id, username: ig.username || ig.id, page: pageName});
+  };
+
   data.forEach(function (page) {
-    [page.instagram_business_account, page.connected_instagram_account].forEach(function (ig) {
-      if (!ig || !ig.id || seen[ig.id]) { return; }
-      seen[ig.id] = true;
-      out.push({id: ig.id, username: ig.username || ig.id, page: page.name});
+    add(page.instagram_business_account, page.name);
+    add(page.connected_instagram_account, page.name);
+    // 古い繋ぎ方だと複数返ることがある。
+    ((page.instagram_accounts || {}).data || []).forEach(function (ig) {
+      add(ig, page.name);
     });
   });
   return out;

@@ -483,6 +483,7 @@ function onOpen() {
     .addItem('Claude APIの設定を確認する', 'checkClaudeSettings')
     .addItem('Meta広告の設定を確認する', 'checkMetaSettings')
     .addItem('Instagramの設定を確認する', 'checkInstagramSettings')
+    .addItem('InstagramアカウントIDを直接入れる', 'setInstagramAccountId')
     .addToUi();
 }
 

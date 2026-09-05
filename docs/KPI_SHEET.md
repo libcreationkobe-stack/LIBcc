@@ -539,9 +539,12 @@ LINE友だち追加から先は API に無いので手入力のまま。ここ�
 - `saves` と `shares` を足して「保存＋シェア」に入れる。先行指標が自動で埋まる
 - どれか1つが取れなくても、取れた指標だけ書き込む。Metaは版で指標の扱いを変えるので、
   全部か無かにしない（`igTry_`）
-- ページとInstagramの紐付きは `instagram_business_account`（新しい繋ぎ方）と
-  `connected_instagram_account`（古い繋ぎ方）の2通りある。**両方見ないと、
-  繋いでいるのに一覧に出てこないアカウントが出る**
+- ページとInstagramの紐付きは3通りある（`instagram_business_account` /
+  `connected_instagram_account` / `instagram_accounts`）。全部見ても、
+  **トークンに権限があるのに `me/accounts` へ出てこないアカウントは残る**。
+  ビジネスポートフォリオ経由で管理しているページが `me/accounts` に出ないため。
+  逃げ道として `setInstagramAccountId` でIDを直接指定できるようにした。
+  指定されたIDは一覧に無くても使う（ユーザー名を引いて実在だけ確かめる）
 - **フォロワー数は「いま何人か」しか取れない**。過去にさかのぼれないので、
   一番新しい月にだけ書く。過去月に今日の数字を入れると推移が嘘になる
 - 必要な権限は `instagram_basic` / `instagram_manage_insights` /
