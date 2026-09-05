@@ -428,11 +428,13 @@ function onOpen() {
     .addItem('この月のスライドだけ作り直す', 'buildMonthlyDeck')
     .addSeparator()
     .addItem('広告の数字をMetaから取り込む', 'importMetaAds')
+    .addItem('Instagramの数字を取り込む', 'importInstagramInsights')
     .addSeparator()
     .addItem('このシートをコピーして別アカウントを作る', 'createAccountCopy')
     .addItem('APIキー・トークンを設定する', 'setApiKeys')
     .addItem('Claude APIの設定を確認する', 'checkClaudeSettings')
     .addItem('Meta広告の設定を確認する', 'checkMetaSettings')
+    .addItem('Instagramの設定を確認する', 'checkInstagramSettings')
     .addToUi();
 }
 
