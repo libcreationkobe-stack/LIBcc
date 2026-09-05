@@ -477,6 +477,7 @@ function onOpen() {
     .addSeparator()
     .addItem('広告の数字をMetaから取り込む', 'importMetaAds')
     .addItem('Instagramの数字を取り込む', 'importInstagramInsights')
+    .addItem('詳細データを取り込む（反応・属性・Facebook）', 'importSocialExtras')
     .addSeparator()
     .addItem('このシートをコピーして別アカウントを作る', 'createAccountCopy')
     .addItem('APIキー・トークンを設定する', 'setApiKeys')
@@ -486,6 +487,7 @@ function onOpen() {
     .addItem('Instagramアカウントを選び直す', 'resetInstagramAccount')
     .addItem('InstagramアカウントIDを直接入れる', 'setInstagramAccountId')
     .addItem('IDから名前を調べる（一覧に出ないとき）', 'listInstagramNames')
+    .addItem('Facebookページを選び直す', 'resetFacebookPage')
     .addToUi();
 }
 
