@@ -478,6 +478,10 @@ function onOpen() {
     .addItem('広告の数字をMetaから取り込む', 'importMetaAds')
     .addItem('Instagramの数字を取り込む', 'importInstagramInsights')
     .addItem('詳細データを取り込む（反応・属性・Facebook）', 'importSocialExtras')
+    .addItem('YouTubeの数字を取り込む', 'importYouTube')
+    .addItem('TikTokの貼り付け用タブを作る', 'createTikTokPasteSheet')
+    .addItem('TikTokの数字を貼り付けから取り込む', 'importTikTokFromPaste')
+    .addItem('TikTokの数字をAPIから取り込む（審査が通ったら）', 'importTikTokApi')
     .addSeparator()
     .addItem('このシートをコピーして別アカウントを作る', 'createAccountCopy')
     .addItem('APIキー・トークンを設定する', 'setApiKeys')
@@ -488,6 +492,10 @@ function onOpen() {
     .addItem('InstagramアカウントIDを直接入れる', 'setInstagramAccountId')
     .addItem('IDから名前を調べる（一覧に出ないとき）', 'listInstagramNames')
     .addItem('Facebookページを選び直す', 'resetFacebookPage')
+    .addItem('YouTubeの設定を確認する', 'checkYouTubeSettings')
+    .addItem('YouTubeチャンネルIDを入れる', 'setYouTubeChannelId')
+    .addItem('TikTokのトークンを設定する', 'setTikTokToken')
+    .addItem('TikTokの設定を確認する', 'checkTikTokSettings')
     .addToUi();
 }
 
