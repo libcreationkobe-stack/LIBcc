@@ -184,6 +184,11 @@ function setupKpiSheet() {
 
   var saved = readExistingInputs_(sheet);
 
+  // シートを消してから書き戻すまでの間に落ちると、入力が消えてしまう。
+  // 消す前に控えを取り、次回そこから拾えるようにしておく。
+  saved = mergeWithBackup_(saved);
+  saveBackup_(saved);
+
   // 2回目以降に備えて、フィルタ・固定・結合を先に解除する。
   // フィルタが残っていると、その境界をまたぐ結合ができない。
   removeFilter_(sheet);
@@ -289,6 +294,42 @@ function readOldLayout_(values, headRow) {
 
 function num_(v) {
   return typeof v === 'number' ? v : 0;
+}
+
+var BACKUP_KEY = 'KPI_INPUT_BACKUP';
+
+/**
+ * 前回の控えと突き合わせる。シートから読めた分を優先し、
+ * 読めなかった月・チャネルだけ控えから補う。
+ */
+function mergeWithBackup_(saved) {
+  var backup = loadBackup_();
+  Object.keys(backup).forEach(function (key) {
+    if (!saved[key]) { saved[key] = backup[key]; }
+  });
+  return saved;
+}
+
+/** 入力値の控えをスプレッドシートのプロパティに残す。 */
+function saveBackup_(saved) {
+  if (!Object.keys(saved).length) { return; }
+  try {
+    PropertiesService.getDocumentProperties()
+      .setProperty(BACKUP_KEY, JSON.stringify(saved));
+  } catch (e) {
+    // 控えが取れなくても本来の処理は続ける。
+    Logger.log('入力の控えを保存できませんでした: ' + e.message);
+  }
+}
+
+function loadBackup_() {
+  try {
+    var raw = PropertiesService.getDocumentProperties().getProperty(BACKUP_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    Logger.log('入力の控えを読めませんでした: ' + e.message);
+    return {};
+  }
 }
 
 function writeTitle_(sheet) {

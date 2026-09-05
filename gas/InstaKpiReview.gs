@@ -314,7 +314,12 @@ function selectedMonthIndex_(ss, sheet) {
     var v = kpi.getRange(col_('表示回数') + summaryRow_(i)).getValue();
     if (v !== '' && v !== null && v !== 0) { return i; }
   }
-  throw new Error('KPIシートにまだ数値が入っていません。');
+  throw new Error(
+    'KPIシートにまだ数値が入っていません。\n\n'
+    + '「' + SHEET_NAME + '」タブの ' + channelFirstRow_(0) + '行目（' + MONTHS[0] + '・'
+    + CHANNELS[0] + 'の行）から、表示回数などを入れてください。\n'
+    + '合計行（' + summaryRow_(0) + '行目）は自動計算なので、直接入れても集計されません。\n\n'
+    + '以前の数字が消えている場合は、ファイル → 版の履歴 から戻せます。');
 }
 
 /** 指定した月の数値と、目安に対する判定を集める。 */
