@@ -75,17 +75,28 @@ var METER_METRICS = [
   {key: '定着率',           note: '採用の質。3ヶ月後に残っているか'}
 ];
 
-/** 用語解説スライドに載せる内容。 */
+/**
+ * 用語解説スライドに載せる内容。
+ * 目安のある指標には、KPIシートに入っている判定ラインをその場で足す。
+ * シート側で基準を変えれば、スライドの説明も一緒に変わる。
+ */
+function glossary_() {
+  return GLOSSARY.map(function (g) {
+    var b = benchmarkFor_(g[0]);
+    return b ? [g[0], g[1] + '目安は ' + benchPct_(b.bad).replace('%', '') + '〜' + benchPct_(b.good) + '（KPIシート4・5行目で変更できる）。'] : g;
+  });
+}
+
 var GLOSSARY = [
   ['表示回数', 'インプレッション・再生回数。媒体で呼び名が違うだけで、表示された延べ回数。全チャネルの合計。'],
-  ['プロフ表示率', 'プロフィール表示 ÷ リーチ数。投稿を見た人のうちプロフィールまで来た割合。目安3〜5%。'],
-  ['リンククリック率', 'リンククリック ÷ プロフィール表示。プロフィール文と導線の出来。10%が分岐点。'],
-  ['LINE登録率', 'LINE友だち追加 ÷ リンククリック。LPと登録導線の出来。20〜40%が一般的。'],
+  ['プロフ表示率', 'プロフィール表示 ÷ リーチ数。投稿を見た人のうちプロフィールまで来た割合。'],
+  ['リンククリック率', 'リンククリック ÷ プロフィール表示。プロフィール文と導線の出来。'],
+  ['LINE登録率', 'LINE友だち追加 ÷ リンククリック。LPと登録導線の出来。'],
   ['エントリー率', 'エントリー数 ÷ LINE友だち追加。LINE内トークの出来。業種差が大きいため目安は置いていない。'],
-  ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。目安は暫定値なので、実績が溜まったら自社の値に置き換える。'],
+  ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。'],
   ['採用単価', '広告費 ÷ 採用数。Meta広告とTikTokプロモートの判断はこの数字で行う。自社の許容上限と比べる。'],
   ['保存シェア率', '（保存＋シェア）÷ リーチ数。伸びの先行指標。ここが増えた翌月に表示回数が伸びる。'],
-  ['定着率', '3ヶ月定着数 ÷ 採用数。3ヶ月遅れて分かる。ここを見ないと「採る→辞める」を繰り返す。目安は仮置き。']
+  ['定着率', '3ヶ月定着数 ÷ 採用数。3ヶ月遅れて分かる。ここを見ないと「採る→辞める」を繰り返す。']
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -473,8 +484,9 @@ function renderActions_(slide, index, actions) {
 function renderGlossary_(slide, index) {
   var body = slideBase_(slide, index, '指標の見方', -1, 8);
 
-  var rowH = Math.min(46, body.height / GLOSSARY.length);
-  GLOSSARY.forEach(function (g, i) {
+  var list = glossary_();
+  var rowH = Math.min(46, body.height / list.length);
+  list.forEach(function (g, i) {
     var y = body.top + i * rowH;
     box_(slide, PAD, y + 6, 3, rowH - 14, C_NAVY);
     text_(slide, PAD + 14, y + 2, 150, 18, g[0], {size: 11, color: C_INK, bold: true});
@@ -635,8 +647,9 @@ function prevMetric_(data, label) {
 }
 
 function benchmarkFor_(key) {
-  for (var i = 0; i < BENCHMARKS.length; i++) {
-    if (BENCHMARKS[i].key === key) { return BENCHMARKS[i]; }
+  var list = activeBenchmarks_();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].key === key) { return list[i]; }
   }
   return null;
 }

@@ -395,8 +395,9 @@ function readChannelRows_(kpi, index) {
 /** 目安に照らして 悪い／普通／良い を返す。指標名で引く。 */
 function judge_(key, value) {
   if (typeof value !== 'number') { return ''; }
-  for (var i = 0; i < BENCHMARKS.length; i++) {
-    var b = BENCHMARKS[i];
+  var list = activeBenchmarks_();
+  for (var i = 0; i < list.length; i++) {
+    var b = list[i];
     if (b.key !== key) { continue; }
     if (value < b.bad) { return '悪い'; }
     if (value < b.good) { return '普通'; }
@@ -407,8 +408,8 @@ function judge_(key, value) {
 
 /** 目安を文章にする（Claudeに判断基準を渡すため）。 */
 function benchmarkText_() {
-  return BENCHMARKS.map(function (b) {
-    return '- ' + b.key + '：' + b.labels.join(' / ');
+  return activeBenchmarks_().map(function (b) {
+    return '- ' + b.key + '：' + benchLabels_(b).join(' / ');
   }).join('\n');
 }
 

@@ -28,9 +28,11 @@ var TOTAL_LABEL = '合計';
 var ROWS_PER_MONTH = CHANNELS.length + 1;   // チャネル行＋合計行
 
 var TITLE_ROW = 1;
-var HEAD_ROW = 2;
-var GUIDE_ROW = 3;   // 目安（悪い／普通／良い）
-var FIRST_ROW = 4;
+var PRESET_ROW = 2;   // 業種プリセット（選ぶと下の2行が入れ替わる）
+var HEAD_ROW = 3;
+var BAD_ROW = 4;      // これ未満なら赤
+var GOOD_ROW = 5;     // これ以上なら黄色
+var FIRST_ROW = 6;
 var LAST_ROW = FIRST_ROW + MONTHS.length * ROWS_PER_MONTH - 1;
 var YEAR_TOTAL_ROW = LAST_ROW + 2;
 var YEAR_AVG_ROW = LAST_ROW + 3;
@@ -127,16 +129,91 @@ function resolveFormula_(template, row) {
 
 /**
  * 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
- * もとはInstagramの一般値。他のチャネルでは水準が変わるので、
- * 実績が溜まったらチャネルの実態に合わせて書き換える。
+ *
+ * ここに書いてあるのは「シートを新しく作ったときの初期値」だけ。
+ * 実際に使われるのはシート4行目・5行目の入力セルなので、
+ * 業種に合わせて直すときはスクリプトではなくシートを書き換える。
  */
 var BENCHMARKS = [
-  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05,   labels: ['悪い 〜3%',     '普通 3〜5%',        '良い 5%〜']},
-  {key: 'リンククリック率', bad: 0.05,    good: 0.10,   labels: ['悪い 〜5%',     '普通 5〜10%',       '良い 10%〜']},
-  {key: 'LINE登録率',       bad: 0.20,    good: 0.40,   labels: ['悪い 〜20%',    '普通 20〜40%',      '良い 40%〜']},
-  {key: '表示→採用率',      bad: 0.00005, good: 0.0002, labels: ['悪い 〜0.005%', '普通 0.005〜0.02%', '良い 0.02%〜']},
-  {key: '定着率',           bad: 0.70,    good: 0.90,   labels: ['悪い 〜70%',    '普通 70〜90%',      '良い 90%〜']}
+  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05},
+  {key: 'リンククリック率', bad: 0.05,    good: 0.10},
+  {key: 'LINE登録率',       bad: 0.20,    good: 0.40},
+  {key: '表示→採用率',      bad: 0.00005, good: 0.0002},
+  {key: '定着率',           bad: 0.70,    good: 0.90}
 ];
+
+/**
+ * 業種プリセット。2行目のプルダウンで選ぶと、4行目・5行目に入る。
+ * 出発点の目安であって正解ではない。3〜6ヶ月ためたら自社の実績で上書きすること。
+ * 値は [赤になるライン（未満）, 黄色になるライン（以上）]。
+ */
+var INDUSTRY_PRESETS = [
+  {name: '標準（迷ったらこれ）', values: {
+    'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
+    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00005, 0.0002], '定着率': [0.70, 0.90]}},
+  {name: '飲食・小売・サービス', values: {
+    'プロフ表示率': [0.03, 0.06], 'リンククリック率': [0.05, 0.10],
+    'LINE登録率': [0.25, 0.45], '表示→採用率': [0.0001, 0.0004], '定着率': [0.60, 0.85]}},
+  {name: '介護・医療・福祉', values: {
+    'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
+    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00005, 0.0002], '定着率': [0.70, 0.90]}},
+  {name: '建設・製造・運送', values: {
+    'プロフ表示率': [0.02, 0.04], 'リンククリック率': [0.04, 0.08],
+    'LINE登録率': [0.15, 0.35], '表示→採用率': [0.00003, 0.00015], '定着率': [0.75, 0.92]}},
+  {name: '美容・アパレル', values: {
+    'プロフ表示率': [0.04, 0.07], 'リンククリック率': [0.06, 0.12],
+    'LINE登録率': [0.25, 0.45], '表示→採用率': [0.00005, 0.0002], '定着率': [0.65, 0.88]}},
+  {name: 'IT・オフィスワーク', values: {
+    'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
+    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00002, 0.0001], '定着率': [0.80, 0.93]}},
+  {name: '（自分で決める）', values: null}
+];
+
+var PRESET_FREE = '（自分で決める）';
+
+/**
+ * いま効いている判定ライン。シートの入力セルを読み、
+ * 空欄や文字が入っていたら初期値で埋める。1回の実行につき1度だけ読む。
+ */
+var BENCH_CACHE_ = null;
+
+function activeBenchmarks_() {
+  if (BENCH_CACHE_) { return BENCH_CACHE_; }
+  var out = BENCHMARKS.map(function (b) { return {key: b.key, bad: b.bad, good: b.good}; });
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    if (sheet) {
+      var rows = sheet.getRange(BAD_ROW, 1, 2, LAST_COL).getValues();
+      out.forEach(function (b) {
+        var idx = ALL_COLUMNS.map(function (c) { return c.key; }).indexOf(b.key) + 2;
+        var bad = rows[0][idx];
+        var good = rows[1][idx];
+        if (typeof bad === 'number' && bad > 0) { b.bad = bad; }
+        if (typeof good === 'number' && good > 0) { b.good = good; }
+        if (b.good <= b.bad) { b.good = b.bad * 2; }   // 逆に入れられても壊れないように
+      });
+    }
+  } catch (err) {
+    // シートがまだ無いときは初期値のまま使う。
+  }
+  BENCH_CACHE_ = out;
+  return out;
+}
+
+/** 「悪い 〜3%」「普通 3〜5%」「良い 5%〜」の3つを作る。 */
+function benchLabels_(b) {
+  return ['悪い 〜' + benchPct_(b.bad),
+          '普通 ' + benchPct_(b.bad).replace('%', '') + '〜' + benchPct_(b.good),
+          '良い ' + benchPct_(b.good) + '〜'];
+}
+
+/** 判定ラインを読める％にする。0.005%のような小さい値も潰れないようにする。 */
+function benchPct_(v) {
+  if (typeof v !== 'number') { return '—'; }
+  var pct = v * 100;
+  if (pct >= 1) { return String(Math.round(pct * 10) / 10) + '%'; }
+  return String(Number(pct.toPrecision(2))) + '%';
+}
 
 var BAD = {bg: '#f4cccc', fg: '#990000'};
 var OK = {bg: '#d9ead3', fg: '#274e13'};
@@ -150,6 +227,7 @@ var COLOR_CALC_BG = '#edf3e9';
 var COLOR_TOTAL_BG = '#fff2cc';
 var COLOR_MONTH_BG = '#f2f2f2';
 var COLOR_BORDER = '#bfbfbf';
+var COLOR_SETTING_BG = '#fffbe6';   // 手で直していい設定セル
 
 var MIN_ROWS = 190;
 
@@ -158,6 +236,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('KPIシート')
     .addItem('シートを整える（数式・色分けを入れ直す）', 'setupKpiSheet')
+    .addItem('業種の目安を入れ直す', 'applyIndustryPresetFromCell')
     .addSeparator()
     .addItem('月次レビューシートを作る', 'buildReviewSheet')
     .addItem('この月の総評をAIに書かせる', 'writeReviewForSelectedMonth')
@@ -167,6 +246,49 @@ function onOpen() {
     .addSeparator()
     .addItem('Claude APIの設定を確認する', 'checkClaudeSettings')
     .addToUi();
+}
+
+/**
+ * 2行目のプルダウンを触ったら、4行目・5行目の判定ラインを入れ替える。
+ * 単純トリガーなので、承認なしで動く。他のセルを触っても何もしない。
+ */
+function onEdit(e) {
+  try {
+    if (!e || !e.range) { return; }
+    var sheet = e.range.getSheet();
+    if (sheet.getName() !== SHEET_NAME) { return; }
+    if (e.range.getRow() !== PRESET_ROW || e.range.getColumn() !== 3) { return; }
+    applyIndustryPreset_(sheet, String(e.range.getValue()));
+  } catch (err) {
+    // 入力の邪魔をしないよう、ここでは黙って諦める。
+  }
+}
+
+/** メニューから実行したとき用。プルダウンで選ばれている業種を入れ直す。 */
+function applyIndustryPresetFromCell() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) { return; }
+  var name = String(sheet.getRange(PRESET_ROW, 3).getValue());
+  var done = applyIndustryPreset_(sheet, name);
+  SpreadsheetApp.getActive().toast(done
+    ? name + 'の目安を入れました。数字は直接書き換えてもかまいません。'
+    : '「' + PRESET_FREE + '」を選んでいるので、いまの数字はそのままです。');
+}
+
+/** プリセットの数字を判定ラインの2行に書く。書いたら true。 */
+function applyIndustryPreset_(sheet, name) {
+  var preset = null;
+  INDUSTRY_PRESETS.forEach(function (p) { if (p.name === name) { preset = p; } });
+  if (!preset || !preset.values) { return false; }
+
+  BENCHMARKS.forEach(function (b) {
+    var pair = preset.values[b.key];
+    if (!pair) { return; }
+    var letter = col_(b.key);
+    sheet.getRange(letter + BAD_ROW).setValue(pair[0]);
+    sheet.getRange(letter + GOOD_ROW).setValue(pair[1]);
+  });
+  return true;
 }
 
 /** フィルタが掛かっていれば外す。掛かっていなければ何もしない。 */
@@ -191,6 +313,8 @@ function setupKpiSheet() {
   var sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
 
   var saved = readExistingInputs_(sheet);
+  // 判定ラインは消す前に読む。読まずに作り直すと、直した数字が初期値に戻ってしまう。
+  var bench = readBenchmarkSettings_(sheet);
 
   // シートを消してから書き戻すまでの間に落ちると、入力が消えてしまう。
   // 消す前に控えを取り、次回そこから拾えるようにしておく。
@@ -214,16 +338,53 @@ function setupKpiSheet() {
     sheet.insertRowsAfter(sheet.getMaxRows(), MIN_ROWS - sheet.getMaxRows());
   }
 
+  // 広告タブを先に作る。あとで作ると、KPI側の参照が #REF! のまま固まる。
+  var adSheet = null;
+  if (typeof buildAdSheet_ === 'function') {
+    adSheet = buildAdSheet_(ss);
+  }
+
   writeTitle_(sheet);
+  writePresetRow_(sheet, bench.preset);
   writeHeaders_(sheet);
-  writeGuideRow_(sheet);
+  writeBenchmarkRows_(sheet, bench.values);
   writeMonthBlocks_(sheet, saved);
   writeYearRows_(sheet);
   writeNotes_(sheet);
   applyConditionalFormats_(sheet);
   finishLayout_(sheet);
 
+  if (adSheet) { ss.setActiveSheet(sheet); }
   SpreadsheetApp.getActive().toast('KPIシートを整えました。チャネルごとに数字を入れてください。');
+}
+
+/**
+ * いまシートに入っている判定ラインと業種の選択を読む。
+ * まだ無ければ空を返し、書き込み側が初期値で埋める。
+ */
+function readBenchmarkSettings_(sheet) {
+  var out = {preset: '', values: {}};
+  try {
+    var head = sheet.getRange(HEAD_ROW, 1, 1, LAST_COL).getValues()[0];
+    if (String(head[0]).trim() !== '月') { return out; }   // 旧レイアウトなら読まない
+
+    var byHeader = {};
+    ALL_COLUMNS.forEach(function (c) { byHeader[c.header] = c.key; });
+    var rows = sheet.getRange(BAD_ROW, 1, 2, LAST_COL).getValues();
+    head.forEach(function (h, i) {
+      var key = byHeader[String(h)];
+      if (!key) { return; }
+      var bad = rows[0][i];
+      var good = rows[1][i];
+      if (typeof bad === 'number' && typeof good === 'number' && bad > 0 && good > bad) {
+        out.values[key] = [bad, good];
+      }
+    });
+    out.preset = String(sheet.getRange(PRESET_ROW, 3).getValue() || '');
+  } catch (err) {
+    // 形が違えば初期値でやり直す。
+  }
+  return out;
 }
 
 /**
@@ -368,34 +529,78 @@ function writeHeaders_(sheet) {
 }
 
 /** 見出しのすぐ下に、悪い／普通／良いの目安を色付きで書く。 */
-function writeGuideRow_(sheet) {
-  sheet.getRange(GUIDE_ROW, 1, 1, 2).merge().setValue('目安')
-    .setFontWeight('bold').setBackground(COLOR_MONTH_BG)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  sheet.getRange(GUIDE_ROW, 3, 1, LAST_COL - 2)
-    .setBackground('#ffffff').setFontSize(8)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+/** 業種のプルダウン。選ぶと下の2行が入れ替わる。 */
+function writePresetRow_(sheet, current) {
+  var names = INDUSTRY_PRESETS.map(function (p) { return p.name; });
+  var value = names.indexOf(current) >= 0 ? current : names[0];
 
-  BENCHMARKS.forEach(function (b) {
-    sheet.getRange(col_(b.key) + GUIDE_ROW).setRichTextValue(buildGuideText_(b.labels));
-  });
-  sheet.getRange(GUIDE_ROW, 1, 1, LAST_COL)
-    .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(GUIDE_ROW, 32);
+  sheet.getRange(PRESET_ROW, 1, 1, 2).merge().setValue('業種')
+    .setFontWeight('bold').setFontSize(10).setBackground(COLOR_MONTH_BG)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+  var cell = sheet.getRange(PRESET_ROW, 3, 1, 3);
+  cell.merge().setValue(value)
+    .setBackground(COLOR_SETTING_BG).setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+  cell.setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(names, true)
+    .setAllowInvalid(false)
+    .setHelpText('選ぶと下の2行（赤・黄色のライン）が入れ替わります。')
+    .build());
+
+  sheet.getRange(PRESET_ROW, 6, 1, LAST_COL - 5).merge()
+    .setValue('▲ 選ぶと下の2行が入れ替わります。数字はいつでも直接書き換えられます（書き換えると業種は「'
+              + PRESET_FREE + '」にしておくと分かりやすい）')
+    .setFontSize(9).setFontColor('#595959').setVerticalAlignment('middle');
+  sheet.setRowHeight(PRESET_ROW, 24);
 }
 
-/** 「悪い〜3% / 普通 3〜5% / 良い 5%〜」を1セル内で3色に塗り分ける。 */
-function buildGuideText_(labels) {
-  var sep = ' / ';
-  var builder = SpreadsheetApp.newRichTextValue().setText(labels.join(sep));
-  var colors = [BAD.fg, OK.fg, GOOD.fg];
-  var pos = 0;
-  for (var i = 0; i < labels.length; i++) {
-    builder.setTextStyle(pos, pos + labels[i].length,
-      SpreadsheetApp.newTextStyle().setForegroundColor(colors[i]).setBold(true).build());
-    pos += labels[i].length + sep.length;
+/**
+ * 判定ラインの入力欄。ここの数字が色分けの基準になる。
+ * 上＝赤になるライン（未満）、下＝黄色になるライン（以上）。あいだが緑。
+ */
+function writeBenchmarkRows_(sheet, savedValues) {
+  [[BAD_ROW, '🔴 赤になる（未満）', BAD],
+   [GOOD_ROW, '🟡 黄色になる（以上）', GOOD]].forEach(function (spec) {
+    sheet.getRange(spec[0], 1, 1, 2).merge().setValue(spec[1])
+      .setFontWeight('bold').setFontSize(9).setBackground(spec[2].bg).setFontColor(spec[2].fg)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
+    sheet.getRange(spec[0], 3, 1, LAST_COL - 2)
+      .setBackground('#ffffff').setHorizontalAlignment('center').setVerticalAlignment('middle');
+    sheet.setRowHeight(spec[0], 22);
+  });
+
+  var rule = SpreadsheetApp.newDataValidation()
+    .requireNumberBetween(0, 1)
+    .setAllowInvalid(false)
+    .setHelpText('0〜1の割合で入れてください。3% と打っても入ります（3 とだけ打つと入りません）。')
+    .build();
+
+  BENCHMARKS.forEach(function (b) {
+    var letter = col_(b.key);
+    var saved = savedValues && savedValues[b.key];
+    var format = calcFormat_(b.key);
+
+    [[BAD_ROW, saved ? saved[0] : b.bad, BAD],
+     [GOOD_ROW, saved ? saved[1] : b.good, GOOD]].forEach(function (t) {
+      sheet.getRange(letter + t[0]).setValue(t[1])
+        .setNumberFormat(format).setDataValidation(rule)
+        .setBackground(COLOR_SETTING_BG).setFontColor(t[2].fg).setFontWeight('bold')
+        .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+    });
+  });
+
+  sheet.getRange(BAD_ROW, 1, 2, LAST_COL)
+    .setBorder(true, true, true, true, null, null, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/** その率の列の表示形式。判定ラインの入力欄も同じ形にそろえる。 */
+function calcFormat_(key) {
+  for (var i = 0; i < CALC_COLUMNS.length; i++) {
+    if (CALC_COLUMNS[i].key === key) { return CALC_COLUMNS[i].format; }
   }
-  return builder.build();
+  return '0.0%';
 }
 
 /** 月ごとにチャネル行と合計行を書く。 */
@@ -418,7 +623,14 @@ function writeMonthBlocks_(sheet, saved) {
       var body = saved[m + '|' + channel] || {};
       INPUT_COLUMNS.forEach(function (c) {
         var cell = sheet.getRange(col_(c.key) + r);
-        if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
+        // 広告チャネルは広告タブが入力欄。こちらは引くだけで、二重入力にしない。
+        var pull = paid && typeof adPullFormula_ === 'function'
+          ? adPullFormula_(c.key, channel, m) : null;
+        if (pull) {
+          cell.setFormula(pull).setFontColor('#8a6100');
+        } else if (body.hasOwnProperty(c.key)) {
+          cell.setValue(body[c.key]);
+        }
         cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
       });
       writeCalcCells_(sheet, r);
@@ -501,12 +713,17 @@ function applyConditionalFormats_(sheet) {
     var letter = col_(b.key);
     var range = sheet.getRange(letter + FIRST_ROW + ':' + letter + YEAR_AVG_ROW);
     var cell = '$' + letter + FIRST_ROW;
+    // 判定ラインは固定値ではなく4行目・5行目のセルを見る。
+    // シート上で数字を直せば、色分けもその場で変わる。
+    var bad = '$' + letter + '$' + BAD_ROW;
+    var good = '$' + letter + '$' + GOOD_ROW;
+    var guard = 'ISNUMBER(' + cell + '),ISNUMBER(' + bad + '),ISNUMBER(' + good + ')';
     // 空欄を赤くしないよう ISNUMBER で必ず絞る。
-    [[cell + '<' + b.bad, BAD],
-     [cell + '>=' + b.bad + ',' + cell + '<' + b.good, OK],
-     [cell + '>=' + b.good, GOOD]].forEach(function (t) {
+    [[cell + '<' + bad, BAD],
+     [cell + '>=' + bad + ',' + cell + '<' + good, OK],
+     [cell + '>=' + good, GOOD]].forEach(function (t) {
       rules.push(SpreadsheetApp.newConditionalFormatRule()
-        .whenFormulaSatisfied('=AND(ISNUMBER(' + cell + '),' + t[0] + ')')
+        .whenFormulaSatisfied('=AND(' + guard + ',' + t[0] + ')')
         .setBackground(t[1].bg).setFontColor(t[1].fg).setBold(true)
         .setRanges([range]).build());
     });
@@ -520,15 +737,18 @@ function writeNotes_(sheet) {
     ['■ 使い方'],
     ['月ごとにチャネルの行が並んでいます。左の入力欄に数字を入れるだけ。合計行と率は自動です。'],
     ['LINE友だち総数は月全体の数字なので、合計行にだけ入れてください。'],
-    ['広告費はMeta広告・TikTokプロモートの行に入れます。入れると採用単価とLINE登録単価が出ます。'],
+    ['Meta広告・TikTokプロモートの行は「広告」タブから自動で入ります。数字は広告タブに入れてください。'],
     ['3ヶ月定着数は3ヶ月後に分かる数字です。8月に採用した人が11月に残っていたら、8月の行に入れます。'],
     ['全部を毎月埋めようとしないでください。主力チャネルだけ全項目、他は表示回数・LINE追加・採用数の3つで十分です。'],
     ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
     [''],
-    ['■ 色分け（プロフ表示率／リンククリック率／LINE登録率／表示→採用率）'],
-    ['赤＝悪い　緑＝普通　黄色＝良い'],
-    ['目安はもともとInstagramの一般値です。TikTokやYouTubeは母数の数え方が違うため水準もずれます。'],
-    ['まずは自社の実績を3〜6ヶ月ためて、チャネルごとの実態に合わせて BENCHMARKS を書き換えてください。'],
+    ['■ 色分けの基準（4行目・5行目）'],
+    ['赤＝悪い　緑＝普通　黄色＝良い。基準はシートの上から4行目・5行目に入っています。'],
+    ['4行目＝これ未満なら赤。5行目＝これ以上なら黄色。あいだが緑。数字を直せば色分けもその場で変わります。'],
+    ['2行目の業種プルダウンを選ぶと、その業種の目安が4行目・5行目に入ります。あとから直してかまいません。'],
+    ['入れ方は 3% のように％を付けるか、0.03 と小数で。3 とだけ打つとエラーになります。'],
+    ['プリセットは出発点であって正解ではありません。実績が3〜6ヶ月たまったら、自社の平均を基準に置き換えてください。'],
+    ['置き換え方：その率の「月平均」を見て、平均を4行目、平均の1.3〜1.5倍を5行目に入れる。それだけで自社基準になります。'],
     [''],
     ['■ 指標の意味'],
     ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
@@ -570,6 +790,6 @@ function finishLayout_(sheet) {
   sheet.getRange(HEAD_ROW, 1, YEAR_AVG_ROW - HEAD_ROW + 1, LAST_COL)
     .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
 
-  sheet.setFrozenRows(GUIDE_ROW);
+  sheet.setFrozenRows(GOOD_ROW);
   sheet.setFrozenColumns(2);
 }
