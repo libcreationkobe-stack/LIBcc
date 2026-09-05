@@ -52,6 +52,18 @@ var FB_METRICS = [
   {api: 'page_fans',               label: 'ページいいね', mode: 'last'}
 ];
 
+/**
+ * Facebookの数字のうち、月次KPIのFacebook行にも入れるもの。
+ *
+ * リーチは入れない。日ごとの重複しない人数を足し上げた数なので、
+ * 月のリーチとしては多すぎる。詳細データ側に注記付きで置くだけにする。
+ */
+var FB_TO_KPI = [
+  {api: 'page_impressions', key: '表示回数'},
+  {api: 'page_views_total', key: 'プロフィール表示'},
+  {api: 'page_fans',        key: 'フォロワー数'}
+];
+
 /* ---------------- 入口 ---------------- */
 
 /** メニューから実行する。タブを作り直して、今日までの月を埋める。 */
@@ -74,9 +86,13 @@ function importSocialExtras() {
   if (online) { blocks.push(online); }
 
   var page = exFacebookPage_(token, notes);
+  var fbMonths = 0;
   if (page) {
     var fb = exFacebookBlock_(token, page, start, months, notes);
-    if (fb) { blocks.push(fb); }
+    if (fb) {
+      blocks.push(fb);
+      fbMonths = exWriteFacebookToKpi_(ss, fb.monthly);
+    }
   }
 
   exRender_(ss, account, page, blocks, notes);
@@ -85,6 +101,10 @@ function importSocialExtras() {
                  'アカウント：@' + account.username];
   if (page) { message.push('Facebookページ：' + page.name); }
   else { message.push('Facebookページ：見ていません'); }
+  if (fbMonths) {
+    message.push('月次KPIのFacebook行にも ' + fbMonths + 'ヶ月ぶん入れました'
+      + '（表示回数・ページ表示・フォロワー数）。');
+  }
   if (notes.length) {
     message.push('', '取れなかったもの（シート下部にも出ています）：');
     message = message.concat(notes.map(function (n) { return '・' + n; }));
@@ -293,23 +313,36 @@ function exFacebookBlock_(token, page, start, months, notes) {
   });
   if (!usable.length) { return null; }
 
+  var monthly = [];
   var rows = months.map(function (month) {
     var span = metaMonthSpan_(start, month.index);
     var got = exFbFetch_(page, usable.map(function (m) { return m.api; }), span) || {};
-    return [month.label].concat(usable.map(function (m) {
+    var values = {};
+    var row = [month.label];
+
+    usable.forEach(function (m) {
       var series = got[m.api];
-      if (!series || !series.length) { return ''; }
-      if (m.mode === 'last') { return series[series.length - 1]; }
-      var sum = 0;
-      series.forEach(function (v) { sum += v; });
-      return sum;
-    }));
+      if (!series || !series.length) { row.push(''); return; }
+      var value;
+      if (m.mode === 'last') {
+        value = series[series.length - 1];
+      } else {
+        value = 0;
+        series.forEach(function (v) { value += v; });
+      }
+      values[m.api] = value;
+      row.push(value);
+    });
+
+    monthly.push({index: month.index, values: values});
+    return row;
   });
 
   return {
     title: 'Facebookページ（月ごと）　' + page.name,
     head: ['月'].concat(usable.map(function (m) { return m.label; })),
     rows: rows,
+    monthly: monthly,
     note: 'リーチは日ごとの数を足しています。同じ人を複数日で数えるので、実人数より多く出ます。'
   };
 }
@@ -332,6 +365,34 @@ function exFbFetch_(page, metrics, span) {
     out[m.name] = series;
   });
   return out;
+}
+
+/**
+ * 月次KPIのFacebook行に転記する。書けた月数を返す。
+ *
+ * 詳細データはあくまで自社用なので、クライアントに見せる表にも出しておく。
+ * Facebook行はこれまで手入力だった。
+ */
+function exWriteFacebookToKpi_(ss, monthly) {
+  var kpi = ss.getSheetByName(SHEET_NAME);
+  if (!kpi || !monthly || !monthly.length) { return 0; }
+
+  var channelIndex = CHANNELS.indexOf('Facebook');
+  if (channelIndex < 0) { return 0; }
+
+  var wrote = 0;
+  monthly.forEach(function (month) {
+    var row = channelFirstRow_(month.index) + channelIndex;
+    var any = false;
+    FB_TO_KPI.forEach(function (m) {
+      var value = month.values[m.api];
+      if (typeof value !== 'number') { return; }
+      kpi.getRange(col_(m.key) + row).setValue(value);
+      any = true;
+    });
+    if (any) { wrote++; }
+  });
+  return wrote;
 }
 
 /* ---------------- Metaへの問い合わせ ---------------- */
