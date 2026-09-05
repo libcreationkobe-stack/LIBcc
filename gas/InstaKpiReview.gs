@@ -33,20 +33,23 @@ var REVIEW_COLUMNS = [
 var REVIEW_LAST_COL = REVIEW_COLUMNS.length;   // 9 (I列)
 var REVIEW_BODY_COLS = 7;                     // C〜I（総評からリンクまで）
 
-/** Claudeへの依頼で使う指標。KPIシートの列と目安を紐づける。 */
+/** Claudeへの依頼で使う指標。KPIシートの合計行から引く。 */
 var REVIEW_METRICS = [
-  {label: '投稿数',           col: 'B'},
-  {label: 'インプレッション', col: 'C'},
-  {label: 'リーチ数',         col: 'D'},
-  {label: 'プロフアクセス率', col: 'O', rate: true, bench: 'O'},
-  {label: 'リンクタップ率',   col: 'P', rate: true, bench: 'P'},
-  {label: 'LINE登録率',       col: 'Q', rate: true, bench: 'Q'},
-  {label: '面接率',           col: 'R', rate: true},
-  {label: '採用率(面接→採用)', col: 'S', rate: true},
-  {label: 'LINE登録数',       col: 'G'},
-  {label: '面接数',           col: 'H'},
-  {label: '採用数 合計',      col: 'L'},
-  {label: 'リーチ→採用率',    col: 'V', rate: true, bench: 'V'}
+  {label: '投稿数',             col: 'C'},
+  {label: '表示回数',           col: 'D'},
+  {label: 'リーチ数',           col: 'E'},
+  {label: 'プロフ表示率',       col: 'N', rate: true, bench: 'N'},
+  {label: 'リンククリック率',   col: 'O', rate: true, bench: 'O'},
+  {label: 'LINE登録率',         col: 'P', rate: true, bench: 'P'},
+  {label: 'エントリー率',       col: 'Q', rate: true},
+  {label: '面接率',             col: 'R', rate: true},
+  {label: '採用率(面接→採用)',  col: 'S', rate: true},
+  {label: 'LINE友だち追加',     col: 'H'},
+  {label: 'LINE友だち総数',     col: 'L'},
+  {label: 'エントリー数',       col: 'I'},
+  {label: '面接数',             col: 'J'},
+  {label: '採用数',             col: 'K'},
+  {label: '表示→採用率',        col: 'T', rate: true, bench: 'T'}
 ];
 
 var CLAUDE_MODEL_REVIEW = 'claude-opus-5';
@@ -174,7 +177,7 @@ function buildReviewSheet() {
 
   for (var i = 0; i < MONTHS.length; i++) {
     var row = REVIEW_FIRST_ROW + i;
-    var kpiRow = FIRST_ROW + i;
+    var kpiRow = summaryRow_(i);
 
     sheet.getRange(row, 1)
       .setValue(MONTHS[i])
@@ -245,13 +248,13 @@ function readExistingReviews_(sheet) {
 /** B列に出す数値サマリーの数式。KPIシートを参照する。 */
 function summaryFormula_(kpiRow) {
   var s = "'" + SHEET_NAME + "'!";
-  return '=IFERROR(IF(' + s + 'D' + kpiRow + '="","（KPIシートに数値が未入力）",'
-    + '"リーチ "&TEXT(' + s + 'D' + kpiRow + ',"#,##0")'
-    + '&"　プロフ "&TEXT(' + s + 'O' + kpiRow + ',"0.0%")'
-    + '&"　タップ "&TEXT(' + s + 'P' + kpiRow + ',"0.0%")'
-    + '&"　LINE "&TEXT(' + s + 'Q' + kpiRow + ',"0.0%")'
-    + '&"　面接 "&' + s + 'H' + kpiRow + '&"件"'
-    + '&"　採用 "&' + s + 'L' + kpiRow + '&"人"),"")';
+  return '=IFERROR(IF(' + s + 'D' + kpiRow + '=0,"（KPIシートに数値が未入力）",'
+    + '"表示 "&TEXT(' + s + 'D' + kpiRow + ',"#,##0")'
+    + '&"　プロフ "&TEXT(' + s + 'N' + kpiRow + ',"0.0%")'
+    + '&"　クリック "&TEXT(' + s + 'O' + kpiRow + ',"0.0%")'
+    + '&"　LINE "&' + s + 'H' + kpiRow + '&"人"'
+    + '&"　応募 "&' + s + 'I' + kpiRow + '&"件"'
+    + '&"　採用 "&' + s + 'K' + kpiRow + '&"人"),"")';
 }
 
 /** メニュー用。選択中の行の月について総評を書かせる。 */
@@ -263,7 +266,7 @@ function writeReviewForSelectedMonth() {
   }
 
   var index = selectedMonthIndex_(ss, sheet);
-  var kpiRow = FIRST_ROW + index;
+  var kpiRow = summaryRow_(index);
   var data = collectMonthData_(index);
 
   if (data.reach === '' || data.reach === null) {
@@ -300,9 +303,9 @@ function selectedMonthIndex_(ss, sheet) {
   }
 
   var kpi = ss.getSheetByName(SHEET_NAME);
-  var reach = kpi.getRange(FIRST_ROW, 4, MONTHS.length, 1).getValues();
   for (var i = MONTHS.length - 1; i >= 0; i--) {
-    if (reach[i][0] !== '' && reach[i][0] !== null) { return i; }
+    var v = kpi.getRange('D' + summaryRow_(i)).getValue();
+    if (v !== '' && v !== null && v !== 0) { return i; }
   }
   throw new Error('KPIシートにまだ数値が入っていません。');
 }
@@ -310,7 +313,7 @@ function selectedMonthIndex_(ss, sheet) {
 /** 指定した月の数値と、目安に対する判定を集める。 */
 function collectMonthData_(index) {
   var kpi = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  var row = FIRST_ROW + index;
+  var row = summaryRow_(index);
 
   var metrics = REVIEW_METRICS.map(function (m) {
     return {
@@ -323,7 +326,7 @@ function collectMonthData_(index) {
 
   var prev = null;
   if (index > 0) {
-    var prevRow = FIRST_ROW + index - 1;
+    var prevRow = summaryRow_(index - 1);
     if (kpi.getRange('D' + prevRow).getValue() !== '') {
       prev = REVIEW_METRICS.map(function (m) {
         return {label: m.label, value: kpi.getRange(m.col + prevRow).getValue(), rate: !!m.rate};
@@ -335,9 +338,26 @@ function collectMonthData_(index) {
     month: MONTHS[index],
     prevMonth: index > 0 ? MONTHS[index - 1] : '',
     reach: kpi.getRange('D' + row).getValue(),
+    channels: readChannelRows_(kpi, index),
     metrics: metrics,
     prev: prev
   };
+}
+
+/** その月のチャネル別の実績。スライドの比較に使う。 */
+function readChannelRows_(kpi, index) {
+  var first = channelFirstRow_(index);
+  var values = kpi.getRange(first, 2, CHANNELS.length, 10).getValues();
+  return CHANNELS.map(function (name, i) {
+    var v = values[i];
+    return {
+      name: name,
+      views: v[2],      // D 表示回数
+      line: v[6],       // H LINE友だち追加
+      entry: v[7],      // I エントリー数
+      hires: v[9]       // K 採用数
+    };
+  });
 }
 
 /** 目安に照らして 悪い／普通／良い を返す。 */
@@ -355,7 +375,7 @@ function judge_(benchCol, value) {
 
 /** 目安を文章にする（Claudeに判断基準を渡すため）。 */
 function benchmarkText_() {
-  var names = {O: 'プロフアクセス率', P: 'リンクタップ率', Q: 'LINE登録率', V: 'リーチ→採用率'};
+  var names = {N: 'プロフ表示率', O: 'リンククリック率', P: 'LINE登録率', T: '表示→採用率'};
   return BENCHMARKS.map(function (b) {
     return '- ' + names[b.col] + '：' + b.labels.join(' / ');
   }).join('\n');
@@ -388,8 +408,18 @@ function buildReviewPrompt_(data) {
 
   lines.push('', '【指標の目安】', benchmarkText_());
   lines.push('', '【ファネルの流れ】',
-    'リーチ → プロフアクセス → リンクタップ → LINE登録 → 面接 → 採用。',
-    'その他問い合わせからの採用は、このファネルとは別ルートです。');
+    '表示 → リーチ → プロフィール表示 → リンククリック → LINE友だち追加 → エントリー → 面接 → 採用。',
+    '数字はInstagram・TikTok・X・YouTube・YouTubeショートの合計です。');
+
+  if (data.channels) {
+    lines.push('', '【チャネル別の実績（表示回数／LINE追加／エントリー／採用）】');
+    data.channels.forEach(function (c) {
+      if (!c.views && !c.line && !c.hires) { return; }
+      lines.push('- ' + c.name + '：表示 ' + (c.views || 0).toLocaleString()
+        + ' / LINE ' + (c.line || 0) + ' / 応募 ' + (c.entry || 0) + ' / 採用 ' + (c.hires || 0));
+    });
+    lines.push('どのチャネルが効いているかにも触れてください。');
+  }
 
   return lines.join('\n');
 }

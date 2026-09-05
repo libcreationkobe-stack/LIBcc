@@ -1,12 +1,15 @@
 /**
- * Instagram採用 月次KPIシートの整形スクリプト。
+ * 採用の月次KPIシート。SNS各チャネルの数字を1枚で追う。
+ *
+ * 行は「月 × チャネル」。月ごとにチャネル行が並び、最後に合計行が入る。
+ * チャネルを増やすときは CHANNELS に足して作り直すだけでよい。
  *
  * 使い方:
- *   1. KPIシートを開く
- *   2. 拡張機能 → Apps Script → このファイルの中身を貼り付けて保存
+ *   1. シートを開く
+ *   2. 拡張機能 → Apps Script にこのファイルの中身を貼り付けて保存
  *   3. 関数 setupKpiSheet を実行（初回のみ承認が必要）
  *
- * B〜K列に入力済みの数字は引き継がれる。
+ * 入力済みの数字は月とチャネルで突き合わせて引き継ぐ。
  */
 
 var SHEET_NAME = '月次KPI';
@@ -14,47 +17,61 @@ var SHEET_NAME = '月次KPI';
 var MONTHS = ['8月', '9月', '10月', '11月', '12月', '1月', '2月',
               '3月', '4月', '5月', '6月', '7月', '8月'];
 
+/** 追うチャネル。増減させたら setupKpiSheet を実行し直す。 */
+var CHANNELS = ['Instagram', 'TikTok', 'X', 'YouTube', 'YouTubeショート', 'その他'];
+
+var TOTAL_LABEL = '合計';
+var ROWS_PER_MONTH = CHANNELS.length + 1;   // チャネル行＋合計行
+
 var TITLE_ROW = 1;
 var HEAD_ROW = 2;
 var GUIDE_ROW = 3;   // 目安（悪い／普通／良い）
 var FIRST_ROW = 4;
-var LAST_ROW = FIRST_ROW + MONTHS.length - 1;   // 16
-var TOTAL_ROW = LAST_ROW + 1;                   // 17
-var AVG_ROW = LAST_ROW + 2;                     // 18
+var LAST_ROW = FIRST_ROW + MONTHS.length * ROWS_PER_MONTH - 1;
+var YEAR_TOTAL_ROW = LAST_ROW + 2;
+var YEAR_AVG_ROW = LAST_ROW + 3;
 
-/** 手入力する列（B〜K）。 */
-var INPUT_HEADERS = ['投稿数', 'インプレッション', 'リーチ数', 'プロフアクセス数',
-                     'リンクタップ数', 'LINE登録', '面接', '採用数(LINE経由)',
-                     'その他問い合わせ', '採用数(その他経由)'];
+/** チャネルごとに手で入れる列（C〜K）。 */
+var INPUT_COLUMNS = [
+  {col: 'C', header: '投稿数', width: 70},
+  {col: 'D', header: '表示回数\n(インプ・再生)', width: 110},
+  {col: 'E', header: 'リーチ数\n(取れる媒体のみ)', width: 110},
+  {col: 'F', header: 'プロフィール表示', width: 110},
+  {col: 'G', header: 'リンククリック', width: 100},
+  {col: 'H', header: 'LINE友だち追加', width: 105},
+  {col: 'I', header: 'エントリー数', width: 95},
+  {col: 'J', header: '面接', width: 65},
+  {col: 'K', header: '採用数', width: 75}
+];
 
-/**
- * 自動計算する列（L〜W）。
- * formula は行番号 {r} を差し込むテンプレート。
- */
+/** 月ぜんぶで1つの数字。合計行にだけ入れる（L列）。 */
+var MONTH_COLUMNS = [
+  {col: 'L', header: 'LINE友だち\n総数(月末)', width: 105}
+];
+
+/** 自動計算する率（M〜U）。 */
 var CALC_COLUMNS = [
-  {col: 'L', header: '採用数 合計',                    formula: '=IFERROR(IF(COUNT(I{r}:K{r})=0,"",SUM(I{r},K{r})),"")', format: '#,##0',   width: 90},
-  {col: 'M', header: '1投稿あたり\nインプ',            formula: '=IFERROR(C{r}/B{r},"")',                                format: '#,##0',   width: 105},
-  {col: 'N', header: 'リーチ率\n(リーチ÷インプ)',      formula: '=IFERROR(D{r}/C{r},"")',                                format: '0.0%',    width: 110},
-  {col: 'O', header: 'プロフアクセス率\n(プロフ÷リーチ)', formula: '=IFERROR(E{r}/D{r},"")',                             format: '0.0%',    width: 135},
-  {col: 'P', header: 'リンクタップ率\n(タップ÷プロフ)', formula: '=IFERROR(F{r}/E{r},"")',                                format: '0.0%',    width: 135},
-  {col: 'Q', header: 'LINE登録率\n(登録÷タップ)',      formula: '=IFERROR(G{r}/F{r},"")',                                format: '0.0%',    width: 135},
-  {col: 'R', header: '面接率\n(面接÷LINE登録)',        formula: '=IFERROR(H{r}/G{r},"")',                                format: '0.0%',    width: 115},
-  {col: 'S', header: '採用率\n(採用÷面接)',            formula: '=IFERROR(I{r}/H{r},"")',                                format: '0.0%',    width: 105},
-  {col: 'T', header: 'LINE→採用率\n(採用÷LINE登録)',   formula: '=IFERROR(I{r}/G{r},"")',                                format: '0.0%',    width: 120},
-  {col: 'U', header: 'その他採用率\n(採用÷その他問合せ)', formula: '=IFERROR(K{r}/J{r},"")',                              format: '0.0%',    width: 130},
-  {col: 'V', header: 'リーチ→採用率\n(採用合計÷リーチ)', formula: '=IFERROR(L{r}/D{r},"")',                              format: '0.000%',  width: 135},
-  {col: 'W', header: '1採用あたり\n投稿数',            formula: '=IFERROR(B{r}/L{r},"")',                                format: '#,##0.0', width: 105}
+  {col: 'M', header: 'リーチ率\n(リーチ÷表示)',        formula: '=IFERROR(E{r}/D{r},"")',  format: '0.0%',    width: 105},
+  {col: 'N', header: 'プロフ表示率\n(プロフ÷リーチ)',  formula: '=IFERROR(F{r}/E{r},"")',  format: '0.0%',    width: 115},
+  {col: 'O', header: 'リンククリック率\n(クリック÷プロフ)', formula: '=IFERROR(G{r}/F{r},"")', format: '0.0%', width: 125},
+  {col: 'P', header: 'LINE登録率\n(登録÷クリック)',    formula: '=IFERROR(H{r}/G{r},"")',  format: '0.0%',    width: 115},
+  {col: 'Q', header: 'エントリー率\n(応募÷LINE登録)',  formula: '=IFERROR(I{r}/H{r},"")',  format: '0.0%',    width: 115},
+  {col: 'R', header: '面接率\n(面接÷エントリー)',      formula: '=IFERROR(J{r}/I{r},"")',  format: '0.0%',    width: 110},
+  {col: 'S', header: '採用率\n(採用÷面接)',            formula: '=IFERROR(K{r}/J{r},"")',  format: '0.0%',    width: 100},
+  {col: 'T', header: '表示→採用率\n(採用÷表示回数)',   formula: '=IFERROR(K{r}/D{r},"")',  format: '0.000%',  width: 115},
+  {col: 'U', header: '1採用あたり\n投稿数',            formula: '=IFERROR(C{r}/K{r},"")',  format: '#,##0.0', width: 100}
 ];
 
 /**
  * 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
- * label は目安行に出す文言。
+ * もとはInstagramの一般値。他のチャネルでは水準が変わるので、
+ * 実績が溜まったらチャネルの実態に合わせて書き換える。
  */
 var BENCHMARKS = [
-  {col: 'O', bad: 0.03,    good: 0.05,   labels: ['悪い 〜3%',      '普通 3〜5%',        '良い 5%〜']},
-  {col: 'P', bad: 0.05,    good: 0.10,   labels: ['悪い 〜5%',      '普通 5〜10%',       '良い 10%〜']},
-  {col: 'Q', bad: 0.20,    good: 0.40,   labels: ['悪い 〜20%',     '普通 20〜40%',      '良い 40%〜']},
-  {col: 'V', bad: 0.00005, good: 0.0002, labels: ['悪い 〜0.005%',  '普通 0.005〜0.02%', '良い 0.02%〜']}
+  {col: 'N', bad: 0.03,    good: 0.05,   labels: ['悪い 〜3%',      '普通 3〜5%',        '良い 5%〜']},
+  {col: 'O', bad: 0.05,    good: 0.10,   labels: ['悪い 〜5%',      '普通 5〜10%',       '良い 10%〜']},
+  {col: 'P', bad: 0.20,    good: 0.40,   labels: ['悪い 〜20%',     '普通 20〜40%',      '良い 40%〜']},
+  {col: 'T', bad: 0.00005, good: 0.0002, labels: ['悪い 〜0.005%',  '普通 0.005〜0.02%', '良い 0.02%〜']}
 ];
 
 var BAD = {bg: '#f4cccc', fg: '#990000'};
@@ -64,13 +81,14 @@ var GOOD = {bg: '#fff2cc', fg: '#7f6000'};
 var COLOR_NAVY = '#1f3864';
 var COLOR_INPUT = '#2e75b6';
 var COLOR_CALC = '#548235';
+var COLOR_MONTH_HEAD = '#3e63a3';
 var COLOR_CALC_BG = '#edf3e9';
-var COLOR_SUM_BG = '#fff2cc';
+var COLOR_TOTAL_BG = '#fff2cc';
 var COLOR_MONTH_BG = '#f2f2f2';
 var COLOR_BORDER = '#bfbfbf';
 
-var LAST_COL = 23;   // W列
-var MIN_ROWS = 60;   // 説明書きまで収まる行数
+var LAST_COL = 21;   // U列
+var MIN_ROWS = 130;
 
 /** スプレッドシートを開いたときにメニューを出す。 */
 function onOpen() {
@@ -88,6 +106,16 @@ function onOpen() {
     .addToUi();
 }
 
+/** その月の合計行が何行目か。 */
+function summaryRow_(monthIndex) {
+  return FIRST_ROW + monthIndex * ROWS_PER_MONTH + CHANNELS.length;
+}
+
+/** その月のチャネル行の先頭。 */
+function channelFirstRow_(monthIndex) {
+  return FIRST_ROW + monthIndex * ROWS_PER_MONTH;
+}
+
 /** メインの処理。シートを作り直して数式・書式・色分けを入れる。 */
 function setupKpiSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -95,12 +123,9 @@ function setupKpiSheet() {
 
   var saved = readExistingInputs_(sheet);
 
-  // 2回目以降の実行に備えて、固定と結合を先に解除しておく。
-  // 固定列が残ったままタイトル行を結合しようとすると Google 側で弾かれる。
+  // 2回目以降に備えて、固定と結合を先に解除する。
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
-  // 結合はシート全体を指定して解除する。getDataRange だと結合範囲を
-  // 覆いきれず「結合範囲のすべてのセルを選択する必要があります」で落ちる。
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
 
   sheet.clear();
@@ -109,7 +134,6 @@ function setupKpiSheet() {
   if (sheet.getMaxColumns() < LAST_COL) {
     sheet.insertColumnsAfter(sheet.getMaxColumns(), LAST_COL - sheet.getMaxColumns());
   }
-  // 下の説明書きまで入る行数を確保しておく。CSVから作ったシートは行数が足りないことがある。
   if (sheet.getMaxRows() < MIN_ROWS) {
     sheet.insertRowsAfter(sheet.getMaxRows(), MIN_ROWS - sheet.getMaxRows());
   }
@@ -117,268 +141,285 @@ function setupKpiSheet() {
   writeTitle_(sheet);
   writeHeaders_(sheet);
   writeGuideRow_(sheet);
-  writeMonthRows_(sheet, saved);
-  writeSummaryRows_(sheet);
+  writeMonthBlocks_(sheet, saved);
+  writeYearRows_(sheet);
   writeNotes_(sheet);
   applyConditionalFormats_(sheet);
   finishLayout_(sheet);
 
-  SpreadsheetApp.getActive().toast('KPIシートを整えました。B〜K列に数字を入れてください。');
+  SpreadsheetApp.getActive().toast('KPIシートを整えました。チャネルごとに数字を入れてください。');
 }
 
-/** 既存シートのB〜K列の入力値を月ラベルごとに拾っておく。 */
+/**
+ * 入力済みの数字を退避する。
+ * 新しい形（月＋チャネル）と、Instagramだけだった古い形の両方を読む。
+ */
 function readExistingInputs_(sheet) {
   var saved = {};
   var values = sheet.getDataRange().getValues();
+  if (!values.length) { return saved; }
 
+  var headRow = -1;
+  var isOld = false;
   for (var r = 0; r < values.length; r++) {
-    if (String(values[r][0]).trim() !== '月' || String(values[r][1]).trim() !== '投稿数') {
-      continue;
-    }
-    // 見出し行が見つかった。以降の「◯月」行を拾う。
+    var a = String(values[r][0]).trim();
+    var b = String(values[r][1]).trim();
+    if (a === '月' && b === 'チャネル') { headRow = r; break; }
+    if (a === '月' && b === '投稿数') { headRow = r; isOld = true; break; }
+  }
+  if (headRow < 0) { return saved; }
+
+  if (isOld) {
+    // 旧レイアウト（1月1行・Instagramのみ）。並び順で月に当てる。
     var seen = 0;
-    for (var d = r + 1; d < values.length && seen < MONTHS.length; d++) {
-      var label = String(values[d][0]).trim();
-      if (!/^\d+月$/.test(label)) { continue; }
-      var row = [];
-      var hasValue = false;
-      for (var c = 1; c <= 10; c++) {
-        var v = values[d][c];
-        row.push(v === '' || v === null ? '' : v);
-        if (v !== '' && v !== null) { hasValue = true; }
+    for (var d = headRow + 1; d < values.length && seen < MONTHS.length; d++) {
+      if (!/^\d+月$/.test(String(values[d][0]).trim())) { continue; }
+      var old = values[d];
+      // 旧: B投稿数 Cインプ Dリーチ Eプロフ Fタップ GLINE H面接 I採用 Jその他問合せ K採用その他
+      var row = [old[1], old[2], old[3], old[4], old[5], old[6],
+                 old[9], old[7], num_(old[8]) + num_(old[10])];
+      if (row.some(function (v) { return v !== '' && v !== null; })) {
+        saved[seen + '|' + CHANNELS[0]] = row;
       }
-      if (hasValue) { saved[seen] = row; }
       seen++;
     }
-    break;
+    return saved;
+  }
+
+  // 新レイアウト。月ラベルはブロックの先頭行にしか入らないので持ち回る。
+  var monthIndex = -1;
+  var lastMonth = '';
+  for (var i = headRow + 1; i < values.length; i++) {
+    var label = String(values[i][0]).trim();
+    var channel = String(values[i][1]).trim();
+    if (/^\d+月$/.test(label) && label !== lastMonth) { monthIndex++; lastMonth = label; }
+    if (monthIndex < 0 || !channel) { continue; }
+
+    var body = values[i].slice(2, 2 + INPUT_COLUMNS.length);
+    if (channel === TOTAL_LABEL) {
+      var friends = values[i][11];
+      if (friends !== '' && friends !== null) { saved[monthIndex + '|' + TOTAL_LABEL] = [friends]; }
+      continue;
+    }
+    if (body.some(function (v) { return v !== '' && v !== null; })) {
+      saved[monthIndex + '|' + channel] = body;
+    }
   }
   return saved;
 }
 
-function writeTitle_(sheet) {
-  // 1列目は固定するので結合に含めない。含めると setFrozenColumns で弾かれる。
-  // A列も同じ色で塗って、見た目は1本の帯にする。
-  sheet.getRange(TITLE_ROW, 2).setValue('Instagram採用 月次KPI（青の見出し＝入力欄／緑の見出し＝自動計算）');
-  sheet.getRange(TITLE_ROW, 2, 1, LAST_COL - 1).merge();
+function num_(v) {
+  return typeof v === 'number' ? v : 0;
+}
 
+function writeTitle_(sheet) {
+  // 左2列は固定するので、結合は3列目から。固定の境目をまたぐと弾かれる。
+  sheet.getRange(TITLE_ROW, 3).setValue(
+    '採用 月次KPI（青の見出し＝入力欄／緑の見出し＝自動計算）');
+  sheet.getRange(TITLE_ROW, 3, 1, LAST_COL - 2).merge();
   sheet.getRange(TITLE_ROW, 1, 1, LAST_COL)
-    .setBackground(COLOR_NAVY)
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(12)
-    .setVerticalAlignment('middle');
+    .setBackground(COLOR_NAVY).setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(12).setVerticalAlignment('middle');
   sheet.setRowHeight(TITLE_ROW, 28);
 }
 
 function writeHeaders_(sheet) {
-  var headers = ['月'].concat(INPUT_HEADERS);
+  var headers = ['月', 'チャネル'];
+  INPUT_COLUMNS.forEach(function (c) { headers.push(c.header); });
+  MONTH_COLUMNS.forEach(function (c) { headers.push(c.header); });
   CALC_COLUMNS.forEach(function (c) { headers.push(c.header); });
 
-  var range = sheet.getRange(HEAD_ROW, 1, 1, LAST_COL);
-  range.setValues([headers])
-    .setFontColor('#ffffff')
-    .setFontWeight('bold')
-    .setFontSize(10)
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle')
-    .setWrap(true);
+  sheet.getRange(HEAD_ROW, 1, 1, LAST_COL).setValues([headers])
+    .setFontColor('#ffffff').setFontWeight('bold').setFontSize(9)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
 
-  // A〜K列は入力欄（青）、L〜W列は自動計算（緑）。
-  sheet.getRange(HEAD_ROW, 1, 1, 11).setBackground(COLOR_INPUT);
-  sheet.getRange(HEAD_ROW, 12, 1, LAST_COL - 11).setBackground(COLOR_CALC);
-  sheet.setRowHeight(HEAD_ROW, 50);
+  var inputEnd = 2 + INPUT_COLUMNS.length + MONTH_COLUMNS.length;
+  sheet.getRange(HEAD_ROW, 1, 1, inputEnd).setBackground(COLOR_INPUT);
+  sheet.getRange(HEAD_ROW, inputEnd + 1, 1, LAST_COL - inputEnd).setBackground(COLOR_CALC);
+  sheet.setRowHeight(HEAD_ROW, 46);
 }
 
 /** 見出しのすぐ下に、悪い／普通／良いの目安を色付きで書く。 */
 function writeGuideRow_(sheet) {
-  sheet.getRange(GUIDE_ROW, 1).setValue('目安');
-  sheet.getRange(GUIDE_ROW, 1, 1, LAST_COL)
-    .setBackground('#ffffff')
-    .setFontSize(9)
-    .setHorizontalAlignment('center')
-    .setVerticalAlignment('middle')
-    .setWrap(true)
-    .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange(GUIDE_ROW, 1).setFontWeight('bold').setBackground(COLOR_MONTH_BG);
+  sheet.getRange(GUIDE_ROW, 1, 1, 2).merge().setValue('目安')
+    .setFontWeight('bold').setBackground(COLOR_MONTH_BG)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle');
+  sheet.getRange(GUIDE_ROW, 3, 1, LAST_COL - 2)
+    .setBackground('#ffffff').setFontSize(8)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
 
   BENCHMARKS.forEach(function (b) {
     sheet.getRange(b.col + GUIDE_ROW).setRichTextValue(buildGuideText_(b.labels));
   });
-  sheet.setRowHeight(GUIDE_ROW, 34);
+  sheet.getRange(GUIDE_ROW, 1, 1, LAST_COL)
+    .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setRowHeight(GUIDE_ROW, 32);
 }
 
 /** 「悪い〜3% / 普通 3〜5% / 良い 5%〜」を1セル内で3色に塗り分ける。 */
 function buildGuideText_(labels) {
   var sep = ' / ';
-  var text = labels.join(sep);
-  var builder = SpreadsheetApp.newRichTextValue().setText(text);
+  var builder = SpreadsheetApp.newRichTextValue().setText(labels.join(sep));
   var colors = [BAD.fg, OK.fg, GOOD.fg];
   var pos = 0;
-
   for (var i = 0; i < labels.length; i++) {
-    var style = SpreadsheetApp.newTextStyle()
-      .setForegroundColor(colors[i])
-      .setBold(true)
-      .build();
-    builder.setTextStyle(pos, pos + labels[i].length, style);
+    builder.setTextStyle(pos, pos + labels[i].length,
+      SpreadsheetApp.newTextStyle().setForegroundColor(colors[i]).setBold(true).build());
     pos += labels[i].length + sep.length;
   }
   return builder.build();
 }
 
-function writeMonthRows_(sheet, saved) {
-  for (var i = 0; i < MONTHS.length; i++) {
-    var row = FIRST_ROW + i;
+/** 月ごとにチャネル行と合計行を書く。 */
+function writeMonthBlocks_(sheet, saved) {
+  for (var m = 0; m < MONTHS.length; m++) {
+    var first = channelFirstRow_(m);
+    var total = summaryRow_(m);
 
-    sheet.getRange(row, 1)
-      .setValue(MONTHS[i])
-      .setBackground(COLOR_MONTH_BG)
-      .setFontWeight('bold')
-      .setHorizontalAlignment('center');
+    sheet.getRange(first, 1, ROWS_PER_MONTH, 1).merge()
+      .setValue(MONTHS[m])
+      .setBackground(COLOR_MONTH_BG).setFontWeight('bold').setFontSize(11)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
 
-    if (saved[i]) {
-      sheet.getRange(row, 2, 1, 10).setValues([saved[i]]);
-    }
-    sheet.getRange(row, 2, 1, 10).setNumberFormat('#,##0');
+    CHANNELS.forEach(function (channel, i) {
+      var r = first + i;
+      sheet.getRange(r, 2).setValue(channel).setFontSize(10).setFontWeight('bold');
+      var key = m + '|' + channel;
+      if (saved[key]) {
+        sheet.getRange(r, 3, 1, INPUT_COLUMNS.length).setValues([saved[key]]);
+      }
+      sheet.getRange(r, 3, 1, INPUT_COLUMNS.length).setNumberFormat('#,##0');
+      writeCalcCells_(sheet, r);
+      sheet.setRowHeight(r, 21);
+    });
 
-    writeCalcCells_(sheet, row);
-    sheet.getRange(row, 12, 1, LAST_COL - 11).setBackground(COLOR_CALC_BG);
-    sheet.setRowHeight(row, 22);
+    // 合計行。チャネル行を足し上げる。
+    sheet.getRange(total, 2).setValue(TOTAL_LABEL).setFontWeight('bold');
+    INPUT_COLUMNS.forEach(function (c) {
+      sheet.getRange(c.col + total)
+        .setFormula('=SUM(' + c.col + first + ':' + c.col + (total - 1) + ')')
+        .setNumberFormat('#,##0');
+    });
+    MONTH_COLUMNS.forEach(function (c) {
+      var saved2 = saved[m + '|' + TOTAL_LABEL];
+      if (saved2) { sheet.getRange(c.col + total).setValue(saved2[0]); }
+      sheet.getRange(c.col + total).setNumberFormat('#,##0');
+    });
+    writeCalcCells_(sheet, total);
+    sheet.getRange(total, 2, 1, LAST_COL - 1).setBackground(COLOR_TOTAL_BG).setFontWeight('bold');
+    sheet.setRowHeight(total, 22);
+
+    sheet.getRange(first, 1, ROWS_PER_MONTH, LAST_COL)
+      .setBorder(true, true, true, true, null, null, '#808080', SpreadsheetApp.BorderStyle.SOLID);
   }
 }
 
-/** L〜W列に数式と表示形式を入れる。 */
+/** 率の列に数式と表示形式を入れる。 */
 function writeCalcCells_(sheet, row) {
   CALC_COLUMNS.forEach(function (c) {
-    var cell = sheet.getRange(c.col + row);
-    cell.setFormula(c.formula.replace(/\{r\}/g, String(row)));
-    cell.setNumberFormat(c.format);
-    cell.setHorizontalAlignment('right');
+    sheet.getRange(c.col + row)
+      .setFormula(c.formula.replace(/\{r\}/g, String(row)))
+      .setNumberFormat(c.format)
+      .setHorizontalAlignment('right')
+      .setBackground(COLOR_CALC_BG);
   });
 }
 
-/** 合計行と平均行。実数は合計/平均、率は合計値どうしで割り直す。 */
-function writeSummaryRows_(sheet) {
-  var rows = [
-    {row: TOTAL_ROW, label: '合計', fn: 'SUM', format: '#,##0'},
-    {row: AVG_ROW, label: '平均', fn: 'AVERAGE', format: '#,##0.0'}
-  ];
+/** 年間の合計と平均。合計行だけを拾って集計する。 */
+function writeYearRows_(sheet) {
+  var channelCol = '$B$' + FIRST_ROW + ':$B$' + LAST_ROW;
 
-  rows.forEach(function (spec) {
-    sheet.getRange(spec.row, 1).setValue(spec.label).setHorizontalAlignment('center');
+  [{row: YEAR_TOTAL_ROW, label: '年間合計', fn: 'SUMIF'},
+   {row: YEAR_AVG_ROW, label: '月平均', fn: 'AVERAGEIF'}].forEach(function (spec) {
+    sheet.getRange(spec.row, 1, 1, 2).merge().setValue(spec.label)
+      .setFontWeight('bold').setHorizontalAlignment('center');
 
-    for (var c = 2; c <= 11; c++) {
-      var letter = columnLetter_(c);
-      var ref = letter + FIRST_ROW + ':' + letter + LAST_ROW;
-      sheet.getRange(spec.row, c)
-        .setFormula('=IFERROR(IF(COUNT(' + ref + ')=0,"",' + spec.fn + '(' + ref + ')),"")')
-        .setNumberFormat(spec.format)
-        .setHorizontalAlignment('right');
-    }
+    INPUT_COLUMNS.concat(MONTH_COLUMNS).forEach(function (c) {
+      var range = '$' + c.col + '$' + FIRST_ROW + ':$' + c.col + '$' + LAST_ROW;
+      sheet.getRange(c.col + spec.row)
+        .setFormula('=IFERROR(' + spec.fn + '(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),0)')
+        .setNumberFormat(spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0');
+    });
     writeCalcCells_(sheet, spec.row);
 
     sheet.getRange(spec.row, 1, 1, LAST_COL)
-      .setBackground(COLOR_SUM_BG)
-      .setFontWeight('bold');
+      .setBackground(COLOR_TOTAL_BG).setFontWeight('bold')
+      .setBorder(true, true, true, true, null, null, '#808080', SpreadsheetApp.BorderStyle.SOLID);
     sheet.setRowHeight(spec.row, 22);
   });
 
-  sheet.getRange(TOTAL_ROW, 1, 1, LAST_COL)
-    .setBorder(true, null, null, null, null, null, '#808080', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  // 友だち総数は積み上げないので、合計行は最後の月の値にする。
+  MONTH_COLUMNS.forEach(function (c) {
+    sheet.getRange(c.col + YEAR_TOTAL_ROW)
+      .setFormula('=IFERROR(LOOKUP(2,1/(' + c.col + FIRST_ROW + ':' + c.col + LAST_ROW + '<>""),'
+        + c.col + FIRST_ROW + ':' + c.col + LAST_ROW + '),0)');
+  });
 }
 
-/** 4つの率に、悪い＝赤／普通＝緑／良い＝黄色の条件付き書式を入れる。 */
+/** 4つの率を 悪い＝赤 / 普通＝緑 / 良い＝黄色 で色分けする。 */
 function applyConditionalFormats_(sheet) {
   var rules = [];
-  var top = FIRST_ROW;
-
   BENCHMARKS.forEach(function (b) {
-    var range = sheet.getRange(b.col + top + ':' + b.col + AVG_ROW);
-    var cell = '$' + b.col + top;
+    var range = sheet.getRange(b.col + FIRST_ROW + ':' + b.col + YEAR_AVG_ROW);
+    var cell = '$' + b.col + FIRST_ROW;
     // 空欄を赤くしないよう ISNUMBER で必ず絞る。
-    var tiers = [
-      {cond: 'AND(ISNUMBER(' + cell + '),' + cell + '<' + b.bad + ')', color: BAD},
-      {cond: 'AND(ISNUMBER(' + cell + '),' + cell + '>=' + b.bad + ',' + cell + '<' + b.good + ')', color: OK},
-      {cond: 'AND(ISNUMBER(' + cell + '),' + cell + '>=' + b.good + ')', color: GOOD}
-    ];
-
-    tiers.forEach(function (t) {
+    [[cell + '<' + b.bad, BAD],
+     [cell + '>=' + b.bad + ',' + cell + '<' + b.good, OK],
+     [cell + '>=' + b.good, GOOD]].forEach(function (t) {
       rules.push(SpreadsheetApp.newConditionalFormatRule()
-        .whenFormulaSatisfied('=' + t.cond)
-        .setBackground(t.color.bg)
-        .setFontColor(t.color.fg)
-        .setBold(true)
-        .setRanges([range])
-        .build());
+        .whenFormulaSatisfied('=AND(ISNUMBER(' + cell + '),' + t[0] + ')')
+        .setBackground(t[1].bg).setFontColor(t[1].fg).setBold(true)
+        .setRanges([range]).build());
     });
   });
-
   sheet.setConditionalFormatRules(rules);
 }
 
 function writeNotes_(sheet) {
-  var start = AVG_ROW + 2;
+  var start = YEAR_AVG_ROW + 2;
   var notes = [
     ['■ 使い方'],
-    ['B列〜K列（投稿数〜採用数(その他経由)）に毎月の数字を入れるだけ。L列から右は自動計算なので触らない。'],
-    ['数字が入っていない月は空欄のまま（エラー表示は出ません）。'],
+    ['月ごとにチャネルの行が並んでいます。C〜K列に数字を入れるだけ。合計行と率は自動です。'],
+    ['LINE友だち総数（L列）は月全体の数字なので、合計行にだけ入れてください。'],
+    ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
     [''],
-    ['■ 色分けの意味（プロフアクセス率／リンクタップ率／LINE登録率／リーチ→採用率）'],
-    ['赤＝悪い（テコ入れが必要）　緑＝普通（一般的な水準）　黄色＝良い（伸びている）'],
-    [''],
-    ['■ 目安の根拠'],
-    ['プロフアクセス率 3〜5%', 'Instagram運用の一般的な目標値。3%未満は投稿がプロフィールまで引っ張れていない'],
-    ['リンクタップ率 5〜10%', '10%が分岐点。10%を超えていればプロフィール文とハイライトが機能している'],
-    ['LINE登録率 20〜40%', 'LINE友だち追加のCVR一般値。特典と導線が強いと50%超も出る'],
-    ['リーチ→採用率 0.005〜0.02%', '公開ベンチマークがないため上の3つ＋面接率・採用率から逆算した値。自社の実績が溜まったら書き換える'],
+    ['■ 色分け（プロフ表示率／リンククリック率／LINE登録率／表示→採用率）'],
+    ['赤＝悪い　緑＝普通　黄色＝良い'],
+    ['目安はもともとInstagramの一般値です。TikTokやYouTubeは母数の数え方が違うため水準もずれます。'],
+    ['まずは自社の実績を3〜6ヶ月ためて、チャネルごとの実態に合わせて BENCHMARKS を書き換えてください。'],
     [''],
     ['■ 指標の意味'],
-    ['採用数 合計', '採用数(LINE経由) ＋ 採用数(その他経由)'],
-    ['1投稿あたりインプ', 'インプレッション ÷ 投稿数。投稿1本の平均パワー'],
-    ['リーチ率', 'リーチ数 ÷ インプレッション。低いと同じ人に何度も表示されている'],
-    ['プロフアクセス率', 'プロフアクセス数 ÷ リーチ数。投稿→プロフの興味喚起力'],
-    ['リンクタップ率', 'リンクタップ数 ÷ プロフアクセス数。プロフ文とハイライトの出来'],
-    ['LINE登録率', 'LINE登録 ÷ リンクタップ数。LP・登録導線の出来'],
-    ['面接率', '面接 ÷ LINE登録。LINE内トークの出来'],
-    ['採用率', '採用数(LINE経由) ÷ 面接。面接の見極め・訴求力'],
-    ['LINE→採用率', '採用数(LINE経由) ÷ LINE登録。LINE1件あたりの価値'],
-    ['その他採用率', '採用数(その他経由) ÷ その他問い合わせ'],
-    ['リーチ→採用率', '採用数 合計 ÷ リーチ数。全体の最終CVR'],
-    ['1採用あたり投稿数', '投稿数 ÷ 採用数 合計。1人採るのに必要な投稿本数']
+    ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
+    ['リーチ数', '重複を除いた到達人数。取れない媒体は空欄でよい（率も出ません）'],
+    ['プロフィール表示', 'プロフィール／チャンネルを見に来た数'],
+    ['リンククリック', 'プロフィールから外部リンクへ出た数'],
+    ['LINE友だち追加', 'その月に増えた友だち数（フロー）'],
+    ['LINE友だち総数', '月末時点の友だち数（ストック）。合計行にだけ入れる'],
+    ['エントリー数', '応募・問い合わせの件数'],
+    ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR'],
+    ['1採用あたり投稿数', '1人採るのに何本投稿したか。チャネルの効率比較に使う']
   ];
 
-  for (var i = 0; i < notes.length; i++) {
-    sheet.getRange(start + i, 1).setValue(notes[i][0]).setFontWeight(
-      notes[i][0].indexOf('■') === 0 ? 'bold' : 'normal');
-    if (notes[i].length > 1) {
-      sheet.getRange(start + i, 2).setValue(notes[i][1]);
+  notes.forEach(function (n, i) {
+    var r = start + i;
+    sheet.getRange(r, 1, 1, 2).merge().setValue(n[0])
+      .setFontWeight(n[0].indexOf('■') === 0 ? 'bold' : 'normal').setFontSize(10);
+    if (n.length > 1) {
+      sheet.getRange(r, 3, 1, 8).merge().setValue(n[1])
+        .setFontSize(9).setFontColor('#595959').setWrap(true);
     }
-  }
+  });
 }
 
 function finishLayout_(sheet) {
   sheet.setColumnWidth(1, 60);
-  var inputWidths = [70, 120, 90, 120, 115, 90, 60, 120, 120, 130];
-  for (var i = 0; i < inputWidths.length; i++) {
-    sheet.setColumnWidth(2 + i, inputWidths[i]);
-  }
-  CALC_COLUMNS.forEach(function (c, i) {
-    sheet.setColumnWidth(12 + i, c.width);
-  });
+  sheet.setColumnWidth(2, 115);
+  var widths = INPUT_COLUMNS.concat(MONTH_COLUMNS).concat(CALC_COLUMNS);
+  widths.forEach(function (c, i) { sheet.setColumnWidth(3 + i, c.width); });
 
-  sheet.getRange(HEAD_ROW, 1, AVG_ROW - HEAD_ROW + 1, LAST_COL)
+  sheet.getRange(HEAD_ROW, 1, YEAR_AVG_ROW - HEAD_ROW + 1, LAST_COL)
     .setBorder(true, true, true, true, true, true, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
 
   sheet.setFrozenRows(GUIDE_ROW);
-  sheet.setFrozenColumns(1);
-}
-
-function columnLetter_(index) {
-  var letter = '';
-  while (index > 0) {
-    var rem = (index - 1) % 26;
-    letter = String.fromCharCode(65 + rem) + letter;
-    index = Math.floor((index - 1) / 26);
-  }
-  return letter;
+  sheet.setFrozenColumns(2);
 }

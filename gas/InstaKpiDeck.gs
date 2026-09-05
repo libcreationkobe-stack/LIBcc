@@ -52,34 +52,36 @@ var TIER_STYLE = {
 var C_TRACK = '#e8eaee';     // バーの下地
 
 /** 上部のセクションナビ。現在地を濃く出す。 */
-var NAV = ['サマリー', 'ファネル', '目安との比較', '総評', 'アクション'];
+var NAV = ['サマリー', 'チャネル別', 'ファネル', '目安との比較', '総評', 'アクション'];
 
 /** ファネルの各段。rateCol は前の段からの転換率。 */
 var FUNNEL_STAGES = [
-  {name: 'リーチ',         countCol: 'D', rateCol: null, bench: null},
-  {name: 'プロフアクセス', countCol: 'E', rateCol: 'O',  bench: 'O'},
-  {name: 'リンクタップ',   countCol: 'F', rateCol: 'P',  bench: 'P'},
-  {name: 'LINE登録',       countCol: 'G', rateCol: 'Q',  bench: 'Q'},
-  {name: '面接',           countCol: 'H', rateCol: 'R',  bench: null},
-  {name: '採用',           countCol: 'I', rateCol: 'S',  bench: null}
+  {name: '表示回数',         countCol: 'D', rateCol: null, bench: null},
+  {name: 'リーチ',           countCol: 'E', rateCol: 'M',  bench: null},
+  {name: 'プロフィール表示', countCol: 'F', rateCol: 'N',  bench: 'N'},
+  {name: 'リンククリック',   countCol: 'G', rateCol: 'O',  bench: 'O'},
+  {name: 'LINE友だち追加',   countCol: 'H', rateCol: 'P',  bench: 'P'},
+  {name: 'エントリー',       countCol: 'I', rateCol: 'Q',  bench: null},
+  {name: '面接',             countCol: 'J', rateCol: 'R',  bench: null},
+  {name: '採用',             countCol: 'K', rateCol: 'S',  bench: null}
 ];
 
 /** 目安つきの4指標。 */
 var METER_METRICS = [
-  {name: 'プロフアクセス率', col: 'O', bench: 'O', note: '投稿からプロフィールへの興味喚起'},
-  {name: 'リンクタップ率',   col: 'P', bench: 'P', note: 'プロフィール文とハイライトの出来'},
-  {name: 'LINE登録率',       col: 'Q', bench: 'Q', note: 'LP・登録導線の出来'},
-  {name: 'リーチ→採用率',    col: 'V', bench: 'V', note: '全体の最終CVR'}
+  {name: 'プロフ表示率',     col: 'N', bench: 'N', note: '投稿からプロフィールへの興味喚起'},
+  {name: 'リンククリック率', col: 'O', bench: 'O', note: 'プロフィール文と導線の出来'},
+  {name: 'LINE登録率',       col: 'P', bench: 'P', note: 'LP・登録導線の出来'},
+  {name: '表示→採用率',      col: 'T', bench: 'T', note: '全体の最終CVR'}
 ];
 
 /** 用語解説スライドに載せる内容。 */
 var GLOSSARY = [
-  ['プロフアクセス率', 'プロフアクセス数 ÷ リーチ数。投稿を見た人のうち、プロフィールまで来た割合。目安3〜5%。3%未満は投稿がプロフィールまで引っ張れていない。'],
-  ['リンクタップ率', 'リンクタップ数 ÷ プロフアクセス数。プロフィール文とハイライトの出来。10%が分岐点。'],
-  ['LINE登録率', 'LINE登録 ÷ リンクタップ数。LPと登録導線の出来。20〜40%が一般的で、特典が強いと50%超も出る。'],
-  ['面接率', '面接 ÷ LINE登録。LINE内トークの出来。業種差が大きいため目安は置いていない。'],
-  ['採用率', '採用数 ÷ 面接。面接での見極めと訴求力。同じく目安は置いていない。'],
-  ['リーチ→採用率', '採用数合計 ÷ リーチ数。全体の最終CVR。公開ベンチマークが無いため、上の指標から逆算した暫定値を目安にしている。実績が溜まったら自社の値に置き換える。']
+  ['表示回数', 'インプレッション・再生回数。媒体で呼び名が違うだけで、表示された延べ回数。全チャネルの合計。'],
+  ['プロフ表示率', 'プロフィール表示 ÷ リーチ数。投稿を見た人のうちプロフィールまで来た割合。目安3〜5%。'],
+  ['リンククリック率', 'リンククリック ÷ プロフィール表示。プロフィール文と導線の出来。10%が分岐点。'],
+  ['LINE登録率', 'LINE友だち追加 ÷ リンククリック。LPと登録導線の出来。20〜40%が一般的。'],
+  ['エントリー率', 'エントリー数 ÷ LINE友だち追加。LINE内トークの出来。業種差が大きいため目安は置いていない。'],
+  ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。目安は暫定値なので、実績が溜まったら自社の値に置き換える。']
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -145,6 +147,7 @@ function renderDeck_(index, data, review) {
 
   renderCover_(cover, index);
   renderSummary_(newSlide_(deck), index, data, review.summary);
+  renderChannels_(newSlide_(deck), index, data);
   renderFunnel_(newSlide_(deck), index, review.bottleneck);
   renderMeters_(newSlide_(deck), index);
   renderGoodBad_(newSlide_(deck), index, review);
@@ -224,22 +227,19 @@ function renderSummary_(slide, index, data, summary) {
   var body = slideBase_(slide, index, '全体サマリー', 0, 2);
 
   var cards = [
-    {label: 'リーチ数', key: 'リーチ数', unit: 'アカウント'},
-    {label: 'プロフアクセス数', key: null, col: 'E', unit: '件'},
-    {label: 'LINE登録', key: 'LINE登録数', unit: '件'},
+    {label: '表示回数', key: '表示回数', unit: '回'},
+    {label: 'LINE友だち追加', key: 'LINE友だち追加', unit: '人'},
+    {label: 'エントリー', key: 'エントリー数', unit: '件'},
     {label: '面接', key: '面接数', unit: '件'},
-    {label: '採用数', key: '採用数 合計', unit: '人', accent: true}
+    {label: '採用数', key: '採用数', unit: '人', accent: true}
   ];
 
   var gap = 14;
   var cardW = (BODY_W - gap * (cards.length - 1)) / cards.length;
   var cardH = Math.min(132, body.height - COMMENT_H - 40);
-  var kpi = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  var row = FIRST_ROW + index;
-
   cards.forEach(function (c, i) {
     var x = PAD + i * (cardW + gap);
-    var value = c.key ? metric_(data, c.key) : kpi.getRange(c.col + row).getValue();
+    var value = metric_(data, c.key);
 
     card_(slide, x, body.top, cardW, cardH, c.accent);
     if (c.accent) { box_(slide, x, body.top, cardW, 3, C_NAVY); }
@@ -263,11 +263,65 @@ function renderSummary_(slide, index, data, summary) {
   commentBox_(slide, body, '総評', summary);
 }
 
+/** チャネル別の実績。どこに力を入れるべきかを見るスライド。 */
+function renderChannels_(slide, index, data) {
+  var body = slideBase_(slide, index, 'チャネル別の実績', 1, 3);
+  var rows = (data.channels || []).filter(function (c) {
+    return c.views || c.line || c.entry || c.hires;
+  });
+
+  if (!rows.length) {
+    text_(slide, PAD, body.top + 20, BODY_W, 40,
+      'チャネル別の数字がまだ入っていません。KPIシートの各チャネル行に入力すると、ここに比較が出ます。',
+      {size: 12, color: C_INK_SUB});
+    return;
+  }
+
+  var nameW = 150;
+  var barX = PAD + nameW;
+  var barW = BODY_W - nameW - 330;
+  var maxViews = Math.max.apply(null, rows.map(function (c) { return Number(c.views) || 0; })) || 1;
+
+  var cols = [{label: 'LINE追加', key: 'line'}, {label: 'エントリー', key: 'entry'}, {label: '採用', key: 'hires'}];
+  text_(slide, barX, body.top - 18, barW, 12, '表示回数', {size: 9, color: C_INK_FAINT});
+  cols.forEach(function (c, i) {
+    text_(slide, barX + barW + 20 + i * 100, body.top - 18, 90, 12, c.label,
+      {size: 9, color: C_INK_FAINT, align: 'right'});
+  });
+
+  var rowH = Math.min(44, (body.height - COMMENT_H - 30) / rows.length);
+  var textH = Math.max(10, rowH - 6);
+  var barY = Math.max(4, rowH / 2 - 7);
+  rows.forEach(function (c, i) {
+    var y = body.top + i * rowH;
+    text_(slide, PAD, y + 3, nameW, textH, c.name, {size: 12, color: C_INK, bold: true});
+
+    var views = Number(c.views) || 0;
+    box_(slide, barX, y + barY, barW, 14, C_TRACK, 3);
+    if (views > 0) {
+      box_(slide, barX, y + barY, Math.max(6, (views / maxViews) * barW), 14, C_NAVY, 3);
+      text_(slide, barX + 8, y + barY, barW - 16, 14, num_(views),
+        {size: 9, color: C_WHITE, bold: true});
+    }
+
+    cols.forEach(function (col, j) {
+      text_(slide, barX + barW + 20 + j * 100, y + 3, 90, textH, num_(c[col.key]),
+        {size: 12, color: col.key === 'hires' ? C_NAVY : C_INK,
+         bold: col.key === 'hires', align: 'right'});
+    });
+  });
+
+  var best = rows.slice().sort(function (a, b) { return (b.hires || 0) - (a.hires || 0); })[0];
+  commentBox_(slide, body, '見どころ',
+    '採用数がいちばん多いのは' + best.name + '（' + num_(best.hires) + '人）。'
+    + '表示回数の割に採用が少ないチャネルは、投稿の中身か導線のどちらかが合っていません。');
+}
+
 function renderFunnel_(slide, index, bottleneck) {
-  var body = slideBase_(slide, index, 'ファネル：どこで人が減っているか', 1, 3);
+  var body = slideBase_(slide, index, 'ファネル：どこで人が減っているか', 2, 4);
 
   var kpi = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  var row = FIRST_ROW + index;
+  var row = summaryRow_(index);
 
   var nameW = 128;
   var trackX = PAD + nameW + 12;
@@ -283,25 +337,26 @@ function renderFunnel_(slide, index, bottleneck) {
     {size: 9, color: C_INK_FAINT, align: 'right'});
 
   var rowH = Math.min(38, (body.height - COMMENT_H - 30) / FUNNEL_STAGES.length);
+  var textH = Math.max(10, rowH - 6);   // 行が詰まっても文字箱が重ならないようにする
   FUNNEL_STAGES.forEach(function (stage, i) {
     var y = body.top + i * rowH;
     var count = kpi.getRange(stage.countCol + row).getValue();
     var rate = stage.rateCol ? kpi.getRange(stage.rateCol + row).getValue() : null;
 
-    text_(slide, PAD, y + 5, nameW, 18, stage.name, {size: 11, color: C_INK, bold: true});
-    box_(slide, trackX, y + 8, trackW, 13, C_TRACK, 3);
+    text_(slide, PAD, y + 3, nameW, textH, stage.name, {size: 11, color: C_INK, bold: true});
+    box_(slide, trackX, y + Math.max(4, rowH / 2 - 6), trackW, 13, C_TRACK, 3);
 
     if (typeof rate === 'number' && rate > 0) {
       var tier = stage.bench ? judge_(stage.bench, rate) : '';
-      box_(slide, trackX, y + 8, Math.max(6, Math.min(1, rate) * trackW), 13,
+      box_(slide, trackX, y + Math.max(4, rowH / 2 - 6), Math.max(6, Math.min(1, rate) * trackW), 13,
         tier ? TIER_STYLE[tier].bar : C_NAVY, 3);
-      text_(slide, rateX, y + 5, 62, 18, pct_(rate, 1), {size: 11, color: C_INK, bold: true});
-      if (tier) { chip_(slide, chipX, y + 6, tier); }
+      text_(slide, rateX, y + 3, 62, textH, pct_(rate, 1), {size: 11, color: C_INK, bold: true});
+      if (tier) { chip_(slide, chipX, y + Math.max(3, rowH / 2 - 8), tier); }
     } else if (i > 0) {
-      text_(slide, rateX, y + 5, 62, 18, '—', {size: 11, color: C_INK_FAINT});
+      text_(slide, rateX, y + 3, 62, textH, '—', {size: 11, color: C_INK_FAINT});
     }
 
-    text_(slide, countX, y + 5, countW, 18, num_(count),
+    text_(slide, countX, y + 3, countW, textH, num_(count),
       {size: 11, color: C_INK_SUB, align: 'right'});
   });
 
@@ -310,10 +365,10 @@ function renderFunnel_(slide, index, bottleneck) {
 }
 
 function renderMeters_(slide, index) {
-  var body = slideBase_(slide, index, '目安に対する評価', 2, 4);
+  var body = slideBase_(slide, index, '目安に対する評価', 3, 5);
 
   var kpi = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  var row = FIRST_ROW + index;
+  var row = summaryRow_(index);
 
   var labelW = 190;
   var trackX = PAD + labelW;
@@ -352,7 +407,7 @@ function renderMeters_(slide, index) {
 }
 
 function renderGoodBad_(slide, index, review) {
-  var body = slideBase_(slide, index, '良かった点とボトルネック', 3, 5);
+  var body = slideBase_(slide, index, '良かった点とボトルネック', 4, 6);
 
   var colW = (BODY_W - 20) / 2;
   [
@@ -370,7 +425,7 @@ function renderGoodBad_(slide, index, review) {
 }
 
 function renderActions_(slide, index, actions) {
-  var body = slideBase_(slide, index, '来月やること', 4, 6);
+  var body = slideBase_(slide, index, '来月やること', 5, 7);
 
   var items = bullets_(actions).slice(0, 3);
   if (!items.length) { items = ['（記載なし）']; }
@@ -389,7 +444,7 @@ function renderActions_(slide, index, actions) {
 }
 
 function renderGlossary_(slide, index) {
-  var body = slideBase_(slide, index, '指標の見方', -1, 7);
+  var body = slideBase_(slide, index, '指標の見方', -1, 8);
 
   var rowH = Math.min(46, body.height / GLOSSARY.length);
   GLOSSARY.forEach(function (g, i) {
