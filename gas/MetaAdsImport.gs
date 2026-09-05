@@ -109,12 +109,18 @@ function checkMetaSettings() {
 
   if (token && sheet) {
     try {
-      var span = metaMonthSpan_(metaStartMonth_(sheet), 0);
+      // 一番古い月を見に行くと、配信が後から始まった案件で必ず空になり、
+      // 設定が悪いのか配信が無いだけなのか区別が付かない。直近の月で試す。
+      var span = metaMonthSpan_(metaStartMonth_(sheet), metaLatestPastIndex_(sheet));
       var got = metaFetchInsights_(token, metaAccountId_(sheet), span,
                                   metaCampaignFilter_(sheet));
       lines.push('接続テスト：成功（' + span.since + '〜' + span.until + '）');
       lines.push(got ? '　消化金額 ¥' + Math.round(got['広告費'] || 0).toLocaleString()
-                     : '　この期間は配信の記録がありません');
+                     : '　この月は、条件に合う配信がありません');
+      if (!got) {
+        lines.push('　（絞り込みの文字がキャンペーン名と違うか、この月に配信が無いかのどちらかです。'
+          + '6行目を空にして試すと、アカウント全体に配信があるか分かります）');
+      }
     } catch (e) {
       lines.push('接続テスト：失敗');
       lines.push('　' + e.message);
@@ -191,6 +197,16 @@ function metaStartMonth_(sheet) {
 
   var now = new Date();
   return new Date(now.getFullYear(), now.getMonth() - (MONTHS.length - 1), 1);
+}
+
+/** 今日までで一番新しい月が、開始年月から何ヶ月後か。 */
+function metaLatestPastIndex_(sheet) {
+  var start = metaStartMonth_(sheet);
+  var today = new Date();
+  for (var i = MONTHS.length - 1; i > 0; i--) {
+    if (metaMonthSpan_(start, i).first <= today) { return i; }
+  }
+  return 0;
 }
 
 /** 開始年月からindexヶ月後の、月初と月末。 */
