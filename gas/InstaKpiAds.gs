@@ -14,8 +14,9 @@ var AD_ACCOUNT_ROW = 2;         // Meta広告アカウントID（自動取り込
 var AD_TARGET_CPA_ROW = 3;      // 目標 採用単価（上限）
 var AD_TARGET_CPL_ROW = 4;      // 目標 LINE登録単価（上限）
 var AD_START_ROW = 5;           // 集計の開始年月
-var AD_HEAD_ROW = 6;
-var AD_FIRST_ROW = 7;
+var AD_CAMPAIGN_ROW = 6;        // 取り込むキャンペーン名の絞り込み
+var AD_HEAD_ROW = 7;
+var AD_FIRST_ROW = 8;
 /*
  * 行数はチャネル定義（InstaKpiSheet.gs）に合わせて決まる。
  * ファイルの読み込み順に左右されないよう、定数ではなく関数で持つ。
@@ -174,7 +175,9 @@ function writeAdTargets_(sheet, targets) {
   [[AD_ACCOUNT_ROW, 'Meta 広告アカウントID', targets.account,
     '広告マネージャのURLに出る act_ から始まる番号。入れるとメニューから自動取り込みできます'],
    [AD_START_ROW, '集計の開始年月', targets.start,
-    '一番上の月が何年何月かを 2025/08 の形で。取り込む期間の起点になります']
+    '一番上の月が何年何月かを 2025/08 の形で。取り込む期間の起点になります'],
+   [AD_CAMPAIGN_ROW, 'キャンペーン名に含む文字', targets.campaign,
+    '採用広告だけを取り込むための絞り込み（例：採用）。空にすると、そのアカウントの全キャンペーンが混ざります']
   ].forEach(function (t) {
     sheet.getRange(t[0], 1, 1, 2).merge().setValue(t[1])
       .setFontWeight('bold').setFontSize(10).setVerticalAlignment('middle');
@@ -203,12 +206,13 @@ function writeAdTargets_(sheet, targets) {
 
 function readAdTargets_(ss) {
   var sheet = ss.getSheetByName(AD_SHEET_NAME);
-  if (!sheet) { return {cpa: 0, cpl: 0, account: '', start: ''}; }
+  if (!sheet) { return {cpa: 0, cpl: 0, account: '', start: '', campaign: ''}; }
   var start = sheet.getRange(AD_START_ROW, 3).getValue();
   return {
     cpa: sheet.getRange(AD_TARGET_CPA_ROW, 3).getValue() || 0,
     cpl: sheet.getRange(AD_TARGET_CPL_ROW, 3).getValue() || 0,
     account: String(sheet.getRange(AD_ACCOUNT_ROW, 3).getValue() || ''),
+    campaign: String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || ''),
     start: start instanceof Date
       ? Utilities.formatDate(start, 'JST', 'yyyy/MM')
       : String(start || '')
@@ -333,6 +337,8 @@ function writeAdNotes_(sheet) {
     ['上の目標単価を入れると、超えた月が赤く、収まった月が緑になります。'],
     ['2行目に広告アカウントID、5行目に開始年月を入れると、メニューからMetaの数字を自動で取り込めます。'],
     ['自動で入るのは 広告費・インプレッション・リーチ・クリック の4つ。LINE登録から下は手入力のままです。'],
+    ['1つの広告アカウントで集客広告と採用広告の両方を回している場合は、6行目に「採用」など共通の文字を入れてください。'],
+    ['空のままだと集客広告の消化金額まで混ざり、採用単価が実態より悪く出ます。'],
     [''],
     ['■ 指標の意味'],
     ['CPM', '1000回表示するのにかかった額。表示の買値。クリエイティブと配信面で変わる'],

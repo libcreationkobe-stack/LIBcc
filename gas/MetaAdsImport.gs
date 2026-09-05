@@ -44,6 +44,7 @@ function importMetaAds() {
   var token = metaToken_();
   var accountId = metaAccountId_(sheet);
   var start = metaStartMonth_(sheet);
+  var campaign = metaCampaignFilter_(sheet);
   var platformIndex = PAID_CHANNELS.indexOf('Meta広告');
   if (platformIndex < 0) { throw new Error('PAID_CHANNELS に Meta広告 がありません。'); }
 
@@ -58,7 +59,7 @@ function importMetaAds() {
 
     var row;
     try {
-      row = metaFetchInsights_(token, accountId, span);
+      row = metaFetchInsights_(token, accountId, span, campaign);
     } catch (e) {
       failed.push(MONTHS[i] + '：' + e.message);
       continue;
@@ -101,12 +102,16 @@ function checkMetaSettings() {
     var start = String(sheet.getRange(AD_START_ROW, 3).getValue() || '');
     lines.push('広告アカウントID：' + (id || '未入力'));
     lines.push('集計の開始年月：' + (start || '未入力'));
+    var campaign = String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || '').trim();
+    lines.push('キャンペーンの絞り込み：'
+      + (campaign ? '「' + campaign + '」を含むもの' : 'なし（アカウント全体）'));
   }
 
   if (token && sheet) {
     try {
       var span = metaMonthSpan_(metaStartMonth_(sheet), 0);
-      var got = metaFetchInsights_(token, metaAccountId_(sheet), span);
+      var got = metaFetchInsights_(token, metaAccountId_(sheet), span,
+                                  metaCampaignFilter_(sheet));
       lines.push('接続テスト：成功（' + span.since + '〜' + span.until + '）');
       lines.push(got ? '　消化金額 ¥' + Math.round(got['広告費'] || 0).toLocaleString()
                      : '　この期間は配信の記録がありません');
@@ -162,6 +167,15 @@ function metaAccountId_(sheet) {
   return raw.indexOf('act_') === 0 ? raw : 'act_' + raw.replace(/[^0-9]/g, '');
 }
 
+/**
+ * 取り込むキャンペーンの絞り込み。空なら広告アカウント全体。
+ * 1つのアカウントで集客広告と採用広告を回していると、
+ * 絞らない限り集客の消化金額まで採用単価に乗ってしまう。
+ */
+function metaCampaignFilter_(sheet) {
+  return String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || '').trim();
+}
+
 /** 集計の開始年月。入っていなければ今月から13ヶ月さかのぼった月にする。 */
 function metaStartMonth_(sheet) {
   var raw = sheet.getRange(AD_START_ROW, 3).getValue();
@@ -190,12 +204,19 @@ function metaDate_(d) {
  * その期間の広告実績を取る。配信が無ければ null。
  * 数字は文字列で返ってくるので、ここで数値に直す。
  */
-function metaFetchInsights_(token, accountId, span) {
+function metaFetchInsights_(token, accountId, span, campaign) {
+  // level=account のまま絞り込むのが要点。level=campaign にして足し上げると、
+  // リーチが重複したまま合算され、実際より多く出てしまう。
   var url = 'https://graph.facebook.com/' + META_API_VERSION + '/' + accountId + '/insights'
     + '?level=account'
     + '&fields=' + META_FIELDS.map(function (f) { return f.api; }).join(',')
     + '&time_range=' + encodeURIComponent(JSON.stringify({since: span.since, until: span.until}))
     + '&access_token=' + encodeURIComponent(token);
+
+  if (campaign) {
+    url += '&filtering=' + encodeURIComponent(JSON.stringify(
+      [{field: 'campaign.name', operator: 'CONTAIN', value: campaign}]));
+  }
 
   var res = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
   var code = res.getResponseCode();
