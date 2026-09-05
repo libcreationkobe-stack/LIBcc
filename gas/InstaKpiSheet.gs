@@ -43,25 +43,25 @@ var YEAR_AVG_ROW = LAST_ROW + 3;
  * 列を足したり並べ替えても、参照している側を直さなくてよい。
  */
 var INPUT_COLUMNS = [
-  {key: '投稿数',           header: '投稿数',                  width: 70},
-  {key: '広告費',           header: '広告費',                  width: 90,  money: true},
-  {key: 'フォロワー数',     header: 'フォロワー数\n(月末)',    width: 100, stock: true},
-  {key: '表示回数',         header: '表示回数\n(インプ・再生)', width: 105},
-  {key: 'リーチ数',         header: 'リーチ数\n(取れる媒体のみ)', width: 105},
-  {key: 'フォロワー外リーチ', header: 'フォロワー外\nリーチ',     width: 105},
-  {key: '保存・シェア',     header: '保存＋シェア',            width: 95},
-  {key: 'プロフィール表示', header: 'プロフィール表示',        width: 105},
-  {key: 'リンククリック',   header: 'リンククリック',          width: 95},
-  {key: 'LINE友だち追加',   header: 'LINE友だち追加',          width: 100},
-  {key: 'エントリー数',     header: 'エントリー数',            width: 90},
+  {simple: true, key: '投稿数', header: '投稿数',                  width: 70},
+  {simple: true, key: '広告費', header: '広告費',                  width: 90,  money: true},
+  {simple: true, key: 'フォロワー数', header: 'フォロワー数\n(月末)',    width: 100, stock: true},
+  {simple: true, key: '表示回数', header: '表示回数\n(インプ・再生)', width: 105},
+  {simple: true, key: 'リーチ数', header: 'リーチ数\n(取れる媒体のみ)', width: 105},
+  {simple: true, key: 'フォロワー外リーチ', header: 'フォロワー外\nリーチ',     width: 105},
+  {simple: true, key: '保存・シェア', header: '保存＋シェア',            width: 95},
+  {simple: true, key: 'プロフィール表示', header: 'プロフィール表示',        width: 105},
+  {simple: true, key: 'リンククリック', header: 'リンククリック',          width: 95},
+  {simple: true, key: 'LINE友だち追加', header: 'LINE友だち追加',          width: 100},
+  {simple: true, key: 'エントリー数', header: 'エントリー数',            width: 90},
   {key: '面接',             header: '面接',                    width: 60},
-  {key: '採用数',           header: '採用数',                  width: 70},
-  {key: '3ヶ月定着数',      header: '3ヶ月定着数\n(3ヶ月後に記入)', width: 105}
+  {simple: true, key: '採用数', header: '採用数',                  width: 70},
+  {simple: true, key: '3ヶ月定着数', header: '3ヶ月定着数\n(3ヶ月後に記入)', width: 105}
 ];
 
 /** 月ぜんぶで1つの数字。合計行にだけ入れる。 */
 var MONTH_COLUMNS = [
-  {key: 'LINE追加目標',   header: 'LINE追加\n目標(CV目標)', width: 100, goal: true},
+  {simple: true, key: 'LINE追加目標', header: 'LINE追加\n目標(CV目標)', width: 100, goal: true},
   {key: 'LINE友だち総数', header: 'LINE友だち\n総数(月末)', width: 100}
 ];
 
@@ -114,6 +114,16 @@ var RANK_MOODS = [
 ];
 
 var RANK_MOOD_CELL = '$F$' + PRESET_ROW;
+
+/**
+ * 表示モード。指標が多いと、どこを見ればいいのか分からなくなる。
+ * シンプルでは、運用の判断とクライアント報告に要る列だけを残して残りを隠す。
+ * 隠すだけなので数式も過去の数字もそのまま。いつでも戻せる。
+ */
+var VIEW_SIMPLE = '表示：シンプル';
+var VIEW_ALL = '表示：すべて';
+var VIEW_MODES = [VIEW_SIMPLE, VIEW_ALL];
+var VIEW_COL = 8;
 
 var RANK_COLORS = {
   S: {bg: '#fff2cc', fg: '#7f6000'},
@@ -214,21 +224,21 @@ function rankLetterFormula_() {
 var CALC_COLUMNS = [
   {key: 'リーチ率',         header: 'リーチ率\n(リーチ÷表示)',
    formula: '=IFERROR({リーチ数}{r}/{表示回数}{r},"")', format: '0.0%', width: 100},
-  {key: 'フォロワー外率',   header: 'フォロワー外率\n(フォロワー外÷リーチ)',
+  {simple: true, key: 'フォロワー外率', header: 'フォロワー外率\n(フォロワー外÷リーチ)',
    // 入れていない月を0%にしない。取れない媒体は空のままでよい。
    formula: '=IF({フォロワー外リーチ}{r}="","",IFERROR({フォロワー外リーチ}{r}/{リーチ数}{r},""))',
    format: '0.0%', width: 120},
-  {key: '保存シェア率',     header: '保存シェア率\n(保存＋シェア÷リーチ)',
+  {simple: true, key: '保存シェア率', header: '保存シェア率\n(保存＋シェア÷リーチ)',
    // 未記入を0.00%にしない。追っていない項目が「悪い」に見えてしまう。
    formula: '=IF({保存・シェア}{r}="","",IFERROR({保存・シェア}{r}/{リーチ数}{r},""))',
    format: '0.00%', width: 125},
-  {key: 'プロフ表示率',     header: 'プロフ表示率\n(プロフ÷リーチ)',
+  {simple: true, key: 'プロフ表示率', header: 'プロフ表示率\n(プロフ÷リーチ)',
    formula: '=IFERROR({プロフィール表示}{r}/{リーチ数}{r},"")', format: '0.0%', width: 110},
-  {key: 'リンククリック率', header: 'リンククリック率\n(クリック÷プロフ)',
+  {simple: true, key: 'リンククリック率', header: 'リンククリック率\n(クリック÷プロフ)',
    formula: '=IFERROR({リンククリック}{r}/{プロフィール表示}{r},"")', format: '0.0%', width: 120},
-  {key: 'LINE登録率',       header: 'LINE登録率\n(登録÷クリック)',
+  {simple: true, key: 'LINE登録率', header: 'LINE登録率\n(登録÷クリック)',
    formula: '=IFERROR({LINE友だち追加}{r}/{リンククリック}{r},"")', format: '0.0%', width: 110},
-  {key: '達成率',           header: 'LINE追加 達成率\n(実績÷目標)',
+  {simple: true, key: '達成率', header: 'LINE追加 達成率\n(実績÷目標)',
    formula: '=IFERROR(IF(N({LINE追加目標}{r})=0,"",{LINE友だち追加}{r}/{LINE追加目標}{r}),"")',
    format: '0%', width: 115},
   {key: 'エントリー率',     header: 'エントリー率\n(応募÷LINE登録)',
@@ -237,7 +247,7 @@ var CALC_COLUMNS = [
    formula: '=IFERROR({面接}{r}/{エントリー数}{r},"")', format: '0.0%', width: 105},
   {key: '採用率',           header: '採用率\n(採用÷面接)',
    formula: '=IFERROR({採用数}{r}/{面接}{r},"")', format: '0.0%', width: 95},
-  {key: '定着率',           header: '定着率\n(3ヶ月定着÷採用数)',
+  {simple: true, key: '定着率', header: '定着率\n(3ヶ月定着÷採用数)',
    // 3ヶ月定着数は3ヶ月後に入れる欄。空のあいだを0%（＝最悪）にしない。
    formula: '=IF({3ヶ月定着数}{r}="","",IFERROR({3ヶ月定着数}{r}/{採用数}{r},""))',
    format: '0.0%', width: 115},
@@ -245,13 +255,13 @@ var CALC_COLUMNS = [
    formula: '=IFERROR({採用数}{r}/{表示回数}{r},"")', format: '0.000%', width: 110},
   {key: '1採用あたり投稿数', header: '1採用あたり\n投稿数',
    formula: '=IFERROR({投稿数}{r}/{採用数}{r},"")', format: '#,##0.0', width: 95},
-  {key: '採用単価',         header: '採用単価\n(広告費÷採用数)',
+  {simple: true, key: '採用単価', header: '採用単価\n(広告費÷採用数)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{採用数}{r}),"")', format: '¥#,##0', width: 110},
   {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115},
-  {key: '総合スコア',       header: '運用スコア\n(表示〜LINE登録)',
+  {simple: true, key: '総合スコア', header: '運用スコア\n(表示〜LINE登録)',
    formula: rankScoreFormula_(), format: '0', width: 105, keepZero: true},
-  {key: 'ランク',           header: 'ランク\nS / A / B / C',
+  {simple: true, key: 'ランク', header: 'ランク\nS / A / B / C',
    formula: rankLetterFormula_(), format: '@', width: 85, keepZero: true}
 ];
 
@@ -407,6 +417,7 @@ function onOpen() {
     .createMenu('KPIシート')
     .addItem('シートを整える（数式・色分けを入れ直す）', 'setupKpiSheet')
     .addItem('業種の目安を入れ直す', 'applyIndustryPresetFromCell')
+    .addItem('表示を切り替える（シンプル／すべて）', 'toggleViewMode')
     .addSeparator()
     .addItem('月次レビューシートを作る', 'buildReviewSheet')
     .addItem('この月の総評をAIに書かせる', 'writeReviewForSelectedMonth')
@@ -427,7 +438,12 @@ function onEdit(e) {
     if (!e || !e.range) { return; }
     var sheet = e.range.getSheet();
     if (sheet.getName() !== SHEET_NAME) { return; }
-    if (e.range.getRow() !== PRESET_ROW || e.range.getColumn() !== 3) { return; }
+    if (e.range.getRow() !== PRESET_ROW) { return; }
+    if (e.range.getColumn() === VIEW_COL) {
+      applyViewMode_(sheet, String(e.range.getValue()));
+      return;
+    }
+    if (e.range.getColumn() !== 3) { return; }
     applyIndustryPreset_(sheet, String(e.range.getValue()));
   } catch (err) {
     // 入力の邪魔をしないよう、ここでは黙って諦める。
@@ -459,6 +475,38 @@ function applyIndustryPreset_(sheet, name) {
     sheet.getRange(letter + GOOD_ROW).setValue(pair[1]);
   });
   return true;
+}
+
+/**
+ * シンプル表示のとき、印の付いていない列を隠す。
+ * 消すのではなく隠すので、数式も入力済みの数字もそのまま残る。
+ */
+function applyViewMode_(sheet, mode) {
+  sheet.showColumns(3, LAST_COL - 2);
+  if (mode !== VIEW_SIMPLE) { return; }
+
+  var start = 0;
+  var run = 0;
+  ALL_COLUMNS.forEach(function (c, i) {
+    if (c.simple) {
+      if (run) { sheet.hideColumns(start, run); run = 0; }
+      return;
+    }
+    if (!run) { start = 3 + i; }
+    run++;
+  });
+  if (run) { sheet.hideColumns(start, run); }
+}
+
+/** メニューから表示を切り替える。 */
+function toggleViewMode() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) { return; }
+  var cell = sheet.getRange(PRESET_ROW, VIEW_COL);
+  var next = String(cell.getValue()) === VIEW_SIMPLE ? VIEW_ALL : VIEW_SIMPLE;
+  cell.setValue(next);
+  applyViewMode_(sheet, next);
+  SpreadsheetApp.getActive().toast(next + ' に切り替えました。');
 }
 
 /** フィルタが掛かっていれば外す。掛かっていなければ何もしない。 */
@@ -516,7 +564,7 @@ function setupKpiSheet() {
   }
 
   writeTitle_(sheet);
-  writePresetRow_(sheet, bench.preset, bench.mood);
+  writePresetRow_(sheet, bench.preset, bench.mood, bench.view);
   writeHeaders_(sheet);
   writeBenchmarkRows_(sheet, bench.values);
   writeMonthBlocks_(sheet, saved);
@@ -525,6 +573,7 @@ function setupKpiSheet() {
   applyConditionalFormats_(sheet);
   finishLayout_(sheet);
 
+  applyViewMode_(sheet, bench.view || VIEW_SIMPLE);
   if (adSheet) { ss.setActiveSheet(sheet); }
   SpreadsheetApp.getActive().toast('KPIシートを整えました。チャネルごとに数字を入れてください。');
 }
@@ -534,7 +583,7 @@ function setupKpiSheet() {
  * まだ無ければ空を返し、書き込み側が初期値で埋める。
  */
 function readBenchmarkSettings_(sheet) {
-  var out = {preset: '', mood: '', values: {}};
+  var out = {preset: '', mood: '', view: '', values: {}};
   try {
     var head = sheet.getRange(HEAD_ROW, 1, 1, LAST_COL).getValues()[0];
     if (String(head[0]).trim() !== '月') { return out; }   // 旧レイアウトなら読まない
@@ -553,6 +602,7 @@ function readBenchmarkSettings_(sheet) {
     });
     out.preset = String(sheet.getRange(PRESET_ROW, 3).getValue() || '');
     out.mood = String(sheet.getRange(PRESET_ROW, 6).getValue() || '');
+    out.view = String(sheet.getRange(PRESET_ROW, VIEW_COL).getValue() || '');
   } catch (err) {
     // 形が違えば初期値でやり直す。
   }
@@ -702,7 +752,7 @@ function writeHeaders_(sheet) {
 
 /** 見出しのすぐ下に、悪い／普通／良いの目安を色付きで書く。 */
 /** 業種のプルダウン。選ぶと下の2行が入れ替わる。 */
-function writePresetRow_(sheet, current, currentMood) {
+function writePresetRow_(sheet, current, currentMood, currentView) {
   var names = INDUSTRY_PRESETS.map(function (p) { return p.name; });
   var value = names.indexOf(current) >= 0 ? current : names[0];
 
@@ -734,9 +784,22 @@ function writePresetRow_(sheet, current, currentMood) {
     .setHelpText('右端のランク（S/A/B/C）の付き方が変わります。人に任せるときは甘めのままで。')
     .build());
 
-  sheet.getRange(PRESET_ROW, 8, 1, LAST_COL - 7).merge()
-    .setValue('▲ 左＝業種の目安（下の2行が入れ替わります／数字は直接書き換えてもOK）　'
-              + '右＝ランクの厳しさ（甘め＝Cは下位1割だけ。先月よりスコアが上がった月にはCを付けません）')
+  var views = VIEW_MODES;
+  var viewValue = views.indexOf(currentView) >= 0 ? currentView : views[0];
+  var viewCell = sheet.getRange(PRESET_ROW, VIEW_COL, 1, 2);
+  viewCell.merge().setValue(viewValue)
+    .setBackground(COLOR_SETTING_BG).setFontWeight('bold').setFontSize(10)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+  viewCell.setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(views, true)
+    .setAllowInvalid(false)
+    .setHelpText('シンプルにすると、補助的な列を隠します。数字は消えません。')
+    .build());
+
+  sheet.getRange(PRESET_ROW, VIEW_COL + 2, 1, LAST_COL - VIEW_COL - 1).merge()
+    .setValue('▲ 業種の目安／ランクの厳しさ／表示。'
+              + 'シンプルは補助的な列を隠すだけで、数字も数式も消えません（メニューからも切り替えられます）')
     .setFontSize(9).setFontColor('#595959').setVerticalAlignment('middle');
   sheet.setRowHeight(PRESET_ROW, 24);
 }
@@ -1061,6 +1124,12 @@ function writeNotes_(sheet, start) {
     ['他社の平均ではなく、自社の月平均のエントリー率・面接率・採用率で割り戻すので、実態に合った数になります。'],
     ['広告だけで集める場合の金額も出ます。LINE友だち追加広告(CPF)の相場が1件100〜150円のため、中央値130円で計算しています。'],
     ['達成率はランクには入れていません。目標を自分で決められる以上、混ぜるとランクを甘くできてしまうためです。'],
+    [''],
+    ['■ 表示（シンプル／すべて）'],
+    ['2行目の右のプルダウンで切り替えます。シンプルでは、補助的な列を隠して判断に要る列だけを出します。'],
+    ['隠すだけなので、数式も入力済みの数字も消えません。「すべて」に戻せばいつでも見られます。'],
+    ['シンプルで隠れる列：リーチ率／エントリー率／面接／面接率／採用率／表示→採用率／1採用あたり投稿数／LINE登録単価／LINE友だち総数'],
+    ['これらは月ごとに見る意味が薄いか、他の列から読み取れる数字です。年間合計・月平均の行で見てください。'],
     [''],
     ['■ 運用スコアとランク（S / A / B / C）'],
     ['合計行にだけ出ます。4・5行目の目安に対して 良い＝2点／普通＝1点／悪い＝0点で採点し、100点満点にしたものです。'],
