@@ -60,6 +60,7 @@ var INPUT_COLUMNS = [
 
 /** 月ぜんぶで1つの数字。合計行にだけ入れる。 */
 var MONTH_COLUMNS = [
+  {key: 'LINE追加目標',   header: 'LINE追加\n目標(CV目標)', width: 100, goal: true},
   {key: 'LINE友だち総数', header: 'LINE友だち\n総数(月末)', width: 100}
 ];
 
@@ -172,6 +173,9 @@ var CALC_COLUMNS = [
    formula: '=IFERROR({リンククリック}{r}/{プロフィール表示}{r},"")', format: '0.0%', width: 120},
   {key: 'LINE登録率',       header: 'LINE登録率\n(登録÷クリック)',
    formula: '=IFERROR({LINE友だち追加}{r}/{リンククリック}{r},"")', format: '0.0%', width: 110},
+  {key: '達成率',           header: 'LINE追加 達成率\n(実績÷目標)',
+   formula: '=IFERROR(IF(N({LINE追加目標}{r})=0,"",{LINE友だち追加}{r}/{LINE追加目標}{r}),"")',
+   format: '0%', width: 115},
   {key: 'エントリー率',     header: 'エントリー率\n(応募÷LINE登録)',
    formula: '=IFERROR({エントリー数}{r}/{LINE友だち追加}{r},"")', format: '0.0%', width: 110},
   {key: '面接率',           header: '面接率\n(面接÷エントリー)',
@@ -240,7 +244,10 @@ var BENCHMARKS = [
   {key: 'リンククリック率', bad: 0.05,    good: 0.10},
   {key: 'LINE登録率',       bad: 0.20,    good: 0.40},
   {key: '表示→採用率',      bad: 0.00005, good: 0.0002},
-  {key: '定着率',           bad: 0.70,    good: 0.90}
+  {key: '定着率',           bad: 0.70,    good: 0.90},
+  // 達成率は業種で変わらないので、業種プリセットでは書き換えない。
+  // 100%で達成、80%を切ったら未達扱いというKPI運用の一般的な区切り。
+  {key: '達成率',           bad: 0.80,    good: 1.00}
 ];
 
 /**
@@ -416,6 +423,7 @@ function setupKpiSheet() {
   var saved = readExistingInputs_(sheet);
   // 判定ラインは消す前に読む。読まずに作り直すと、直した数字が初期値に戻ってしまう。
   var bench = readBenchmarkSettings_(sheet);
+  var goal = readGoalInput_(sheet);
 
   // シートを消してから書き戻すまでの間に落ちると、入力が消えてしまう。
   // 消す前に控えを取り、次回そこから拾えるようにしておく。
@@ -451,7 +459,7 @@ function setupKpiSheet() {
   writeBenchmarkRows_(sheet, bench.values);
   writeMonthBlocks_(sheet, saved);
   writeYearRows_(sheet);
-  writeNotes_(sheet);
+  writeNotes_(sheet, writeGoalBlock_(sheet, goal));
   applyConditionalFormats_(sheet);
   finishLayout_(sheet);
 
@@ -765,6 +773,8 @@ function writeMonthBlocks_(sheet, saved) {
       var cell = sheet.getRange(col_(c.key) + total);
       if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
       cell.setNumberFormat('#,##0');
+      // 目標は手で決める数字。自動計算の欄と見分けが付くようにしておく。
+      if (c.goal) { cell.setBackground(COLOR_SETTING_BG).setFontWeight('bold'); }
     });
     writeCalcCells_(sheet, total);
     sheet.getRange(total, 2, 1, LAST_COL - 1).setBackground(COLOR_TOTAL_BG).setFontWeight('bold');
@@ -859,12 +869,83 @@ function applyConditionalFormats_(sheet) {
   sheet.setConditionalFormatRules(rules);
 }
 
-function writeNotes_(sheet) {
+/**
+ * 目標の決め方。採用したい人数から、必要なLINE友だち追加数を逆算する。
+ * 転換率は自社の月平均を使う。他社の平均ではなく自分の実績で割り戻す。
+ */
+function writeGoalBlock_(sheet, savedGoal) {
   var start = YEAR_AVG_ROW + 2;
+  var avg = function (key) { return col_(key) + YEAR_AVG_ROW; };
+
+  var need = '=IFERROR(IF(OR(N(C' + (start + 1) + ')=0,N(C' + (start + 2) + ')=0,'
+           + 'N(C' + (start + 3) + ')=0,N(C' + (start + 4) + ')=0),"",'
+           + 'ROUNDUP(C' + (start + 1) + '/(C' + (start + 2) + '*C' + (start + 3)
+           + '*C' + (start + 4) + '),0)),"")';
+
+  var rows = [
+    ['■ 目標の決め方（採用したい人数から逆算する）', '', '', ''],
+    ['月に採用したい人数', savedGoal, '#,##0"人"',
+     '← ここだけ入れてください。下の必要数が出ます', true],
+    ['　エントリー率（自社の月平均）', '=IFERROR(' + avg('エントリー率') + ',"")', '0.0%',
+     'LINE登録した人のうち、応募まで進んだ割合'],
+    ['　面接率（自社の月平均）', '=IFERROR(' + avg('面接率') + ',"")', '0.0%',
+     '応募のうち、面接まで進んだ割合'],
+    ['　採用率（自社の月平均）', '=IFERROR(' + avg('採用率') + ',"")', '0.0%',
+     '面接のうち、採用に至った割合'],
+    ['必要なLINE友だち追加数／月', need, '#,##0"人"',
+     '← この数字を、各月の「LINE追加 目標」に入れてください'],
+    ['広告だけで集めるとしたら', '=IFERROR(IF(N(C' + (start + 5) + ')=0,"",C'
+      + (start + 5) + '*130),"")', '¥#,##0',
+     'LINE友だち追加広告(CPF)の相場は1件100〜150円。中央値130円で計算した金額です'],
+    ['', '', '', '']
+  ];
+
+  rows.forEach(function (r, i) {
+    var row = start + i;
+    sheet.getRange(row, 1, 1, 2).merge().setValue(r[0])
+      .setFontWeight(r[0].indexOf('■') === 0 || r[0].indexOf('必要な') === 0 ? 'bold' : 'normal')
+      .setFontSize(10).setVerticalAlignment('middle');
+    // 入力欄は空のままでも枠と色を出す。どこに入れるか分からなくならないように。
+    if (r[2]) {
+      var cell = sheet.getRange(row, 3);
+      if (String(r[1]).charAt(0) === '=') { cell.setFormula(r[1]); }
+      else if (r[1] !== '') { cell.setValue(r[1]); }
+      cell.setNumberFormat(r[2]).setHorizontalAlignment('right').setFontWeight('bold')
+        .setBackground(r[4] ? COLOR_SETTING_BG : COLOR_CALC_BG)
+        .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+    }
+    if (r[3]) {
+      sheet.getRange(row, 4, 1, 7).merge().setValue(r[3])
+        .setFontSize(9).setFontColor('#595959').setVerticalAlignment('middle').setWrap(true);
+    }
+    sheet.setRowHeight(row, 21);
+  });
+
+  return start + rows.length;
+}
+
+/** 逆算ブロックに入れた「採用したい人数」を、作り直しても残すために読む。 */
+function readGoalInput_(sheet) {
+  try {
+    var col = sheet.getRange(1, 1, sheet.getMaxRows(), 1).getValues();
+    for (var i = 0; i < col.length; i++) {
+      if (String(col[i][0]).trim() === '月に採用したい人数') {
+        var v = sheet.getRange(i + 1, 3).getValue();
+        return typeof v === 'number' ? v : '';
+      }
+    }
+  } catch (err) {
+    // 見つからなければ空で作り直す。
+  }
+  return '';
+}
+
+function writeNotes_(sheet, start) {
   var notes = [
     ['■ 使い方'],
     ['月ごとにチャネルの行が並んでいます。左の入力欄に数字を入れるだけ。合計行と率は自動です。'],
-    ['LINE友だち総数は月全体の数字なので、合計行にだけ入れてください。'],
+    ['LINE友だち総数と「LINE追加 目標」は月全体の数字なので、合計行にだけ入れてください。'],
+    ['このシートのCVポイントはLINE友だち追加です。月の目標を入れると達成率が出て、色が付きます。'],
     ['Meta広告・TikTokプロモートの行は「広告」タブから自動で入ります。数字は広告タブに入れてください。'],
     ['3ヶ月定着数は3ヶ月後に分かる数字です。8月に採用した人が11月に残っていたら、8月の行に入れます。'],
     ['全部を毎月埋めようとしないでください。主力チャネルだけ全項目、他は表示回数・LINE追加・採用数の3つで十分です。'],
@@ -877,6 +958,14 @@ function writeNotes_(sheet) {
     ['入れ方は 3% のように％を付けるか、0.03 と小数で。3 とだけ打つとエラーになります。'],
     ['プリセットは出発点であって正解ではありません。実績が3〜6ヶ月たまったら、自社の平均を基準に置き換えてください。'],
     ['置き換え方：その率の「月平均」を見て、平均を4行目、平均の1.3〜1.5倍を5行目に入れる。それだけで自社基準になります。'],
+    [''],
+    ['■ LINE追加 達成率（CVポイント）'],
+    ['LINE友だち追加 ÷ その月の「LINE追加 目標」。100%以上で黄色（達成）、80%未満で赤（未達）。'],
+    ['80%と100%はKPI運用の一般的な区切りです。厳しくしたいときは4・5行目の数字を変えてください。'],
+    ['目標の決め方は下の「目標の決め方（採用したい人数から逆算する）」を使ってください。'],
+    ['他社の平均ではなく、自社の月平均のエントリー率・面接率・採用率で割り戻すので、実態に合った数になります。'],
+    ['広告だけで集める場合の金額も出ます。LINE友だち追加広告(CPF)の相場が1件100〜150円のため、中央値130円で計算しています。'],
+    ['達成率はランクには入れていません。目標を自分で決められる以上、混ぜるとランクを甘くできてしまうためです。'],
     [''],
     ['■ ランク（S / A / B / C）'],
     ['色分けが「世間の目安と比べてどうか」なのに対して、ランクは「自社の他の月と比べてどうか」です。'],
@@ -892,7 +981,9 @@ function writeNotes_(sheet) {
     ['リーチ数', '重複を除いた到達人数。取れない媒体は空欄でよい（率も出ません）'],
     ['プロフィール表示', 'プロフィール／チャンネルを見に来た数'],
     ['リンククリック', 'プロフィールから外部リンクへ出た数'],
-    ['LINE友だち追加', 'その月に増えた友だち数（フロー）'],
+    ['LINE友だち追加', 'その月に増えた友だち数（フロー）。このシートのCVポイント'],
+    ['LINE追加 目標', 'その月に増やしたい友だち数。合計行にだけ入れる。下の逆算ブロックで出した数を入れる'],
+    ['LINE追加 達成率', '実績 ÷ 目標。100%以上＝達成（黄）、80〜100%＝あと少し（緑）、80%未満＝未達（赤）'],
     ['LINE友だち総数', '月末時点の友だち数（ストック）。合計行にだけ入れる'],
     ['エントリー数', '応募・問い合わせの件数'],
     ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR'],

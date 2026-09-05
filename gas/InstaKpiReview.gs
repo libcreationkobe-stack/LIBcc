@@ -58,6 +58,8 @@ var REVIEW_METRICS = [
   {label: '面接率',            key: '面接率',           rate: true},
   {label: '採用率(面接→採用)', key: '採用率',           rate: true},
   {label: 'LINE友だち追加',    key: 'LINE友だち追加'},
+  {label: 'LINE追加 目標',     key: 'LINE追加目標'},
+  {label: 'LINE追加 達成率',   key: '達成率',           rate: true, bench: true},
   {label: 'LINE友だち総数',    key: 'LINE友だち総数'},
   {label: 'エントリー数',      key: 'エントリー数'},
   {label: '面接数',            key: '面接'},
@@ -498,6 +500,11 @@ function buildReviewPrompt_(data) {
       + 'ヶ月どうしを比べた相対評価です（採用数40%・表示→採用率25%・LINE登録率15%・'
       + 'プロフ表示率10%・定着率10%）。総評の冒頭で、この月が自社の中でどの位置だったかに触れてください。');
   }
+
+  lines.push('', '【今月のCVポイント】',
+    'このシートではLINE友だち追加をCV（コンバージョン）として置いています。'
+    + '目標に対する達成率が入っていれば、まずそこに触れてください。'
+    + '達成率100%以上＝達成、80%未満＝未達として扱います。');
 
   lines.push('', '【指標の目安】', benchmarkText_());
   lines.push('', '【ファネルの流れ】',
