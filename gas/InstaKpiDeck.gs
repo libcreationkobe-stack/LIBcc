@@ -274,7 +274,8 @@ function renderRankBadge_(slide, data, bandY) {
     {size: Math.round(size * 0.38), color: style.ink, bold: true, align: 'center'});
   text_(slide, x, y + size * 0.60, size, 14, '今月のランク',
     {size: 8, color: C_INK_SUB, align: 'center'});
-  text_(slide, x, y + size * 0.76, size, 14, rank.total + 'ヶ月中' + rank.place + '位',
+  text_(slide, x, y + size * 0.76, size, 14,
+    rank.provisional ? '目安との比較' : rank.total + 'ヶ月中' + rank.place + '位',
     {size: 8, color: style.ink, align: 'center'});
 }
 

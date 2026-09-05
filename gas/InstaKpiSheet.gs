@@ -65,6 +65,24 @@ var MONTH_COLUMNS = [
 ];
 
 /**
+ * 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
+ *
+ * ここに書いてあるのは「シートを新しく作ったときの初期値」だけ。
+ * 実際に使われるのはシート4行目・5行目の入力セルなので、
+ * 業種に合わせて直すときはスクリプトではなくシートを書き換える。
+ */
+var BENCHMARKS = [
+  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05},
+  {key: 'リンククリック率', bad: 0.05,    good: 0.10},
+  {key: 'LINE登録率',       bad: 0.20,    good: 0.40},
+  {key: '表示→採用率',      bad: 0.00005, good: 0.0002},
+  {key: '定着率',           bad: 0.70,    good: 0.90},
+  // 達成率は業種で変わらないので、業種プリセットでは書き換えない。
+  // 100%で達成、80%を切ったら未達扱いというKPI運用の一般的な区切り。
+  {key: '達成率',           bad: 0.80,    good: 1.00}
+];
+
+/**
  * 月どうしを比べてランクを付けるときの指標と重み。合計で1になるようにする。
  * 業界の目安（4・5行目）とは別物。こちらは「自社の他の月と比べてどうか」だけを見る。
  */
@@ -164,6 +182,26 @@ function rankCutFormula_(rank) {
 }
 
 /**
+ * 月が3つ揃うまでの暫定ランク。他の月と比べられないので、
+ * 4・5行目の目安に対して「良い＝2点／普通＝1点／悪い＝0点」で採点する。
+ * 数字が入っている指標だけで平均するので、埋まっていない項目は効かない。
+ */
+function provisionalRankFormula_() {
+  var scores = [];
+  var counts = [];
+  BENCHMARKS.forEach(function (b) {
+    var v = '{' + b.key + '}{r}';
+    var bad = '${' + b.key + '}$' + BAD_ROW;
+    var good = '${' + b.key + '}$' + GOOD_ROW;
+    scores.push('IF(ISNUMBER(' + v + '),IF(' + v + '<' + bad + ',0,IF(' + v + '<' + good + ',1,2)),0)');
+    counts.push('IF(ISNUMBER(' + v + '),1,0)');
+  });
+  // 同じ式を3回書くと数式が長くなりすぎるので LET でまとめる。
+  return 'LET(g,(' + scores.join('+') + '),n,(' + counts.join('+') + '),'
+       + 'IF(n=0,"—",IFS(g/(2*n)>=0.85,"S*",g/(2*n)>=0.6,"A*",g/(2*n)>=0.35,"B*",TRUE,"C*")))';
+}
+
+/**
  * ランクの数式。スコアが全体の何割の位置にいるかで S/A/B/C を決める。
  * ただし先月よりスコアが上がっていれば C は付けない。
  * 相対評価は伸びていても順位が上がらなければ下がるので、
@@ -176,8 +214,8 @@ function rankLetterFormula_() {
   }).join(',');
 
   return '=IF(' + rankRowGuard_() + ',"",'
-       // 月が足りないうちは空欄ではなく「—」。空欄だと壊れているように見える。
-       + 'IF(' + rankCountGuard_() + ',"—",'
+       // 月が足りないうちは、目安との比較で暫定ランクを出す。
+       + 'IF(' + rankCountGuard_() + ',' + provisionalRankFormula_() + ','
        + 'IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(LET('
        + 's,{総合スコア}{r},'
        + 'p,PERCENTRANK(FILTER(' + range + ',' + monthsWithData_() + ',ISNUMBER(' + range + ')),s),'
@@ -194,7 +232,9 @@ var CALC_COLUMNS = [
   {key: 'リーチ率',         header: 'リーチ率\n(リーチ÷表示)',
    formula: '=IFERROR({リーチ数}{r}/{表示回数}{r},"")', format: '0.0%', width: 100},
   {key: '保存シェア率',     header: '保存シェア率\n(保存＋シェア÷リーチ)',
-   formula: '=IFERROR({保存・シェア}{r}/{リーチ数}{r},"")', format: '0.00%', width: 125},
+   // 未記入を0.00%にしない。追っていない項目が「悪い」に見えてしまう。
+   formula: '=IF({保存・シェア}{r}="","",IFERROR({保存・シェア}{r}/{リーチ数}{r},""))',
+   format: '0.00%', width: 125},
   {key: 'プロフ表示率',     header: 'プロフ表示率\n(プロフ÷リーチ)',
    formula: '=IFERROR({プロフィール表示}{r}/{リーチ数}{r},"")', format: '0.0%', width: 110},
   {key: 'リンククリック率', header: 'リンククリック率\n(クリック÷プロフ)',
@@ -211,7 +251,9 @@ var CALC_COLUMNS = [
   {key: '採用率',           header: '採用率\n(採用÷面接)',
    formula: '=IFERROR({採用数}{r}/{面接}{r},"")', format: '0.0%', width: 95},
   {key: '定着率',           header: '定着率\n(3ヶ月定着÷採用数)',
-   formula: '=IFERROR({3ヶ月定着数}{r}/{採用数}{r},"")', format: '0.0%', width: 115},
+   // 3ヶ月定着数は3ヶ月後に入れる欄。空のあいだを0%（＝最悪）にしない。
+   formula: '=IF({3ヶ月定着数}{r}="","",IFERROR({3ヶ月定着数}{r}/{採用数}{r},""))',
+   format: '0.0%', width: 115},
   {key: '表示→採用率',      header: '表示→採用率\n(採用÷表示回数)',
    formula: '=IFERROR({採用数}{r}/{表示回数}{r},"")', format: '0.000%', width: 110},
   {key: '1採用あたり投稿数', header: '1採用あたり\n投稿数',
@@ -260,23 +302,6 @@ function resolveFormula_(template, row) {
   });
 }
 
-/**
- * 悪い／普通／良いの判定ライン。bad未満＝赤、bad〜good＝緑、good以上＝黄色。
- *
- * ここに書いてあるのは「シートを新しく作ったときの初期値」だけ。
- * 実際に使われるのはシート4行目・5行目の入力セルなので、
- * 業種に合わせて直すときはスクリプトではなくシートを書き換える。
- */
-var BENCHMARKS = [
-  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05},
-  {key: 'リンククリック率', bad: 0.05,    good: 0.10},
-  {key: 'LINE登録率',       bad: 0.20,    good: 0.40},
-  {key: '表示→採用率',      bad: 0.00005, good: 0.0002},
-  {key: '定着率',           bad: 0.70,    good: 0.90},
-  // 達成率は業種で変わらないので、業種プリセットでは書き換えない。
-  // 100%で達成、80%を切ったら未達扱いというKPI運用の一般的な区切り。
-  {key: '達成率',           bad: 0.80,    good: 1.00}
-];
 
 /**
  * 業種プリセット。2行目のプルダウンで選ぶと、4行目・5行目に入る。
@@ -900,9 +925,10 @@ function applyConditionalFormats_(sheet) {
 
   // ランクは文字なので、目安ではなく文字そのもので塗る。
   var rankRange = sheet.getRange(col_('ランク') + FIRST_ROW + ':' + col_('ランク') + YEAR_AVG_ROW);
+  // 暫定ランクは「A*」のように * が付くので、完全一致ではなく含むで見る。
   Object.keys(RANK_COLORS).forEach(function (letter) {
     rules.push(SpreadsheetApp.newConditionalFormatRule()
-      .whenTextEqualTo(letter)
+      .whenTextContains(letter)
       .setBackground(RANK_COLORS[letter].bg).setFontColor(RANK_COLORS[letter].fg).setBold(true)
       .setRanges([rankRange]).build());
   });
@@ -989,6 +1015,7 @@ function writeNotes_(sheet, start) {
     ['このシートのCVポイントはLINE友だち追加です。月の目標を入れると達成率が出て、色が付きます。'],
     ['Meta広告・TikTokプロモートの行は「広告」タブから自動で入ります。数字は広告タブに入れてください。'],
     ['3ヶ月定着数は3ヶ月後に分かる数字です。8月に採用した人が11月に残っていたら、8月の行に入れます。'],
+    ['まだ分からないうちは空のままにしてください。0を入れると「全員辞めた」という意味になり、判定が下がります。'],
     ['全部を毎月埋めようとしないでください。主力チャネルだけ全項目、他は表示回数・LINE追加・採用数の3つで十分です。'],
     ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
     [''],
@@ -1015,7 +1042,8 @@ function writeNotes_(sheet, start) {
     ['甘め＝Cは下位1割だけ／ふつう＝下位3割／厳しめ＝下位4割強。人に任せているうちは甘めのままで十分です。'],
     ['相対評価はそのままだと、毎月かならず誰かがCになります。それを避けるため、'],
     ['先月よりスコアが上がった月にはCを付けません（伸びているのにCが出ると、任された側が続かないため）。'],
-    ['数字が入っている月が3ヶ月に満たないうちは「—」と出ます。比べる相手がいないので判定しません。'],
+    ['数字が入っている月が3ヶ月に満たないうちは「A*」のように * が付きます。'],
+    ['* は暫定で、他の月ではなく4・5行目の目安と比べた判定です。3ヶ月たまると月どうしの比較に自動で切り替わります。'],
     ['ランクが出るのは合計行だけです。チャネル行は月の総合評価ではないので空欄になります。'],
     [''],
     ['■ 指標の意味'],

@@ -401,9 +401,18 @@ function collectMonthData_(index) {
  * ここでは結果を読むだけ。順位は同じ列の他の月と比べて出す。
  */
 function rankInfo_(kpi, index) {
+  var raw = String(kpi.getRange(col_('ランク') + summaryRow_(index)).getValue() || '').trim();
+  if (!raw || raw === '—') { return null; }
+
+  // 「A*」は暫定。他の月と比べられないので、目安に対する判定になっている。
+  var provisional = raw.charAt(raw.length - 1) === '*';
+  var letter = provisional ? raw.slice(0, -1) : raw;
+
   var scoreCol = col_('総合スコア');
   var score = kpi.getRange(scoreCol + summaryRow_(index)).getValue();
-  if (typeof score !== 'number') { return null; }
+  if (provisional || typeof score !== 'number') {
+    return {rank: letter, provisional: true};
+  }
 
   var column = kpi.getRange(scoreCol + FIRST_ROW + ':' + scoreCol + LAST_ROW).getValues();
   var scores = [];
@@ -414,7 +423,8 @@ function rankInfo_(kpi, index) {
   scores.sort(function (a, b) { return b - a; });
 
   return {
-    rank: String(kpi.getRange(col_('ランク') + summaryRow_(index)).getValue() || ''),
+    rank: letter,
+    provisional: false,
     score: score,
     place: scores.indexOf(score) + 1,
     total: scores.length
@@ -424,6 +434,9 @@ function rankInfo_(kpi, index) {
 /** ランクを一行の文にする。総評とスライドで同じ言い方をそろえる。 */
 function rankText_(rank) {
   if (!rank || !rank.rank) { return ''; }
+  if (rank.provisional) {
+    return rank.rank + '（暫定・目安との比較。比べられる月がまだ3ヶ月ぶんありません）';
+  }
   return rank.rank + '（' + rank.total + 'ヶ月中' + rank.place + '位・総合スコア' + rank.score + '）';
 }
 
@@ -496,9 +509,12 @@ function buildReviewPrompt_(data) {
 
   if (data.rank) {
     lines.push('', '【今月のランク】' + rankText_(data.rank),
-      'これは業界目安ではなく、数字が入っている' + data.rank.total
-      + 'ヶ月どうしを比べた相対評価です（採用数40%・表示→採用率25%・LINE登録率15%・'
-      + 'プロフ表示率10%・定着率10%）。総評の冒頭で、この月が自社の中でどの位置だったかに触れてください。');
+      data.rank.provisional
+        ? 'まだ比べられる月が少ないため、これは目安に対する暫定判定です。'
+          + '「自社の中で何位」という言い方はしないでください。'
+        : 'これは業界目安ではなく、数字が入っている' + data.rank.total
+          + 'ヶ月どうしを比べた相対評価です（採用数40%・表示→採用率25%・LINE登録率15%・'
+          + 'プロフ表示率10%・定着率10%）。総評の冒頭で、この月が自社の中でどの位置だったかに触れてください。');
   }
 
   lines.push('', '【今月のCVポイント】',
