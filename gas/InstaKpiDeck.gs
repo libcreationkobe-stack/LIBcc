@@ -254,7 +254,7 @@ function renderCover_(slide, index, data) {
 }
 
 /**
- * 表紙の右側に出すランク。業界目安ではなく、自社の他の月と比べた位置。
+ * 表紙の右側に出すランク。シートの4・5行目に置いた目安に対する評価。
  * 3ヶ月ぶんたまるまでは判定しないので、その間は何も置かない。
  */
 function renderRankBadge_(slide, data, bandY) {
