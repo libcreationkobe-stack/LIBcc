@@ -102,9 +102,9 @@ function checkMetaSettings() {
     var start = String(sheet.getRange(AD_START_ROW, 3).getValue() || '');
     lines.push('広告アカウントID：' + (id || '未入力'));
     lines.push('集計の開始年月：' + (start || '未入力'));
-    var campaign = String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || '').trim();
+    var campaign = metaCampaignFilter_(sheet);
     lines.push('キャンペーンの絞り込み：'
-      + (campaign ? '「' + campaign + '」を含むもの' : 'なし（アカウント全体）'));
+      + (campaign.length ? campaign.join('と') + ' をすべて含むもの' : 'なし（アカウント全体）'));
   }
 
   if (token && sheet) {
@@ -169,11 +169,15 @@ function metaAccountId_(sheet) {
 
 /**
  * 取り込むキャンペーンの絞り込み。空なら広告アカウント全体。
- * 1つのアカウントで集客広告と採用広告を回していると、
- * 絞らない限り集客の消化金額まで採用単価に乗ってしまう。
+ *
+ * 1つの広告アカウントで複数のクライアントと、集客広告・採用広告を
+ * まとめて回していることがある。絞らないと全部が混ざるので、
+ * スペースか読点で区切った言葉を「すべて含む」で絞れるようにする。
+ * 例：「あおき屋 採用」→ 両方を含むキャンペーンだけ
  */
 function metaCampaignFilter_(sheet) {
-  return String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || '').trim();
+  var raw = String(sheet.getRange(AD_CAMPAIGN_ROW, 3).getValue() || '');
+  return raw.split(/[\s、,]+/).filter(function (w) { return w !== ''; });
 }
 
 /** 集計の開始年月。入っていなければ今月から13ヶ月さかのぼった月にする。 */
@@ -213,9 +217,12 @@ function metaFetchInsights_(token, accountId, span, campaign) {
     + '&time_range=' + encodeURIComponent(JSON.stringify({since: span.since, until: span.until}))
     + '&access_token=' + encodeURIComponent(token);
 
-  if (campaign) {
+  if (campaign && campaign.length) {
+    // 条件を並べるとANDになる。区切った言葉をすべて含むものだけが残る。
     url += '&filtering=' + encodeURIComponent(JSON.stringify(
-      [{field: 'campaign.name', operator: 'CONTAIN', value: campaign}]));
+      campaign.map(function (word) {
+        return {field: 'campaign.name', operator: 'CONTAIN', value: word};
+      })));
   }
 
   var res = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
