@@ -845,6 +845,9 @@ function readIncomePlan_(ss) {
 function resetSheet_(ss, name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) { return ss.insertSheet(name); }
+  // フィルタが残っていると、その境界をまたぐ結合ができない。
+  var filter = sheet.getFilter();
+  if (filter) { filter.remove(); }
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
   // 結合はシート全体を指定して解除する。getDataRange だと結合範囲を

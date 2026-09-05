@@ -138,6 +138,8 @@ function buildReviewSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(REVIEW_SHEET_NAME);
   }
+  // フィルタが残っていると、その境界をまたぐ結合ができない。
+  removeFilter_(sheet);
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
   // 結合はシート全体を指定して解除する。getDataRange だと結合範囲を

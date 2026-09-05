@@ -106,6 +106,12 @@ function onOpen() {
     .addToUi();
 }
 
+/** フィルタが掛かっていれば外す。掛かっていなければ何もしない。 */
+function removeFilter_(sheet) {
+  var filter = sheet.getFilter();
+  if (filter) { filter.remove(); }
+}
+
 /** その月の合計行が何行目か。 */
 function summaryRow_(monthIndex) {
   return FIRST_ROW + monthIndex * ROWS_PER_MONTH + CHANNELS.length;
@@ -123,7 +129,9 @@ function setupKpiSheet() {
 
   var saved = readExistingInputs_(sheet);
 
-  // 2回目以降に備えて、固定と結合を先に解除する。
+  // 2回目以降に備えて、フィルタ・固定・結合を先に解除する。
+  // フィルタが残っていると、その境界をまたぐ結合ができない。
+  removeFilter_(sheet);
   sheet.setFrozenRows(0);
   sheet.setFrozenColumns(0);
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
