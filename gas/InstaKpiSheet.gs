@@ -14,8 +14,53 @@
 
 var SHEET_NAME = '月次KPI';
 
-var MONTHS = ['8月', '9月', '10月', '11月', '12月', '1月', '2月',
-              '3月', '4月', '5月', '6月', '7月', '8月'];
+/**
+ * 追う月。開始年月から、今月の3ヶ月先までを並べる。
+ *
+ * 固定の13ヶ月にしていると、今月がシートの最後になった時点で使えなくなる。
+ * 先の月が3つ切ったら3ヶ月ぶん足す形にして、書き足す手間を無くしている。
+ *
+ * 開始年月はスクリプトプロパティに持つ。シートを読みに行くと、
+ * 読み込みのたびにスプレッドシートを開くことになって重い。
+ */
+var START_MONTH_PROP = 'KPI_START_MONTH';
+var MONTHS_AHEAD = 3;    // 今月より先に、いつもこれだけ用意しておく
+var MONTHS_STEP = 3;     // 足すときの単位
+var MONTHS_MIN = 13;     // 最低でもこれだけは並べる
+
+/** 開始年月。決まっていなければ、今月から12ヶ月前にする。 */
+function kpiStartMonth_() {
+  var raw = '';
+  try {
+    raw = PropertiesService.getScriptProperties().getProperty(START_MONTH_PROP) || '';
+  } catch (e) {
+    // プロパティが読めない場面（初回など）は既定に落とす。
+  }
+  var m = String(raw).match(/(\d{4})\D+(\d{1,2})/);
+  var now = new Date();
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1)
+           : new Date(now.getFullYear(), now.getMonth() - (MONTHS_MIN - 1), 1);
+}
+
+/** 何ヶ月ぶん並べるか。今月の3ヶ月先まで入る数を、3の倍数に切り上げる。 */
+function kpiMonthCount_(start) {
+  var now = new Date();
+  var elapsed = (now.getFullYear() - start.getFullYear()) * 12
+              + (now.getMonth() - start.getMonth());
+  var need = elapsed + 1 + MONTHS_AHEAD;
+  return Math.max(MONTHS_MIN, Math.ceil(need / MONTHS_STEP) * MONTHS_STEP);
+}
+
+function kpiMonthLabels_() {
+  var start = kpiStartMonth_();
+  var out = [];
+  for (var i = 0; i < kpiMonthCount_(start); i++) {
+    out.push(new Date(start.getFullYear(), start.getMonth() + i, 1).getMonth() + 1 + '月');
+  }
+  return out;
+}
+
+var MONTHS = kpiMonthLabels_();
 
 /** 追うチャネル。増減させたら setupKpiSheet を実行し直す。 */
 var CHANNELS = ['Instagram', 'TikTok', 'X', 'YouTube', 'YouTubeショート',
@@ -411,7 +456,8 @@ var COLOR_MONTH_BG = '#f2f2f2';
 var COLOR_BORDER = '#bfbfbf';
 var COLOR_SETTING_BG = '#fffbe6';   // 手で直していい設定セル
 
-var MIN_ROWS = 190;
+// 月が増えると表も伸びる。説明文のぶんの余白を足しておく。
+var MIN_ROWS = YEAR_AVG_ROW + 60;
 
 /** スプレッドシートを開いたときにメニューを出す。 */
 function onOpen() {
@@ -420,6 +466,8 @@ function onOpen() {
     .addItem('シートを整える（数式・色分けを入れ直す）', 'setupKpiSheet')
     .addItem('業種の目安を入れ直す', 'applyIndustryPresetFromCell')
     .addItem('表示を切り替える（シンプル／すべて）', 'toggleViewMode')
+    .addItem('月が足りていれば何もしない（足りなければ増やす）', 'ensureMonthsExtended')
+    .addItem('毎月1日に自動で月を増やす', 'installMonthlyExtendTrigger')
     .addSeparator()
     .addItem('月次レビューシートを作る', 'buildReviewSheet')
     .addItem('この月の総評をAIに書かせる', 'writeReviewForSelectedMonth')
@@ -519,6 +567,66 @@ function toggleViewMode() {
 }
 
 /**
+ * 広告タブの「集計の開始年月」を、月の並びの起点として取り込む。
+ * 起点が変わると月の並び自体が変わるので、その回は作り直さずに終える。
+ * 変えたときだけ true。
+ */
+function syncStartMonth_(ss) {
+  var props = PropertiesService.getScriptProperties();
+  var stored = props.getProperty(START_MONTH_PROP) || '';
+
+  var typed = '';
+  var ad = ss.getSheetByName(AD_SHEET_NAME);
+  if (ad) {
+    var v = ad.getRange(AD_START_ROW, 3).getValue();
+    typed = v instanceof Date
+      ? Utilities.formatDate(v, 'JST', 'yyyy/MM')
+      : String(v || '').trim();
+  }
+
+  var normalize = function (text) {
+    var m = String(text).match(/(\d{4})\D+(\d{1,2})/);
+    return m ? m[1] + '/' + ('0' + m[2]).slice(-2) : '';
+  };
+
+  var want = normalize(typed) || normalize(stored)
+    || Utilities.formatDate(kpiStartMonth_(), 'JST', 'yyyy/MM');
+  if (want === normalize(stored)) { return false; }
+
+  props.setProperty(START_MONTH_PROP, want);
+  return true;
+}
+
+/**
+ * 月が足りていれば何もしない。足りなければ作り直して増やす。
+ * 毎月のトリガーから呼ぶので、余計な書き換えをしないようにしている。
+ */
+function ensureMonthsExtended() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) { return; }
+
+  var need = summaryRow_(MONTHS.length - 1);
+  var enough = need <= sheet.getMaxRows()
+    && String(sheet.getRange(need, 2).getValue()).trim() === TOTAL_LABEL;
+  if (enough) {
+    SpreadsheetApp.getActive().toast('月は足りています（' + MONTHS.length + 'ヶ月ぶん）。');
+    return;
+  }
+
+  setupKpiSheet();
+}
+
+/** 毎月1日の早朝に、月が足りているかを見に行くようにする。 */
+function installMonthlyExtendTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'ensureMonthsExtended') { ScriptApp.deleteTrigger(t); }
+  });
+  ScriptApp.newTrigger('ensureMonthsExtended').timeBased().onMonthDay(1).atHour(5).create();
+  SpreadsheetApp.getActive().toast('毎月1日の朝に、月が足りているかを見て自動で増やします。');
+}
+
+/**
  * このシートを丸ごとコピーして、別アカウント用のシートを作る。
  * 数式・目安・色分けはそのまま、入力した数字だけ空にする。
  *
@@ -599,6 +707,14 @@ function channelFirstRow_(monthIndex) {
 function setupKpiSheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
+
+  // 月の並びの起点が変わると、行の数そのものが変わる。
+  // 起点を直した回は作り直さずに終え、次の実行で新しい並びを使う。
+  if (syncStartMonth_(ss)) {
+    SpreadsheetApp.getActive().toast(
+      '集計の開始年月を反映しました。もう一度「シートを整える」を実行してください。');
+    return;
+  }
 
   var saved = readExistingInputs_(sheet);
   // 判定ラインは消す前に読む。読まずに作り直すと、直した数字が初期値に戻ってしまう。
@@ -1020,7 +1136,7 @@ function writeYearRows_(sheet) {
 
   var viewRange = '$' + col_('表示回数') + '$' + FIRST_ROW + ':$' + col_('表示回数') + '$' + LAST_ROW;
 
-  [{row: YEAR_TOTAL_ROW, label: '年間合計', fn: 'SUMIF'},
+  [{row: YEAR_TOTAL_ROW, label: '通期合計', fn: 'SUMIF'},
    {row: YEAR_AVG_ROW, label: '月平均', fn: 'AVERAGEIFS'}].forEach(function (spec) {
     sheet.getRange(spec.row, 1, 1, 2).merge().setValue(spec.label)
       .setFontWeight('bold').setHorizontalAlignment('center');
@@ -1189,6 +1305,9 @@ function writeNotes_(sheet, start) {
     ['フォロワー外リーチはInstagramのインサイトから転記します。取れない媒体は空のままでかまいません。'],
     ['全部を毎月埋めようとしないでください。主力チャネルだけ全項目、他は表示回数・LINE追加・採用数の3つで十分です。'],
     ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
+    ['月は自動で増えます。今月の3ヶ月先までが常に並ぶよう、足りなくなったら3ヶ月ぶん足されます。'],
+    ['起点を変えたいときは「広告」タブ5行目の集計の開始年月を直して、「シートを整える」を2回実行してください。'],
+    ['メニューの「毎月1日に自動で月を増やす」を一度実行しておくと、以降は放っておいても増えます。'],
     [''],
     ['■ 色分けの基準（4行目・5行目）'],
     ['赤＝悪い　緑＝普通　黄色＝良い。基準はシートの上から4行目・5行目に入っています。'],
