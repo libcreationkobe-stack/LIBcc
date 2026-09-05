@@ -485,6 +485,7 @@ function onOpen() {
     .addItem('Instagramの設定を確認する', 'checkInstagramSettings')
     .addItem('Instagramアカウントを選び直す', 'resetInstagramAccount')
     .addItem('InstagramアカウントIDを直接入れる', 'setInstagramAccountId')
+    .addItem('IDから名前を調べる（一覧に出ないとき）', 'listInstagramNames')
     .addToUi();
 }
 

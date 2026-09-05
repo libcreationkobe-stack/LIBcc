@@ -141,6 +141,39 @@ function resetInstagramAccount() {
 }
 
 /**
+ * IDの一覧を貼ると、どれがどのアカウントかを名前で返す。
+ *
+ * me/accounts に出てこないアカウントでも、IDさえ分かれば名前は引ける。
+ * アクセストークンデバッガーの instagram_basic に並んでいる番号を
+ * そのまま貼れるよう、区切り文字は何でも受ける。
+ */
+function listInstagramNames() {
+  var ui = SpreadsheetApp.getUi();
+  var res = ui.prompt('IDから名前を調べる',
+    'アクセストークンデバッガーの instagram_basic に並んでいる番号を、'
+    + 'まとめて貼り付けてください（改行でも読点でもOK）。', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) { return; }
+
+  var ids = res.getResponseText().split(/[^0-9]+/).filter(function (v) { return v.length > 5; });
+  if (!ids.length) { return; }
+
+  var token = metaToken_();
+  var lines = [];
+  ids.forEach(function (id) {
+    var name = igTry_(function () {
+      return igRequest_(igUrl_(id, {fields: 'username,name'}, token));
+    });
+    lines.push(name && name.username
+      ? '@' + name.username + '　' + (name.name || '') + '\n　' + id
+      : '（読めませんでした）\n　' + id);
+  });
+
+  var message = ids.length + '件のうち、名前が引けたものです。\n\n' + lines.join('\n');
+  Logger.log(message);   // 多いときはログからコピーできる
+  metaNotify_('Instagramアカウントの一覧', message);
+}
+
+/**
  * InstagramアカウントIDを手で入れる。
  *
  * ページとの繋ぎ方によっては、権限があるのに一覧へ出てこないアカウントがある。
