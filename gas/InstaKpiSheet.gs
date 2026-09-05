@@ -117,17 +117,32 @@ function percentRankTerm_(key) {
        + ',ISNUMBER(' + range + ')),{' + key + '}{r}),0.5)';
 }
 
+/**
+ * スコアとランクを出さない条件。ひとつでも当てはまれば空にする。
+ * ① 合計行ではない（チャネル行に月の総合評価を出しても意味がない）
+ * ② その月にまだ数字が入っていない
+ * ③ 比べられる月が足りない
+ * スコアの中身を見て判断すると、空欄の扱いひとつで全部の行に
+ * ランクが出てしまう。行そのものを見て弾く。
+ */
+function rankRowGuard_() {
+  return 'OR($B{r}<>"' + TOTAL_LABEL + '",N({表示回数}{r})<=0)';
+}
+
+/** 比べられる月が足りないかどうか。足りなければランクに「—」を出す。 */
+function rankCountGuard_() {
+  // FILTER は一致ゼロだと #N/A を返す。COUNT がエラーを拾うと判定が壊れる。
+  return 'IFERROR(COUNT(FILTER(' + monthRange_('{表示回数}') + ',' + monthsWithData_()
+       + ')),0)<' + RANK_MIN_MONTHS;
+}
+
 /** 総合スコアの数式。合計行以外は空にする。 */
 function rankScoreFormula_() {
   var terms = RANK_METRICS.map(function (m) {
     return m.weight + '*' + percentRankTerm_(m.key);
   }).join('+');
-  return '=IF($B{r}<>"' + TOTAL_LABEL + '","",'
-       // その月に数字が入っていなければ空。0のままの月にランクを付けない。
-       + 'IF(N({表示回数}{r})<=0,"",'
-       + 'IF(COUNT(FILTER(' + monthRange_('{表示回数}') + ',' + monthsWithData_() + '))<'
-       + RANK_MIN_MONTHS + ',"",'
-       + 'IFERROR(ROUND(100*(' + terms + '),0),""))))';
+  return '=IF(' + rankRowGuard_() + ',"",IF(' + rankCountGuard_() + ',"",'
+       + 'IFERROR(ROUND(100*(' + terms + '),0),"")))';
 }
 
 /** 厳しさのプルダウンから、その段の切れ目を選ぶ式。 */
@@ -151,14 +166,18 @@ function rankLetterFormula_() {
     return 'p>=' + rankCutFormula_(r) + ',"' + r + '"';
   }).join(',');
 
-  return '=IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(LET('
+  return '=IF(' + rankRowGuard_() + ',"",'
+       // 月が足りないうちは空欄ではなく「—」。空欄だと壊れているように見える。
+       + 'IF(' + rankCountGuard_() + ',"—",'
+       + 'IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(LET('
        + 's,{総合スコア}{r},'
        + 'p,PERCENTRANK(FILTER(' + range + ',' + monthsWithData_() + ',ISNUMBER(' + range + ')),s),'
        + 'prev,IF({r}-' + ROWS_PER_MONTH + '<' + FIRST_ROW + ',"",'
        + 'IFERROR(OFFSET({総合スコア}{r},-' + ROWS_PER_MONTH + ',0),"")),'
        + 'base,IFS(' + conds + ',TRUE,"C"),'
-       + 'IF(AND(base="C",ISNUMBER(prev),s>prev),"B",base)'
-       + '),""))';
+       // 先月より伸びた月と、比べる先月が無い月にはCを付けない。
+       + 'IF(AND(base="C",OR(NOT(ISNUMBER(prev)),s>prev)),"B",base)'
+       + '),""))))';
 }
 
 /** 自動計算する率と単価。 */
@@ -974,7 +993,8 @@ function writeNotes_(sheet, start) {
     ['甘め＝Cは下位1割だけ／ふつう＝下位3割／厳しめ＝下位4割強。人に任せているうちは甘めのままで十分です。'],
     ['相対評価はそのままだと、毎月かならず誰かがCになります。それを避けるため、'],
     ['先月よりスコアが上がった月にはCを付けません（伸びているのにCが出ると、任された側が続かないため）。'],
-    ['数字が入っている月が3ヶ月に満たないうちは空欄のままです（比べる相手がいないため）。'],
+    ['数字が入っている月が3ヶ月に満たないうちは「—」と出ます。比べる相手がいないので判定しません。'],
+    ['ランクが出るのは合計行だけです。チャネル行は月の総合評価ではないので空欄になります。'],
     [''],
     ['■ 指標の意味'],
     ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
