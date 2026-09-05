@@ -83,32 +83,17 @@ var BENCHMARKS = [
 ];
 
 /**
- * 月どうしを比べてランクを付けるときの指標と重み。合計で1になるようにする。
- * 業界の目安（4・5行目）とは別物。こちらは「自社の他の月と比べてどうか」だけを見る。
- */
-var RANK_METRICS = [
-  {key: '採用数',       weight: 0.40},   // 何人採れたか
-  {key: '表示→採用率',  weight: 0.25},   // 同じ表示で何人採れたか
-  {key: 'LINE登録率',   weight: 0.15},   // 導線の出来
-  {key: 'プロフ表示率', weight: 0.10},   // 発信の出来
-  {key: '定着率',       weight: 0.10}    // 採用の質
-];
-
-/**
- * ランクの切れ目。上から何割の位置にいるかで決める。
- * 相対評価はそのままだと「必ず下位3割がC」になる。人に任せるときは
- * それが効かないので、甘めを既定にしてCを下位1割だけに絞っている。
+ * ランクの切れ目。市場スコア（0〜100点）で切る。
+ * 100点＝目安のある指標がすべて「良い」、50点＝すべて「普通」、0点＝すべて「悪い」。
+ * 人に任せるときは甘めのままでよい。
  */
 var RANK_MOODS = [
-  {name: '評価：甘め（人に任せるとき）', cuts: {S: 0.70, A: 0.40, B: 0.10}},
-  {name: '評価：ふつう',                 cuts: {S: 0.80, A: 0.55, B: 0.30}},
-  {name: '評価：厳しめ',                 cuts: {S: 0.88, A: 0.65, B: 0.45}}
+  {name: '評価：甘め（人に任せるとき）', cuts: {S: 75, A: 50, B: 25}},
+  {name: '評価：ふつう',                 cuts: {S: 85, A: 60, B: 35}},
+  {name: '評価：厳しめ',                 cuts: {S: 90, A: 70, B: 50}}
 ];
 
 var RANK_MOOD_CELL = '$F$' + PRESET_ROW;
-
-/** 何ヶ月ぶんたまったらランクを出すか。少なすぎる比較は意味がない。 */
-var RANK_MIN_MONTHS = 3;
 
 var RANK_COLORS = {
   S: {bg: '#fff2cc', fg: '#7f6000'},
@@ -126,29 +111,8 @@ function hideZero_(format) {
   return format + ';-' + format + ';';
 }
 
-/** 合計行だけを縦に切り出す絶対範囲。{指標名} は書き込むときに列文字へ変わる。 */
-function monthRange_(token) {
-  return '$' + token + '$' + FIRST_ROW + ':$' + token + '$' + LAST_ROW;
-}
-
-/** 「数字が入っている月の合計行」を選ぶ条件。 */
-function monthsWithData_() {
-  return '$B$' + FIRST_ROW + ':$B$' + LAST_ROW + '="' + TOTAL_LABEL + '",'
-       + monthRange_('{表示回数}') + '>0';
-}
-
-/** その指標について、この月が全体の何割の位置にいるか（0〜1）。 */
-function percentRankTerm_(key) {
-  var range = monthRange_('{' + key + '}');
-  return 'IFERROR(PERCENTRANK(FILTER(' + range + ',' + monthsWithData_()
-       + ',ISNUMBER(' + range + ')),{' + key + '}{r}),0.5)';
-}
-
 /**
- * スコアとランクを出さない条件。ひとつでも当てはまれば空にする。
- * ① 合計行ではない（チャネル行に月の総合評価を出しても意味がない）
- * ② その月にまだ数字が入っていない
- * ③ 比べられる月が足りない
+ * ランクを出さない行の条件。合計行以外と、まだ数字の無い月。
  * スコアの中身を見て判断すると、空欄の扱いひとつで全部の行に
  * ランクが出てしまう。行そのものを見て弾く。
  */
@@ -156,20 +120,48 @@ function rankRowGuard_() {
   return 'OR($B{r}<>"' + TOTAL_LABEL + '",N({表示回数}{r})<=0)';
 }
 
-/** 比べられる月が足りないかどうか。足りなければランクに「—」を出す。 */
-function rankCountGuard_() {
-  // FILTER は一致ゼロだと #N/A を返す。COUNT がエラーを拾うと判定が壊れる。
-  return 'IFERROR(COUNT(FILTER(' + monthRange_('{表示回数}') + ',' + monthsWithData_()
-       + ')),0)<' + RANK_MIN_MONTHS;
+/**
+ * 市場スコアの数式（0〜100点）。4・5行目の目安に対して採点する。
+ *
+ * 自社の他の月と比べる相対評価は、半年ぶんたまるまで判定できず実務で使えない。
+ * 目安と比べる絶対評価なら1ヶ月目から出るし、業種を変えれば物差しも変わる。
+ *
+ * 指標ごとに 良い＝2点／普通＝1点／悪い＝0点。数字が入っている指標だけで
+ * 平均するので、追っていない項目は効かない。
+ * 表示→採用率だけは最終成果なので2倍で数える。
+ * 達成率は目標を自分で決められるため、点数には入れない（下げれば点が上がってしまう）。
+ */
+function scoreWeight_(key) {
+  if (key === '達成率') { return 0; }        // 自分で決める目標は点にしない
+  if (key === '表示→採用率') { return 2; }   // 最終成果は重く見る
+  return 1;
 }
 
-/** 総合スコアの数式。合計行以外は空にする。 */
 function rankScoreFormula_() {
-  var terms = RANK_METRICS.map(function (m) {
-    return m.weight + '*' + percentRankTerm_(m.key);
-  }).join('+');
-  return '=IF(' + rankRowGuard_() + ',"",IF(' + rankCountGuard_() + ',"",'
-       + 'IFERROR(ROUND(100*(' + terms + '),0),"")))';
+  var got = [];
+  var num = [];
+  BENCHMARKS.forEach(function (b) {
+    var w = scoreWeight_(b.key);
+    if (!w) { return; }
+    var v = '{' + b.key + '}{r}';
+    var bad = '${' + b.key + '}$' + BAD_ROW;
+    var good = '${' + b.key + '}$' + GOOD_ROW;
+    got.push('IF(ISNUMBER(' + v + '),' + w + '*IF(' + v + '<' + bad + ',0,IF('
+             + v + '<' + good + ',1,2)),0)');
+    num.push('IF(ISNUMBER(' + v + '),' + w + ',0)');
+  });
+  return '=IF(' + rankRowGuard_() + ',"",'
+       + 'LET(g,(' + got.join('+') + '),n,(' + num.join('+') + '),'
+       + 'IF(n=0,"",ROUND(100*g/(2*n),0))))';
+}
+
+/** 厳しさのプルダウンから、その段の切れ目を選ぶ式。 */
+function rankCutFormula_(rank) {
+  var m = {};
+  RANK_MOODS.forEach(function (x) { m[x.name] = x.cuts[rank]; });
+  return 'IF(' + RANK_MOOD_CELL + '="' + RANK_MOODS[0].name + '",' + m[RANK_MOODS[0].name]
+       + ',IF(' + RANK_MOOD_CELL + '="' + RANK_MOODS[2].name + '",' + m[RANK_MOODS[2].name]
+       + ',' + m[RANK_MOODS[1].name] + '))';
 }
 
 /** 厳しさのプルダウンから、その段の切れ目を選ぶ式。 */
@@ -182,49 +174,25 @@ function rankCutFormula_(rank) {
 }
 
 /**
- * 月が3つ揃うまでの暫定ランク。他の月と比べられないので、
- * 4・5行目の目安に対して「良い＝2点／普通＝1点／悪い＝0点」で採点する。
- * 数字が入っている指標だけで平均するので、埋まっていない項目は効かない。
- */
-function provisionalRankFormula_() {
-  var scores = [];
-  var counts = [];
-  BENCHMARKS.forEach(function (b) {
-    var v = '{' + b.key + '}{r}';
-    var bad = '${' + b.key + '}$' + BAD_ROW;
-    var good = '${' + b.key + '}$' + GOOD_ROW;
-    scores.push('IF(ISNUMBER(' + v + '),IF(' + v + '<' + bad + ',0,IF(' + v + '<' + good + ',1,2)),0)');
-    counts.push('IF(ISNUMBER(' + v + '),1,0)');
-  });
-  // 同じ式を3回書くと数式が長くなりすぎるので LET でまとめる。
-  return 'LET(g,(' + scores.join('+') + '),n,(' + counts.join('+') + '),'
-       + 'IF(n=0,"—",IFS(g/(2*n)>=0.85,"S*",g/(2*n)>=0.6,"A*",g/(2*n)>=0.35,"B*",TRUE,"C*")))';
-}
-
-/**
- * ランクの数式。スコアが全体の何割の位置にいるかで S/A/B/C を決める。
+ * ランクの数式。市場スコアを S/A/B/C に落とすだけ。
  * ただし先月よりスコアが上がっていれば C は付けない。
- * 相対評価は伸びていても順位が上がらなければ下がるので、
- * 「改善したのにCだった」を潰しておかないと、任された側が続かない。
+ * 目安に届いていなくても、上がっている月にCを出し続けると、
+ * 任された側が指標を見るのをやめてしまう。
  */
 function rankLetterFormula_() {
-  var range = monthRange_('{総合スコア}');
   var conds = ['S', 'A', 'B'].map(function (r) {
-    return 'p>=' + rankCutFormula_(r) + ',"' + r + '"';
+    return 's>=' + rankCutFormula_(r) + ',"' + r + '"';
   }).join(',');
 
   return '=IF(' + rankRowGuard_() + ',"",'
-       // 月が足りないうちは、目安との比較で暫定ランクを出す。
-       + 'IF(' + rankCountGuard_() + ',' + provisionalRankFormula_() + ','
        + 'IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(LET('
        + 's,{総合スコア}{r},'
-       + 'p,PERCENTRANK(FILTER(' + range + ',' + monthsWithData_() + ',ISNUMBER(' + range + ')),s),'
        + 'prev,IF({r}-' + ROWS_PER_MONTH + '<' + FIRST_ROW + ',"",'
        + 'IFERROR(OFFSET({総合スコア}{r},-' + ROWS_PER_MONTH + ',0),"")),'
        + 'base,IFS(' + conds + ',TRUE,"C"),'
        // 先月より伸びた月と、比べる先月が無い月にはCを付けない。
-       + 'IF(AND(base="C",OR(NOT(ISNUMBER(prev)),s>prev)),"B",base)'
-       + '),""))))';
+       + 'IF(AND(base="C",ISNUMBER(prev),s>prev),"B",base)'
+       + '),"")))';
 }
 
 /** 自動計算する率と単価。 */
@@ -262,7 +230,7 @@ var CALC_COLUMNS = [
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{採用数}{r}),"")', format: '¥#,##0', width: 110},
   {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115},
-  {key: '総合スコア',       header: '総合スコア\n(他の月との比較)',
+  {key: '総合スコア',       header: '市場スコア\n(目安に対する点数)',
    formula: rankScoreFormula_(), format: '0', width: 105, keepZero: true},
   {key: 'ランク',           header: 'ランク\nS / A / B / C',
    formula: rankLetterFormula_(), format: '@', width: 85, keepZero: true}
@@ -1035,16 +1003,15 @@ function writeNotes_(sheet, start) {
     ['広告だけで集める場合の金額も出ます。LINE友だち追加広告(CPF)の相場が1件100〜150円のため、中央値130円で計算しています。'],
     ['達成率はランクには入れていません。目標を自分で決められる以上、混ぜるとランクを甘くできてしまうためです。'],
     [''],
-    ['■ ランク（S / A / B / C）'],
-    ['色分けが「世間の目安と比べてどうか」なのに対して、ランクは「自社の他の月と比べてどうか」です。'],
-    ['合計行にだけ出ます。採用数40%・表示→採用率25%・LINE登録率15%・プロフ表示率10%・定着率10%で総合スコアを出し、'],
-    ['そのスコアが他の月と比べて上のほうならS、下のほうならCになります。切れ目は2行目右の「評価：〜」で変えられます。'],
-    ['甘め＝Cは下位1割だけ／ふつう＝下位3割／厳しめ＝下位4割強。人に任せているうちは甘めのままで十分です。'],
-    ['相対評価はそのままだと、毎月かならず誰かがCになります。それを避けるため、'],
-    ['先月よりスコアが上がった月にはCを付けません（伸びているのにCが出ると、任された側が続かないため）。'],
-    ['数字が入っている月が3ヶ月に満たないうちは「A*」のように * が付きます。'],
-    ['* は暫定で、他の月ではなく4・5行目の目安と比べた判定です。3ヶ月たまると月どうしの比較に自動で切り替わります。'],
-    ['ランクが出るのは合計行だけです。チャネル行は月の総合評価ではないので空欄になります。'],
+    ['■ 市場スコアとランク（S / A / B / C）'],
+    ['合計行にだけ出ます。4・5行目の目安に対して、指標ごとに 良い＝2点／普通＝1点／悪い＝0点で採点し、'],
+    ['満点を100点として出したのが市場スコアです。50点＝すべて業界の「普通」の水準、100点＝すべて「良い」。'],
+    ['1ヶ月目から出ます。他の月と比べるのではなく市場の目安と比べるので、データが溜まるのを待つ必要がありません。'],
+    ['業種プルダウンを変えると目安が変わり、スコアもランクも一緒に変わります。'],
+    ['表示→採用率は最終成果なので2倍で数えています。達成率は目標を自分で決められるため点数に入れていません。'],
+    ['ランクの切れ目は2行目右の「評価：〜」で変えられます。甘め＝S75/A50/B25、ふつう＝S85/A60/B35、厳しめ＝S90/A70/B50。'],
+    ['先月よりスコアが上がった月にはCを付けません。目安に届いていなくても、伸びている月にCを出し続けると続かないためです。'],
+    ['数字を入れていない指標は採点に入りません。追っている指標だけで評価されます。'],
     [''],
     ['■ 指標の意味'],
     ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
@@ -1066,8 +1033,8 @@ function writeNotes_(sheet, start) {
     ['広告費', 'そのチャネルにその月かけた金額。オーガニックの行は空欄でよい'],
     ['採用単価', '広告費 ÷ 採用数。広告を続けるか止めるかはこの数字で決める'],
     ['LINE登録単価', '広告費 ÷ LINE友だち追加。採用が出る前でも広告の良し悪しが早く分かる'],
-    ['総合スコア', '0〜100。5つの指標それぞれで「12ヶ月の中で何番目か」を出し、重みを付けて足したもの'],
-    ['ランク', '総合スコアの順位で決まる相対評価。S＝その年のベスト級、C＝立て直しが要る月']
+    ['市場スコア', '0〜100点。目安に対して 良い2点／普通1点／悪い0点で採点した平均。50点で業界の普通の水準'],
+    ['ランク', '市場スコアを S/A/B/C に落としたもの。他社の目安が物差しなので、初月から意味を持つ']
   ];
 
   notes.forEach(function (n, i) {
