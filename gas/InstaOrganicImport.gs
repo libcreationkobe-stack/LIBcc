@@ -20,22 +20,20 @@
 var IG_ACCOUNT_PROP = 'IG_ACCOUNT_ID';
 
 /**
- * 日ごとの推移で取れる指標。period=day で日別に返るので、月ぶんを足す。
+ * 取りに行く指標と、KPIシートのどの列に入れるか。
+ *
+ * アカウントのインサイトは、いまはどれも metric_type=total_value でしか返らない。
+ * period=day の日別で聞くと「total_value を付けろ」と弾かれる。
+ *
+ * 合計値で取るほうが正確でもある。日別のリーチを足し上げると、
+ * 複数の日に見た人を二重に数えてしまうため。
  */
-var IG_DAILY_METRICS = [
+var IG_METRICS = [
   {api: 'reach',         key: 'リーチ数'},
-  {api: 'profile_views', key: 'プロフィール表示'}
-];
-
-/**
- * 合計値でしか取れない指標。metric_type=total_value を付けないと弾かれる。
- * 表示回数（views）は日別では取れず、この形でしか返らない。
- * 保存とシェアは別々に返るので、足して「保存＋シェア」にする。
- */
-var IG_TOTAL_METRICS = [
-  {api: 'views',  key: '表示回数'},
-  {api: 'saves',  key: '保存・シェア'},
-  {api: 'shares', key: '保存・シェア'}
+  {api: 'views',         key: '表示回数'},
+  {api: 'profile_views', key: 'プロフィール表示'},
+  {api: 'saves',         key: '保存・シェア'},
+  {api: 'shares',        key: '保存・シェア'}   // 保存とシェアは足して1列に入れる
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -219,95 +217,61 @@ function igListAccounts_(token) {
 /* ---------------- 取得 ---------------- */
 
 /**
- * その月の実績。取り方が違う2種類を、それぞれの形で聞きに行く。
+ * その月の実績。1回で30日ぶんまでしか返らないので、31日ある月だけ2回に分ける。
  *
- * アカウントのインサイトは1回で30日ぶんまでしか返らないので、
- * 月を前半と後半に割って2回聞く。日別のほうは end_time の日付で
- * 重複を除いてから足す。
+ * 半月ずつに割ると、リーチの重複が2週間ぶん出てしまう。
+ * 30日ぶんを1回で取り、はみ出す1日だけを別に聞くほうが、重複が最小になる。
  *
- * どれか1つが取れなくても、取れた指標だけは書き込む。
+ * どれか1つ取れなくても、取れた指標だけ書き込む。
  * Metaは版によって指標の扱いを変えるので、全部か無かにしない。
  */
 function igFetchMonth_(token, accountId, span) {
-  var windows = igWindows_(span);
-  var out = {};
+  var totals = {};
 
-  var days = igDailySeries_(token, accountId, windows);
-  IG_DAILY_METRICS.forEach(function (m) {
-    var byDay = days[m.api];
-    if (!byDay) { return; }
-    var total = 0;
-    Object.keys(byDay).forEach(function (d) { total += byDay[d]; });
-    if (total > 0) { out[m.key] = total; }
-  });
-
-  var totals = igTotalValues_(token, accountId, windows);
-  IG_TOTAL_METRICS.forEach(function (m) {
-    var v = totals[m.api];
-    if (typeof v !== 'number') { return; }
-    // 保存とシェアは同じ列に足し込む。
-    out[m.key] = (out[m.key] || 0) + v;
-  });
-
-  return Object.keys(out).length ? out : null;
-}
-
-/** 月を前半・後半に割る。1回で30日ぶんまでしか返らないため。 */
-function igWindows_(span) {
-  var y = span.first.getFullYear();
-  var m = span.first.getMonth();
-  return [
-    {since: metaDate_(span.first), until: metaDate_(new Date(y, m, 15))},
-    {since: metaDate_(new Date(y, m, 16)), until: span.until}
-  ];
-}
-
-/** 日ごとに返る指標。指標名 → 日付 → 値。 */
-function igDailySeries_(token, accountId, windows) {
-  var seen = {};
-  var metrics = IG_DAILY_METRICS.map(function (m) { return m.api; });
-
-  windows.forEach(function (w) {
+  igWindows_(span).forEach(function (w) {
     var data = igTry_(function () {
       return igRequest_(igUrl_(accountId + '/insights',
-        {metric: metrics.join(','), period: 'day', since: w.since, until: w.until}, token));
-    });
-    if (!data) { return; }
-
-    (data.data || []).forEach(function (m) {
-      seen[m.name] = seen[m.name] || {};
-      (m.values || []).forEach(function (v) {
-        var day = String(v.end_time || '').slice(0, 10);
-        if (day) { seen[m.name][day] = Number(v.value) || 0; }
-      });
-    });
-  });
-  return seen;
-}
-
-/** 合計値でしか返らない指標。指標名 → その月の合計。 */
-function igTotalValues_(token, accountId, windows) {
-  var out = {};
-  var metrics = [];
-  IG_TOTAL_METRICS.forEach(function (m) {
-    if (metrics.indexOf(m.api) < 0) { metrics.push(m.api); }
-  });
-
-  windows.forEach(function (w) {
-    var data = igTry_(function () {
-      return igRequest_(igUrl_(accountId + '/insights',
-        {metric: metrics.join(','), period: 'day', metric_type: 'total_value',
+        {metric: igMetricNames_().join(','), period: 'day', metric_type: 'total_value',
          since: w.since, until: w.until}, token));
     });
     if (!data) { return; }
 
     (data.data || []).forEach(function (m) {
       var v = m.total_value && m.total_value.value;
-      if (typeof v !== 'number') { return; }
-      out[m.name] = (out[m.name] || 0) + v;
+      if (typeof v === 'number') { totals[m.name] = (totals[m.name] || 0) + v; }
     });
   });
-  return out;
+
+  var out = {};
+  IG_METRICS.forEach(function (m) {
+    var v = totals[m.api];
+    if (typeof v !== 'number') { return; }
+    out[m.key] = (out[m.key] || 0) + v;
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+/** 重複しない指標名。保存とシェアは同じ列だが、聞くときは別々。 */
+function igMetricNames_() {
+  var names = [];
+  IG_METRICS.forEach(function (m) {
+    if (names.indexOf(m.api) < 0) { names.push(m.api); }
+  });
+  return names;
+}
+
+/** 30日を超える月だけ2回に分ける。はみ出した日だけを別に聞く。 */
+function igWindows_(span) {
+  var days = Math.round((span.last - span.first) / 86400000) + 1;
+  if (days <= 30) {
+    return [{since: span.since, until: span.until}];
+  }
+  var y = span.first.getFullYear();
+  var m = span.first.getMonth();
+  return [
+    {since: span.since, until: metaDate_(new Date(y, m, 30))},
+    {since: metaDate_(new Date(y, m, 31)), until: span.until}
+  ];
 }
 
 /**
