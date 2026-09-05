@@ -49,6 +49,8 @@ var REVIEW_METRICS = [
   {label: 'フォロワー数',      key: 'フォロワー数'},
   {label: '表示回数',          key: '表示回数'},
   {label: 'リーチ数',          key: 'リーチ数'},
+  {label: 'フォロワー外リーチ', key: 'フォロワー外リーチ'},
+  {label: 'フォロワー外率',    key: 'フォロワー外率',   rate: true, bench: true},
   {label: '保存＋シェア',      key: '保存・シェア'},
   {label: 'リーチ率',          key: 'リーチ率',         rate: true, bench: true},
   {label: '保存シェア率',      key: '保存シェア率',     rate: true, bench: true},
