@@ -19,19 +19,28 @@ var REVIEW_FIRST_ROW = 3;
 
 /** レビューシートの列。text列はClaudeが書き込む。 */
 var REVIEW_COLUMNS = [
-  {col: 'A', header: '月',             width: 60},
-  {col: 'B', header: '数値サマリー',   width: 330},
-  {col: 'C', header: '総評',           width: 380, text: true},
-  {col: 'D', header: '良かった点',     width: 280, text: true},
-  {col: 'E', header: 'ボトルネック',   width: 280, text: true},
-  {col: 'F', header: '改善アクション', width: 340, text: true},
-  {col: 'G', header: '更新日時',       width: 130},
-  {col: 'H', header: 'スライド',       width: 120, link: true},
-  {col: 'I', header: 'PPTX',           width: 110, link: true}
+  {header: '月',             width: 60},
+  {header: 'ランク',         width: 70},
+  {header: '数値サマリー',   width: 330},
+  {header: '総評',           width: 380, text: true},
+  {header: '良かった点',     width: 280, text: true},
+  {header: 'ボトルネック',   width: 280, text: true},
+  {header: '改善アクション', width: 340, text: true},
+  {header: '更新日時',       width: 130},
+  {header: 'スライド',       width: 120, link: true},
+  {header: 'PPTX',           width: 110, link: true}
 ];
 
-var REVIEW_LAST_COL = REVIEW_COLUMNS.length;   // 9 (I列)
-var REVIEW_BODY_COLS = 7;                     // C〜I（総評からリンクまで）
+/** 列番号を見出しの名前で引く。列を足しても書き込み先がずれない。 */
+var REVIEW_COL = (function () {
+  var map = {};
+  REVIEW_COLUMNS.forEach(function (c, i) { map[c.header] = i + 1; });
+  return map;
+})();
+
+var REVIEW_LAST_COL = REVIEW_COLUMNS.length;
+var REVIEW_BODY_START = REVIEW_COL['総評'];                        // 本文の先頭列
+var REVIEW_BODY_COLS = REVIEW_LAST_COL - REVIEW_BODY_START + 1;   // 総評からリンクまで
 
 /** Claudeへの依頼で使う指標。列はKPIシートの定義から名前で引く。 */
 var REVIEW_METRICS = [
@@ -204,17 +213,25 @@ function buildReviewSheet() {
       .setHorizontalAlignment('center')
       .setVerticalAlignment('middle');
 
-    sheet.getRange(row, 2)
+    // ランクはKPIシートの合計行から引く。判定はあちらの数式が持っている。
+    sheet.getRange(row, REVIEW_COL['ランク'])
+      .setFormula("='" + SHEET_NAME + "'!" + col_('ランク') + kpiRow)
+      .setFontSize(16).setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+
+    sheet.getRange(row, REVIEW_COL['数値サマリー'])
       .setFormula(summaryFormula_(kpiRow))
       .setBackground(COLOR_CALC_BG)
       .setVerticalAlignment('middle')
       .setWrap(true);
 
     if (saved[MONTHS[i] + '_' + i]) {
-      sheet.getRange(row, 3, 1, REVIEW_BODY_COLS).setValues([saved[MONTHS[i] + '_' + i]]);
+      sheet.getRange(row, REVIEW_BODY_START, 1, REVIEW_BODY_COLS)
+        .setValues([saved[MONTHS[i] + '_' + i]]);
     }
-    sheet.getRange(row, 3, 1, 4).setVerticalAlignment('top').setWrap(true);
-    sheet.getRange(row, 7, 1, 3).setVerticalAlignment('middle').setHorizontalAlignment('center');
+    sheet.getRange(row, REVIEW_BODY_START, 1, 4).setVerticalAlignment('top').setWrap(true);
+    sheet.getRange(row, REVIEW_COL['更新日時'], 1, 3)
+      .setVerticalAlignment('middle').setHorizontalAlignment('center');
     sheet.setRowHeight(row, 120);
   }
 
@@ -230,7 +247,10 @@ function buildReviewSheet() {
   sheet.getRange(note, 1).setFontWeight('bold');
   sheet.getRange(note + 1, 1).setValue(
     '書きたい月の行をどこでもいいのでクリックして、メニュー「KPIシート」→「この月の総評をAIに書かせる」。'
-    + 'C〜F列はあとから手で直してOK。もう一度実行すると上書きされます。');
+    + '総評〜改善アクションの4列はあとから手で直してOK。もう一度実行すると上書きされます。');
+  sheet.getRange(note + 2, 1).setValue(
+    'ランク列はKPIシートの合計行から自動で入ります。業界の目安ではなく、数字が入っている月どうしを'
+    + '比べた相対評価です（上位20%がS、45%までがA、70%までがB、残りがC）。3ヶ月ぶんたまるまでは空欄です。');
 
   SpreadsheetApp.getActive().toast('月次レビューシートを用意しました。');
 }
@@ -252,7 +272,7 @@ function readExistingReviews_(sheet) {
 
     var body = [];
     var hasText = false;
-    for (var c = 2; c < 2 + REVIEW_BODY_COLS; c++) {
+    for (var c = REVIEW_BODY_START - 1; c < REVIEW_BODY_START - 1 + REVIEW_BODY_COLS; c++) {
       var f = formulas[row] ? formulas[row][c] : '';
       var v = f ? f : values[row][c];
       body.push(v === null || v === undefined ? '' : v);
@@ -263,7 +283,7 @@ function readExistingReviews_(sheet) {
   return saved;
 }
 
-/** B列に出す数値サマリーの数式。KPIシートを参照する。 */
+/** 数値サマリー列に出す数式。KPIシートを参照する。 */
 function summaryFormula_(kpiRow) {
   var s = "'" + SHEET_NAME + "'!";
   var at = function (key) { return s + col_(key) + kpiRow; };
@@ -299,15 +319,15 @@ function writeReviewForSelectedMonth() {
   var sections = parseSections_(callClaudeForReview_(data));
   var row = REVIEW_FIRST_ROW + index;
 
-  sheet.getRange(row, 3, 1, 4).setValues([[
+  sheet.getRange(row, REVIEW_BODY_START, 1, 4).setValues([[
     sections['【総評】'], sections['【良かった点】'],
     sections['【ボトルネック】'], sections['【改善アクション】']
   ]]);
-  sheet.getRange(row, 7).setValue(
+  sheet.getRange(row, REVIEW_COL['更新日時']).setValue(
     Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm'));
 
   sheet.activate();
-  sheet.setActiveRange(sheet.getRange(row, 3));
+  sheet.setActiveRange(sheet.getRange(row, REVIEW_BODY_START));
   SpreadsheetApp.getActive().toast(MONTHS[index] + 'の総評を書きました。');
 }
 
@@ -365,11 +385,43 @@ function collectMonthData_(index) {
   return {
     month: MONTHS[index],
     prevMonth: index > 0 ? MONTHS[index - 1] : '',
+    rank: rankInfo_(kpi, index),
     reach: kpi.getRange(col_('表示回数') + row).getValue(),
     channels: readChannelRows_(kpi, index),
     metrics: metrics,
     prev: prev
   };
+}
+
+/**
+ * その月のランクと順位。判定そのものはKPIシートの数式が持っているので、
+ * ここでは結果を読むだけ。順位は同じ列の他の月と比べて出す。
+ */
+function rankInfo_(kpi, index) {
+  var scoreCol = col_('総合スコア');
+  var score = kpi.getRange(scoreCol + summaryRow_(index)).getValue();
+  if (typeof score !== 'number') { return null; }
+
+  var column = kpi.getRange(scoreCol + FIRST_ROW + ':' + scoreCol + LAST_ROW).getValues();
+  var scores = [];
+  for (var i = 0; i < MONTHS.length; i++) {
+    var v = column[summaryRow_(i) - FIRST_ROW][0];
+    if (typeof v === 'number') { scores.push(v); }
+  }
+  scores.sort(function (a, b) { return b - a; });
+
+  return {
+    rank: String(kpi.getRange(col_('ランク') + summaryRow_(index)).getValue() || ''),
+    score: score,
+    place: scores.indexOf(score) + 1,
+    total: scores.length
+  };
+}
+
+/** ランクを一行の文にする。総評とスライドで同じ言い方をそろえる。 */
+function rankText_(rank) {
+  if (!rank || !rank.rank) { return ''; }
+  return rank.rank + '（' + rank.total + 'ヶ月中' + rank.place + '位・総合スコア' + rank.score + '）';
 }
 
 /** その月のチャネル別の実績。スライドの比較に使う。 */
@@ -437,6 +489,13 @@ function buildReviewPrompt_(data) {
     });
   } else {
     lines.push('', '【前月の数値】比較できる前月データはありません。前月比には触れないでください。');
+  }
+
+  if (data.rank) {
+    lines.push('', '【今月のランク】' + rankText_(data.rank),
+      'これは業界目安ではなく、数字が入っている' + data.rank.total
+      + 'ヶ月どうしを比べた相対評価です（採用数40%・表示→採用率25%・LINE登録率15%・'
+      + 'プロフ表示率10%・定着率10%）。総評の冒頭で、この月が自社の中でどの位置だったかに触れてください。');
   }
 
   lines.push('', '【指標の目安】', benchmarkText_());

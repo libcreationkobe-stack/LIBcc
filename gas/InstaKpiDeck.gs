@@ -51,6 +51,17 @@ var TIER_STYLE = {
 
 var C_TRACK = '#e8eaee';     // バーの下地
 
+/**
+ * 月どうしを比べたランクの色。目安（TIER_STYLE）とは別の物差しなので色も分ける。
+ * 色だけで意味を伝えないよう、必ず「12ヶ月中3位」の文字を添える。
+ */
+var RANK_STYLE = {
+  'S': {bar: '#8a6100', soft: '#fdeecd', ink: '#6b4b00'},
+  'A': {bar: '#0b6b0b', soft: '#dcf0dc', ink: '#0b6b0b'},
+  'B': {bar: '#767676', soft: '#eeeeee', ink: '#444444'},
+  'C': {bar: '#8f2020', soft: '#f7dede', ink: '#8f2020'}
+};
+
 /** 上部のセクションナビ。現在地を濃く出す。 */
 var NAV = ['サマリー', 'チャネル別', 'ファネル', '目安との比較', '総評', 'アクション'];
 
@@ -121,7 +132,7 @@ function buildMonthlyDeck() {
     throw new Error(MONTHS[index] + ' はKPIシートに数値が入っていません。');
   }
 
-  var review = reviewSheet.getRange(REVIEW_FIRST_ROW + index, 3, 1, 4).getValues()[0];
+  var review = reviewSheet.getRange(REVIEW_FIRST_ROW + index, REVIEW_BODY_START, 1, 4).getValues()[0];
   if (String(review[0]).trim() === '') {
     throw new Error(MONTHS[index] + ' の総評がまだありません。\n'
       + '「この月のレポートを作る（総評＋スライド）」を使うか、'
@@ -160,7 +171,7 @@ function renderDeck_(index, data, review) {
   var cover = deck.getSlides()[0];
   cover.getPageElements().forEach(function (el) { el.remove(); });
 
-  renderCover_(cover, index);
+  renderCover_(cover, index, data);
   renderSummary_(newSlide_(deck), index, data, review.summary);
   renderChannels_(newSlide_(deck), index, data);
   renderFunnel_(newSlide_(deck), index, review.bottleneck);
@@ -210,7 +221,7 @@ function newSlide_(deck) {
 
 /* ---------------- 各スライド ---------------- */
 
-function renderCover_(slide, index) {
+function renderCover_(slide, index, data) {
   slide.getBackground().setSolidFill(C_BG);
 
   var bandY = H * 0.60;
@@ -234,8 +245,35 @@ function renderCover_(slide, index) {
     box_(slide, PAD + 180, y + 24, 200, 1, C_RULE);
   });
 
+  renderRankBadge_(slide, data, bandY);
+
   text_(slide, W - PAD - 260, H - 46, 260, 18, 'LIB creation.',
     {size: 11, color: C_INK_SUB, align: 'right'});
+}
+
+/**
+ * 表紙の右側に出すランク。業界目安ではなく、自社の他の月と比べた位置。
+ * 3ヶ月ぶんたまるまでは判定しないので、その間は何も置かない。
+ */
+function renderRankBadge_(slide, data, bandY) {
+  var rank = data && data.rank;
+  if (!rank || !RANK_STYLE[rank.rank]) { return; }
+
+  var style = RANK_STYLE[rank.rank];
+  // 既定サイズ（720x405）で作られたときは帯が浅くなるので、札も小さくする。
+  var size = Math.min(104, H - bandY - 70);
+  if (size < 60) { return; }
+  var x = W - PAD - size;
+  var y = bandY + 24;
+
+  box_(slide, x, y, size, size, style.soft, true);
+  box_(slide, x, y, size, 4, style.bar);
+  text_(slide, x, y + size * 0.10, size, size * 0.46, rank.rank,
+    {size: Math.round(size * 0.38), color: style.ink, bold: true, align: 'center'});
+  text_(slide, x, y + size * 0.60, size, 14, '今月のランク',
+    {size: 8, color: C_INK_SUB, align: 'center'});
+  text_(slide, x, y + size * 0.76, size, 14, rank.total + 'ヶ月中' + rank.place + '位',
+    {size: 8, color: style.ink, align: 'center'});
 }
 
 function renderSummary_(slide, index, data, summary) {
@@ -700,8 +738,8 @@ function exportAsPptx_(fileId, name, folder) {
 /** レビューシートのH・I列に、その月のレポートへのリンクを書く。 */
 function writeDeckLinks_(sheet, index, deckUrl, pptxUrl) {
   var row = REVIEW_FIRST_ROW + index;
-  sheet.getRange(row, 8).setFormula('=HYPERLINK("' + deckUrl + '","スライドを開く")');
-  sheet.getRange(row, 9).setFormula('=HYPERLINK("' + pptxUrl + '","PPTXを開く")');
+  sheet.getRange(row, REVIEW_COL['スライド']).setFormula('=HYPERLINK("' + deckUrl + '","スライドを開く")');
+  sheet.getRange(row, REVIEW_COL['PPTX']).setFormula('=HYPERLINK("' + pptxUrl + '","PPTXを開く")');
 }
 
 /**

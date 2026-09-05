@@ -63,6 +63,73 @@ var MONTH_COLUMNS = [
   {key: 'LINE友だち総数', header: 'LINE友だち\n総数(月末)', width: 100}
 ];
 
+/**
+ * 月どうしを比べてランクを付けるときの指標と重み。合計で1になるようにする。
+ * 業界の目安（4・5行目）とは別物。こちらは「自社の他の月と比べてどうか」だけを見る。
+ */
+var RANK_METRICS = [
+  {key: '採用数',       weight: 0.40},   // 何人採れたか
+  {key: '表示→採用率',  weight: 0.25},   // 同じ表示で何人採れたか
+  {key: 'LINE登録率',   weight: 0.15},   // 導線の出来
+  {key: 'プロフ表示率', weight: 0.10},   // 発信の出来
+  {key: '定着率',       weight: 0.10}    // 採用の質
+];
+
+/** ランクの切れ目。上から何割の位置にいるかで決める。 */
+var RANK_CUTS = [{rank: 'S', at: 0.80}, {rank: 'A', at: 0.55}, {rank: 'B', at: 0.30}];
+
+/** 何ヶ月ぶんたまったらランクを出すか。少なすぎる比較は意味がない。 */
+var RANK_MIN_MONTHS = 3;
+
+var RANK_COLORS = {
+  S: {bg: '#fff2cc', fg: '#7f6000'},
+  A: {bg: '#d9ead3', fg: '#274e13'},
+  B: {bg: '#eeeeee', fg: '#444444'},
+  C: {bg: '#f4cccc', fg: '#990000'}
+};
+
+/** 合計行だけを縦に切り出す絶対範囲。{指標名} は書き込むときに列文字へ変わる。 */
+function monthRange_(token) {
+  return '$' + token + '$' + FIRST_ROW + ':$' + token + '$' + LAST_ROW;
+}
+
+/** 「数字が入っている月の合計行」を選ぶ条件。 */
+function monthsWithData_() {
+  return '$B$' + FIRST_ROW + ':$B$' + LAST_ROW + '="' + TOTAL_LABEL + '",'
+       + monthRange_('{表示回数}') + '>0';
+}
+
+/** その指標について、この月が全体の何割の位置にいるか（0〜1）。 */
+function percentRankTerm_(key) {
+  var range = monthRange_('{' + key + '}');
+  return 'IFERROR(PERCENTRANK(FILTER(' + range + ',' + monthsWithData_()
+       + ',ISNUMBER(' + range + ')),{' + key + '}{r}),0.5)';
+}
+
+/** 総合スコアの数式。合計行以外は空にする。 */
+function rankScoreFormula_() {
+  var terms = RANK_METRICS.map(function (m) {
+    return m.weight + '*' + percentRankTerm_(m.key);
+  }).join('+');
+  return '=IF($B{r}<>"' + TOTAL_LABEL + '","",'
+       // その月に数字が入っていなければ空。0のままの月にランクを付けない。
+       + 'IF(N({表示回数}{r})<=0,"",'
+       + 'IF(COUNT(FILTER(' + monthRange_('{表示回数}') + ',' + monthsWithData_() + '))<'
+       + RANK_MIN_MONTHS + ',"",'
+       + 'IFERROR(ROUND(100*(' + terms + '),0),""))))';
+}
+
+/** ランクの数式。スコアが全体の何割の位置にいるかで S/A/B/C を決める。 */
+function rankLetterFormula_() {
+  var range = monthRange_('{総合スコア}');
+  var p = 'PERCENTRANK(FILTER(' + range + ',' + monthsWithData_()
+        + ',ISNUMBER(' + range + ')),{総合スコア}{r})';
+  var conds = RANK_CUTS.map(function (c) {
+    return p + '>=' + c.at + ',"' + c.rank + '"';
+  }).join(',');
+  return '=IF(NOT(ISNUMBER({総合スコア}{r})),"",IFERROR(IFS(' + conds + ',TRUE,"C"),""))';
+}
+
 /** 自動計算する率と単価。 */
 var CALC_COLUMNS = [
   {key: 'リーチ率',         header: 'リーチ率\n(リーチ÷表示)',
@@ -90,7 +157,11 @@ var CALC_COLUMNS = [
   {key: '採用単価',         header: '採用単価\n(広告費÷採用数)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{採用数}{r}),"")', format: '¥#,##0', width: 110},
   {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
-   formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115}
+   formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115},
+  {key: '総合スコア',       header: '総合スコア\n(他の月との比較)',
+   formula: rankScoreFormula_(), format: '0', width: 105},
+  {key: 'ランク',           header: 'ランク\nS / A / B / C',
+   formula: rankLetterFormula_(), format: '@', width: 85}
 ];
 
 var ALL_COLUMNS = INPUT_COLUMNS.concat(MONTH_COLUMNS).concat(CALC_COLUMNS);
@@ -663,11 +734,14 @@ function writeMonthBlocks_(sheet, saved) {
 /** 率の列に数式と表示形式を入れる。 */
 function writeCalcCells_(sheet, row) {
   CALC_COLUMNS.forEach(function (c) {
-    sheet.getRange(col_(c.key) + row)
+    var cell = sheet.getRange(col_(c.key) + row)
       .setFormula(resolveFormula_(c.formula, row))
       .setNumberFormat(c.format)
       .setHorizontalAlignment('right')
       .setBackground(COLOR_CALC_BG);
+    if (c.key === 'ランク') {
+      cell.setHorizontalAlignment('center').setFontSize(12).setFontWeight('bold');
+    }
   });
 }
 
@@ -728,6 +802,16 @@ function applyConditionalFormats_(sheet) {
         .setRanges([range]).build());
     });
   });
+
+  // ランクは文字なので、目安ではなく文字そのもので塗る。
+  var rankRange = sheet.getRange(col_('ランク') + FIRST_ROW + ':' + col_('ランク') + YEAR_AVG_ROW);
+  Object.keys(RANK_COLORS).forEach(function (letter) {
+    rules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo(letter)
+      .setBackground(RANK_COLORS[letter].bg).setFontColor(RANK_COLORS[letter].fg).setBold(true)
+      .setRanges([rankRange]).build());
+  });
+
   sheet.setConditionalFormatRules(rules);
 }
 
@@ -750,6 +834,13 @@ function writeNotes_(sheet) {
     ['プリセットは出発点であって正解ではありません。実績が3〜6ヶ月たまったら、自社の平均を基準に置き換えてください。'],
     ['置き換え方：その率の「月平均」を見て、平均を4行目、平均の1.3〜1.5倍を5行目に入れる。それだけで自社基準になります。'],
     [''],
+    ['■ ランク（S / A / B / C）'],
+    ['色分けが「世間の目安と比べてどうか」なのに対して、ランクは「自社の他の月と比べてどうか」です。'],
+    ['合計行にだけ出ます。採用数40%・表示→採用率25%・LINE登録率15%・プロフ表示率10%・定着率10%で総合スコアを出し、'],
+    ['そのスコアが12ヶ月の中で上位20%ならS、上位45%までA、上位70%までB、それ以下がCになります。'],
+    ['相対評価なので、全体が伸びれば同じ数字でもランクは下がります。「先月の自分より良いか」を見るための欄です。'],
+    ['数字が入っている月が3ヶ月に満たないうちは空欄のままです（比べる相手がいないため）。'],
+    [''],
     ['■ 指標の意味'],
     ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
     ['リーチ数', '重複を除いた到達人数。取れない媒体は空欄でよい（率も出ません）'],
@@ -767,7 +858,9 @@ function writeNotes_(sheet) {
     ['定着率', '3ヶ月定着数 ÷ 採用数。ここを見ていないと「採る→辞める」を数字上は成功として繰り返す'],
     ['広告費', 'そのチャネルにその月かけた金額。オーガニックの行は空欄でよい'],
     ['採用単価', '広告費 ÷ 採用数。広告を続けるか止めるかはこの数字で決める'],
-    ['LINE登録単価', '広告費 ÷ LINE友だち追加。採用が出る前でも広告の良し悪しが早く分かる']
+    ['LINE登録単価', '広告費 ÷ LINE友だち追加。採用が出る前でも広告の良し悪しが早く分かる'],
+    ['総合スコア', '0〜100。5つの指標それぞれで「12ヶ月の中で何番目か」を出し、重みを付けて足したもの'],
+    ['ランク', '総合スコアの順位で決まる相対評価。S＝その年のベスト級、C＝立て直しが要る月']
   ];
 
   notes.forEach(function (n, i) {
