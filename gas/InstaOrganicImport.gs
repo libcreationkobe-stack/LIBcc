@@ -136,7 +136,8 @@ function checkInstagramSettings() {
 /** 別のInstagramアカウントに切り替える。 */
 function resetInstagramAccount() {
   PropertiesService.getScriptProperties().deleteProperty(IG_ACCOUNT_PROP);
-  SpreadsheetApp.getActive().toast('次の取り込みのときに、もう一度アカウントを選びます。');
+  SpreadsheetApp.getActive().toast(
+    '次に「Instagramの数字を取り込む」を実行したとき、どのアカウントか聞き直します。');
 }
 
 /**
