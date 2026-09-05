@@ -222,7 +222,7 @@ function writeAdMonthBlocks_(sheet, saved) {
       AD_INPUT_COLUMNS.forEach(function (c) {
         var cell = sheet.getRange(adCol_(c.key) + r);
         if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
-        cell.setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
+        cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
       });
       writeAdCalcCells_(sheet, r);
       sheet.setRowHeight(r, 21);
@@ -231,9 +231,10 @@ function writeAdMonthBlocks_(sheet, saved) {
     sheet.getRange(total, 2).setValue(TOTAL_LABEL).setFontWeight('bold');
     AD_INPUT_COLUMNS.forEach(function (c) {
       var letter = adCol_(c.key);
+      var span = letter + first + ':' + letter + (total - 1);
       sheet.getRange(letter + total)
-        .setFormula('=SUM(' + letter + first + ':' + letter + (total - 1) + ')')
-        .setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
+        .setFormula(blankIfEmpty_('SUM(' + span + ')', span))
+        .setNumberFormat(c.money ? '¥#,##0' : '#,##0');
     });
     writeAdCalcCells_(sheet, total);
     sheet.getRange(total, 2, 1, AD_LAST_COL - 1)

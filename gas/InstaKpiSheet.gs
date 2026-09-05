@@ -133,12 +133,14 @@ var RANK_COLORS = {
 };
 
 /**
- * 0を表示しない書式にする。書式の3つ目の区画（ゼロのときの表示）を空にする。
- * 使っていないチャネルの行が 0 と ¥0 と 0.0% で埋まると、
- * 実際に動いている数字が読めなくなる。値は0のまま、見た目だけ消す。
+ * 合計の数式。ひとつも数字が入っていなければ空にする。
+ *
+ * 書式で0を隠すやり方だと、本当に0だった月の0まで消えてしまう。
+ * 「入れていない」と「0だった」は別の意味なので、数えて分ける。
+ * 空欄は数式を書かなくても空のまま出るので、入力欄は素の書式でよい。
  */
-function hideZero_(format) {
-  return format + ';-' + format + ';';
+function blankIfEmpty_(fn, range) {
+  return '=IF(COUNT(' + range + ')=0,"",' + fn + ')';
 }
 
 /**
@@ -890,7 +892,7 @@ function writeMonthBlocks_(sheet, saved) {
         } else if (body.hasOwnProperty(c.key)) {
           cell.setValue(body[c.key]);
         }
-        cell.setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
+        cell.setNumberFormat(c.money ? '¥#,##0' : '#,##0');
       });
       writeCalcCells_(sheet, r);
       sheet.setRowHeight(r, 21);
@@ -900,15 +902,16 @@ function writeMonthBlocks_(sheet, saved) {
     sheet.getRange(total, 2).setValue(TOTAL_LABEL).setFontWeight('bold');
     INPUT_COLUMNS.forEach(function (c) {
       var letter = col_(c.key);
+      var span = letter + first + ':' + letter + (total - 1);
       sheet.getRange(letter + total)
-        .setFormula('=SUM(' + letter + first + ':' + letter + (total - 1) + ')')
-        .setNumberFormat(hideZero_(c.money ? '¥#,##0' : '#,##0'));
+        .setFormula(blankIfEmpty_('SUM(' + span + ')', span))
+        .setNumberFormat(c.money ? '¥#,##0' : '#,##0');
     });
     MONTH_COLUMNS.forEach(function (c) {
       var body = saved[m + '|' + TOTAL_LABEL] || {};
       var cell = sheet.getRange(col_(c.key) + total);
       if (body.hasOwnProperty(c.key)) { cell.setValue(body[c.key]); }
-      cell.setNumberFormat(hideZero_('#,##0'));
+      cell.setNumberFormat('#,##0');
       // 目標は手で決める数字。自動計算の欄と見分けが付くようにしておく。
       if (c.goal) { cell.setBackground(COLOR_SETTING_BG).setFontWeight('bold'); }
     });
@@ -952,13 +955,14 @@ function writeYearRows_(sheet) {
       // 月平均は、数字を入れていない月（合計0）を混ぜない。
       // 混ぜると、まだ埋めていない月のぶんだけ平均が下がる。
       var formula = spec.fn === 'SUMIF'
-        ? '=IFERROR(SUMIF(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),0)'
+        ? blankIfEmpty_('IFERROR(SUMIF(' + channelCol + ',"' + TOTAL_LABEL + '",' + range + '),"")',
+                        range)
         : '=IFERROR(AVERAGEIFS(' + range + ',' + channelCol + ',"' + TOTAL_LABEL + '",'
           + viewRange + ',">0"),"")';
       sheet.getRange(letter + spec.row)
         .setFormula(formula)
-        .setNumberFormat(hideZero_(
-          c.money ? '¥#,##0' : (spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0')));
+        .setNumberFormat(
+          c.money ? '¥#,##0' : (spec.row === YEAR_TOTAL_ROW ? '#,##0' : '#,##0.0'));
     });
     writeCalcCells_(sheet, spec.row);
 
@@ -1066,7 +1070,7 @@ function writeGoalBlock_(sheet, savedGoal) {
       var cell = sheet.getRange(row, 3);
       if (String(r[1]).charAt(0) === '=') { cell.setFormula(r[1]); }
       else if (r[1] !== '') { cell.setValue(r[1]); }
-      cell.setNumberFormat(hideZero_(r[2])).setHorizontalAlignment('right').setFontWeight('bold')
+      cell.setNumberFormat(r[2]).setHorizontalAlignment('right').setFontWeight('bold')
         .setBackground(r[4] ? COLOR_SETTING_BG : COLOR_CALC_BG)
         .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
     }
@@ -1105,6 +1109,7 @@ function writeNotes_(sheet, start) {
     ['Meta広告・TikTokプロモートの行は「広告」タブから自動で入ります。数字は広告タブに入れてください。'],
     ['3ヶ月定着数は3ヶ月後に分かる数字です。8月に採用した人が11月に残っていたら、8月の行に入れます。'],
     ['まだ分からないうちは空のままにしてください。0を入れると「全員辞めた」という意味になり、判定が下がります。'],
+    ['「入れていない」は空欄、「0だった」は0と入れてください。0はそのまま0と表示されます。'],
     ['フォロワー外リーチはInstagramのインサイトから転記します。取れない媒体は空のままでかまいません。'],
     ['全部を毎月埋めようとしないでください。主力チャネルだけ全項目、他は表示回数・LINE追加・採用数の3つで十分です。'],
     ['チャネルを増やしたいときは、スクリプトの CHANNELS に足して「シートを整える」を実行します。'],
