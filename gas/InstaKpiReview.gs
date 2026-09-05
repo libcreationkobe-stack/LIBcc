@@ -91,7 +91,15 @@ function checkClaudeSettings() {
     lines.push('APIキーが無いのでテストできません。');
   }
 
-  SpreadsheetApp.getUi().alert('Claude APIの設定', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+  // 先にログへ出す。ダイアログはOKが押されるまで実行が止まるので、
+  // 押されないまま6分でタイムアウトしても結果が残るようにしておく。
+  Logger.log(lines.join('\n'));
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert('Claude APIの設定', lines.join('\n'), ui.ButtonSet.OK);
+  } catch (e) {
+    Logger.log('ダイアログは出せませんでした（' + e.message + '）。上の内容を見てください。');
+  }
 }
 
 /** ごく短いリクエストを1回だけ送って、通るかどうかを確かめる。 */
