@@ -427,7 +427,12 @@ function onOpen() {
     .addItem('この月のレポートを作る（総評＋スライド）', 'buildMonthlyReport')
     .addItem('この月のスライドだけ作り直す', 'buildMonthlyDeck')
     .addSeparator()
+    .addItem('広告の数字をMetaから取り込む', 'importMetaAds')
+    .addSeparator()
+    .addItem('このシートをコピーして別アカウントを作る', 'createAccountCopy')
+    .addItem('APIキー・トークンを設定する', 'setApiKeys')
     .addItem('Claude APIの設定を確認する', 'checkClaudeSettings')
+    .addItem('Meta広告の設定を確認する', 'checkMetaSettings')
     .addToUi();
 }
 
@@ -509,6 +514,67 @@ function toggleViewMode() {
   cell.setValue(next);
   applyViewMode_(sheet, next);
   SpreadsheetApp.getActive().toast(next + ' に切り替えました。');
+}
+
+/**
+ * このシートを丸ごとコピーして、別アカウント用のシートを作る。
+ * 数式・目安・色分けはそのまま、入力した数字だけ空にする。
+ *
+ * スクリプトのプロパティ（APIキーとトークン）はコピーされないので、
+ * 新しいシート側で「APIキー・トークンを設定する」を実行する必要がある。
+ */
+function createAccountCopy() {
+  var ui = SpreadsheetApp.getUi();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var res = ui.prompt('別アカウントのシートを作る',
+    'クライアント名を入れてください。ファイル名になります。', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) { return; }
+  var name = res.getResponseText().trim();
+  if (!name) { return; }
+
+  var title = '採用KPI - ' + name;
+  var copy = DriveApp.getFileById(ss.getId()).makeCopy(title);
+  var target = SpreadsheetApp.openById(copy.getId());
+  clearAccountData_(target);
+
+  var url = target.getUrl();
+  var message = title + ' を作りました。\n\n' + url + '\n\n'
+    + '新しいシートを開いたら、この順で1回ずつ実行してください。\n'
+    + '　1. メニュー「KPIシート」→「APIキー・トークンを設定する」\n'
+    + '　2. メニュー「KPIシート」→「シートを整える」\n\n'
+    + '※ APIキーとトークンはファイルごとに持つので、コピーには引き継がれません。';
+  Logger.log(message);
+  try {
+    ui.alert('別アカウントのシートを作りました', message, ui.ButtonSet.OK);
+  } catch (e) {
+    // UIが使えない文脈。URLはログに残してある。
+  }
+}
+
+/** コピーしたシートから、前のアカウントの数字だけを消す。 */
+function clearAccountData_(target) {
+  var kpi = target.getSheetByName(SHEET_NAME);
+  if (kpi) {
+    var width = INPUT_COLUMNS.length + MONTH_COLUMNS.length;
+    for (var m = 0; m < MONTHS.length; m++) {
+      kpi.getRange(channelFirstRow_(m), 3, ROWS_PER_MONTH, width).clearContent();
+    }
+    kpi.getRange(YEAR_AVG_ROW + 3, 3).clearContent();   // 逆算ブロックの「採用したい人数」
+  }
+
+  var ad = target.getSheetByName(AD_SHEET_NAME);
+  if (ad) {
+    ad.getRange(AD_FIRST_ROW, 3, adLastRow_() - AD_FIRST_ROW + 1, AD_INPUT_COLUMNS.length)
+      .clearContent();
+    ad.getRange(AD_ACCOUNT_ROW, 3).clearContent();      // 広告アカウントIDはアカウントごとに違う
+  }
+
+  var review = target.getSheetByName(REVIEW_SHEET_NAME);
+  if (review) {
+    review.getRange(REVIEW_FIRST_ROW, REVIEW_BODY_START, MONTHS.length, REVIEW_BODY_COLS)
+      .clearContent();
+  }
 }
 
 /** フィルタが掛かっていれば外す。掛かっていなければ何もしない。 */
@@ -689,7 +755,14 @@ function num_(v) {
   return typeof v === 'number' ? v : 0;
 }
 
-var BACKUP_KEY = 'KPI_INPUT_BACKUP';
+/**
+ * 入力の控えを置くキー。ファイルのIDを混ぜてある。
+ * アカウントごとにシートをコピーすると控えも一緒に複製されるので、
+ * キーを共通にしていると、新しいアカウントに前のアカウントの数字が戻ってしまう。
+ */
+function backupKey_() {
+  return 'KPI_INPUT_BACKUP_' + SpreadsheetApp.getActiveSpreadsheet().getId();
+}
 
 /**
  * 前回の控えと突き合わせる。シートから読めた分を優先し、
@@ -708,7 +781,7 @@ function saveBackup_(saved) {
   if (!Object.keys(saved).length) { return; }
   try {
     PropertiesService.getDocumentProperties()
-      .setProperty(BACKUP_KEY, JSON.stringify(saved));
+      .setProperty(backupKey_(), JSON.stringify(saved));
   } catch (e) {
     // 控えが取れなくても本来の処理は続ける。
     Logger.log('入力の控えを保存できませんでした: ' + e.message);
@@ -717,7 +790,7 @@ function saveBackup_(saved) {
 
 function loadBackup_() {
   try {
-    var raw = PropertiesService.getDocumentProperties().getProperty(BACKUP_KEY);
+    var raw = PropertiesService.getDocumentProperties().getProperty(backupKey_());
     return raw ? JSON.parse(raw) : {};
   } catch (e) {
     Logger.log('入力の控えを読めませんでした: ' + e.message);
@@ -728,6 +801,7 @@ function loadBackup_() {
 function writeTitle_(sheet) {
   // 左2列は固定するので、結合は3列目から。固定の境目をまたぐと弾かれる。
   sheet.getRange(TITLE_ROW, 3).setValue(
+    SpreadsheetApp.getActiveSpreadsheet().getName() + '　｜　' +
     '採用 月次KPI（青の見出し＝入力欄／緑の見出し＝自動計算）');
   sheet.getRange(TITLE_ROW, 3, 1, LAST_COL - 2).merge();
   sheet.getRange(TITLE_ROW, 1, 1, LAST_COL)

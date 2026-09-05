@@ -10,8 +10,10 @@
 var AD_SHEET_NAME = '広告';
 
 var AD_TITLE_ROW = 1;
+var AD_ACCOUNT_ROW = 2;         // Meta広告アカウントID（自動取り込みに使う）
 var AD_TARGET_CPA_ROW = 3;      // 目標 採用単価（上限）
 var AD_TARGET_CPL_ROW = 4;      // 目標 LINE登録単価（上限）
+var AD_START_ROW = 5;           // 集計の開始年月
 var AD_HEAD_ROW = 6;
 var AD_FIRST_ROW = 7;
 /*
@@ -165,8 +167,25 @@ function writeAdTitle_(sheet) {
   sheet.setRowHeight(AD_TITLE_ROW, 28);
 }
 
-/** 許容できる単価の上限。これを超えた月が赤くなる。 */
+/** 許容できる単価の上限と、自動取り込みの設定。 */
 function writeAdTargets_(sheet, targets) {
+  // 自動取り込みの設定。IDと年月は秘密ではないのでセルに置く。
+  // トークンだけはスクリプトプロパティにしか置かない。
+  [[AD_ACCOUNT_ROW, 'Meta 広告アカウントID', targets.account,
+    '広告マネージャのURLに出る act_ から始まる番号。入れるとメニューから自動取り込みできます'],
+   [AD_START_ROW, '集計の開始年月', targets.start,
+    '一番上の月が何年何月かを 2025/08 の形で。取り込む期間の起点になります']
+  ].forEach(function (t) {
+    sheet.getRange(t[0], 1, 1, 2).merge().setValue(t[1])
+      .setFontWeight('bold').setFontSize(10).setVerticalAlignment('middle');
+    sheet.getRange(t[0], 3).setValue(t[2]).setNumberFormat('@')
+      .setBackground(COLOR_SETTING_BG).setHorizontalAlignment('center')
+      .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
+    sheet.getRange(t[0], 4, 1, 6).merge().setValue(t[3])
+      .setFontSize(9).setFontColor('#595959');
+    sheet.setRowHeight(t[0], 22);
+  });
+
   [[AD_TARGET_CPA_ROW, '目標 採用単価（上限）', targets.cpa,
     '1人採るのにいくらまで出せるか。ここを超えた月は赤くなります'],
    [AD_TARGET_CPL_ROW, '目標 LINE登録単価（上限）', targets.cpl,
@@ -184,10 +203,15 @@ function writeAdTargets_(sheet, targets) {
 
 function readAdTargets_(ss) {
   var sheet = ss.getSheetByName(AD_SHEET_NAME);
-  if (!sheet) { return {cpa: 0, cpl: 0}; }
+  if (!sheet) { return {cpa: 0, cpl: 0, account: '', start: ''}; }
+  var start = sheet.getRange(AD_START_ROW, 3).getValue();
   return {
     cpa: sheet.getRange(AD_TARGET_CPA_ROW, 3).getValue() || 0,
-    cpl: sheet.getRange(AD_TARGET_CPL_ROW, 3).getValue() || 0
+    cpl: sheet.getRange(AD_TARGET_CPL_ROW, 3).getValue() || 0,
+    account: String(sheet.getRange(AD_ACCOUNT_ROW, 3).getValue() || ''),
+    start: start instanceof Date
+      ? Utilities.formatDate(start, 'JST', 'yyyy/MM')
+      : String(start || '')
   };
 }
 
@@ -307,6 +331,8 @@ function writeAdNotes_(sheet) {
     ['広告管理画面の数字を、青い見出しの欄に転記するだけ。CPCなどは自動で出ます。'],
     ['ここに入れた数字は「月次KPI」の広告チャネル行に自動で流れます。あちらに入れ直す必要はありません。'],
     ['上の目標単価を入れると、超えた月が赤く、収まった月が緑になります。'],
+    ['2行目に広告アカウントID、5行目に開始年月を入れると、メニューからMetaの数字を自動で取り込めます。'],
+    ['自動で入るのは 広告費・インプレッション・リーチ・クリック の4つ。LINE登録から下は手入力のままです。'],
     [''],
     ['■ 指標の意味'],
     ['CPM', '1000回表示するのにかかった額。表示の買値。クリエイティブと配信面で変わる'],
