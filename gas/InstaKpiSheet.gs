@@ -72,18 +72,33 @@ var MONTH_COLUMNS = [
  * 業種に合わせて直すときはスクリプトではなくシートを書き換える。
  */
 var BENCHMARKS = [
-  {key: 'プロフ表示率',     bad: 0.03,    good: 0.05},
-  {key: 'リンククリック率', bad: 0.05,    good: 0.10},
-  {key: 'LINE登録率',       bad: 0.20,    good: 0.40},
-  {key: '表示→採用率',      bad: 0.00005, good: 0.0002},
-  {key: '定着率',           bad: 0.70,    good: 0.90},
-  // 達成率は業種で変わらないので、業種プリセットでは書き換えない。
-  // 100%で達成、80%を切ったら未達扱いというKPI運用の一般的な区切り。
-  {key: '達成率',           bad: 0.80,    good: 1.00}
+  // ここまでが運用でコントロールできる範囲。スコアに入るのはこの5つだけ。
+  {key: 'リーチ率',          bad: 0.60,    good: 0.85},
+  {key: '保存シェア率',      bad: 0.005,   good: 0.02},
+  {key: 'プロフ表示率',      bad: 0.03,    good: 0.05},
+  {key: 'リンククリック率',  bad: 0.05,    good: 0.10},
+  {key: 'LINE登録率',        bad: 0.15,    good: 0.25},
+
+  // ここから先は求人内容・現場・面接の影響が大きい。
+  // 色は付けて診断に使うが、運用スコアには入れない（noScore）。
+  {key: 'エントリー率',      bad: 0.10,    good: 0.25,    noScore: true},
+  {key: '採用率',            bad: 0.20,    good: 0.40,    noScore: true},
+  {key: '定着率',            bad: 0.70,    good: 0.90,    noScore: true},
+  // 月次では採用0人か1人かで暴れる。参考として色だけ付ける。
+  {key: '表示→採用率',       bad: 0.00001, good: 0.00005, noScore: true},
+  // 少ないほど良い指標。判定の向きが逆になる。
+  {key: '1採用あたり投稿数', bad: 60,      good: 25,      count: true, invert: true, noScore: true},
+  // 目標は自分で決められるので、点数には入れない（下げれば点が上がってしまう）。
+  {key: '達成率',            bad: 0.80,    good: 1.00,    noScore: true}
 ];
 
+/** その指標が運用スコアに入るか。 */
+function inScore_(b) {
+  return !b.noScore;
+}
+
 /**
- * ランクの切れ目。市場スコア（0〜100点）で切る。
+ * ランクの切れ目。運用スコア（0〜100点）で切る。
  * 100点＝目安のある指標がすべて「良い」、50点＝すべて「普通」、0点＝すべて「悪い」。
  * 人に任せるときは甘めのままでよい。
  */
@@ -121,7 +136,7 @@ function rankRowGuard_() {
 }
 
 /**
- * 市場スコアの数式（0〜100点）。4・5行目の目安に対して採点する。
+ * 運用スコアの数式（0〜100点）。4・5行目の目安に対して採点する。
  *
  * 自社の他の月と比べる相対評価は、半年ぶんたまるまで判定できず実務で使えない。
  * 目安と比べる絶対評価なら1ヶ月目から出るし、業種を変えれば物差しも変わる。
@@ -131,24 +146,19 @@ function rankRowGuard_() {
  * 表示→採用率だけは最終成果なので2倍で数える。
  * 達成率は目標を自分で決められるため、点数には入れない（下げれば点が上がってしまう）。
  */
-function scoreWeight_(key) {
-  if (key === '達成率') { return 0; }        // 自分で決める目標は点にしない
-  if (key === '表示→採用率') { return 2; }   // 最終成果は重く見る
-  return 1;
-}
-
 function rankScoreFormula_() {
   var got = [];
   var num = [];
   BENCHMARKS.forEach(function (b) {
-    var w = scoreWeight_(b.key);
-    if (!w) { return; }
+    if (!inScore_(b)) { return; }
     var v = '{' + b.key + '}{r}';
     var bad = '${' + b.key + '}$' + BAD_ROW;
     var good = '${' + b.key + '}$' + GOOD_ROW;
-    got.push('IF(ISNUMBER(' + v + '),' + w + '*IF(' + v + '<' + bad + ',0,IF('
-             + v + '<' + good + ',1,2)),0)');
-    num.push('IF(ISNUMBER(' + v + '),' + w + ',0)');
+    var tier = b.invert
+      ? 'IF(' + v + '>=' + bad + ',0,IF(' + v + '>' + good + ',1,2))'
+      : 'IF(' + v + '<' + bad + ',0,IF(' + v + '<' + good + ',1,2))';
+    got.push('IF(ISNUMBER(' + v + '),' + tier + ',0)');
+    num.push('IF(ISNUMBER(' + v + '),1,0)');
   });
   return '=IF(' + rankRowGuard_() + ',"",'
        + 'LET(g,(' + got.join('+') + '),n,(' + num.join('+') + '),'
@@ -174,7 +184,7 @@ function rankCutFormula_(rank) {
 }
 
 /**
- * ランクの数式。市場スコアを S/A/B/C に落とすだけ。
+ * ランクの数式。運用スコアを S/A/B/C に落とすだけ。
  * ただし先月よりスコアが上がっていれば C は付けない。
  * 目安に届いていなくても、上がっている月にCを出し続けると、
  * 任された側が指標を見るのをやめてしまう。
@@ -230,7 +240,7 @@ var CALC_COLUMNS = [
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{採用数}{r}),"")', format: '¥#,##0', width: 110},
   {key: 'LINE登録単価',     header: 'LINE登録単価\n(広告費÷LINE追加)',
    formula: '=IFERROR(IF({広告費}{r}=0,"",{広告費}{r}/{LINE友だち追加}{r}),"")', format: '¥#,##0', width: 115},
-  {key: '総合スコア',       header: '市場スコア\n(目安に対する点数)',
+  {key: '総合スコア',       header: '運用スコア\n(表示〜LINE登録)',
    formula: rankScoreFormula_(), format: '0', width: 105, keepZero: true},
   {key: 'ランク',           header: 'ランク\nS / A / B / C',
    formula: rankLetterFormula_(), format: '@', width: 85, keepZero: true}
@@ -279,22 +289,22 @@ function resolveFormula_(template, row) {
 var INDUSTRY_PRESETS = [
   {name: '標準（迷ったらこれ）', values: {
     'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
-    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00005, 0.0002], '定着率': [0.70, 0.90]}},
+    'LINE登録率': [0.15, 0.25], '表示→採用率': [0.00001, 0.00005], '定着率': [0.70, 0.90]}},
   {name: '飲食・小売・サービス', values: {
     'プロフ表示率': [0.03, 0.06], 'リンククリック率': [0.05, 0.10],
-    'LINE登録率': [0.25, 0.45], '表示→採用率': [0.0001, 0.0004], '定着率': [0.60, 0.85]}},
+    'LINE登録率': [0.18, 0.30], '表示→採用率': [0.00002, 0.00008], '定着率': [0.60, 0.85]}},
   {name: '介護・医療・福祉', values: {
     'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
-    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00005, 0.0002], '定着率': [0.70, 0.90]}},
+    'LINE登録率': [0.15, 0.25], '表示→採用率': [0.00001, 0.00005], '定着率': [0.70, 0.90]}},
   {name: '建設・製造・運送', values: {
     'プロフ表示率': [0.02, 0.04], 'リンククリック率': [0.04, 0.08],
-    'LINE登録率': [0.15, 0.35], '表示→採用率': [0.00003, 0.00015], '定着率': [0.75, 0.92]}},
+    'LINE登録率': [0.12, 0.22], '表示→採用率': [0.000008, 0.00004], '定着率': [0.75, 0.92]}},
   {name: '美容・アパレル', values: {
     'プロフ表示率': [0.04, 0.07], 'リンククリック率': [0.06, 0.12],
-    'LINE登録率': [0.25, 0.45], '表示→採用率': [0.00005, 0.0002], '定着率': [0.65, 0.88]}},
+    'LINE登録率': [0.18, 0.30], '表示→採用率': [0.00001, 0.00005], '定着率': [0.65, 0.88]}},
   {name: 'IT・オフィスワーク', values: {
     'プロフ表示率': [0.03, 0.05], 'リンククリック率': [0.05, 0.10],
-    'LINE登録率': [0.20, 0.40], '表示→採用率': [0.00002, 0.0001], '定着率': [0.80, 0.93]}},
+    'LINE登録率': [0.15, 0.25], '表示→採用率': [0.000005, 0.00003], '定着率': [0.80, 0.93]}},
   {name: '（自分で決める）', values: null}
 ];
 
@@ -308,7 +318,10 @@ var BENCH_CACHE_ = null;
 
 function activeBenchmarks_() {
   if (BENCH_CACHE_) { return BENCH_CACHE_; }
-  var out = BENCHMARKS.map(function (b) { return {key: b.key, bad: b.bad, good: b.good}; });
+  var out = BENCHMARKS.map(function (b) {
+    return {key: b.key, bad: b.bad, good: b.good,
+            invert: !!b.invert, count: !!b.count, noScore: !!b.noScore};
+  });
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
     if (sheet) {
@@ -319,7 +332,10 @@ function activeBenchmarks_() {
         var good = rows[1][idx];
         if (typeof bad === 'number' && bad > 0) { b.bad = bad; }
         if (typeof good === 'number' && good > 0) { b.good = good; }
-        if (b.good <= b.bad) { b.good = b.bad * 2; }   // 逆に入れられても壊れないように
+        // 少ないほど良い指標は good < bad が正しい。向きを見て直す。
+        if (b.invert ? b.good >= b.bad : b.good <= b.bad) {
+          b.good = b.invert ? b.bad / 2 : b.bad * 2;
+        }
       });
     }
   } catch (err) {
@@ -329,11 +345,27 @@ function activeBenchmarks_() {
   return out;
 }
 
-/** 「悪い 〜3%」「普通 3〜5%」「良い 5%〜」の3つを作る。 */
+/**
+ * 「悪い 〜3%」「普通 3〜5%」「良い 5%〜」の3つを作る。
+ * 1採用あたり投稿数のように少ないほど良い指標は、向きを逆にする。
+ */
 function benchLabels_(b) {
-  return ['悪い 〜' + benchPct_(b.bad),
-          '普通 ' + benchPct_(b.bad).replace('%', '') + '〜' + benchPct_(b.good),
-          '良い ' + benchPct_(b.good) + '〜'];
+  var f = function (v) { return benchValue_(b, v); };
+  var strip = function (v) { return f(v).replace(/[%本]$/, ''); };
+  if (b.invert) {
+    return ['悪い ' + f(b.bad) + '〜',
+            '普通 ' + strip(b.good) + '〜' + f(b.bad),
+            '良い 〜' + f(b.good)];
+  }
+  return ['悪い 〜' + f(b.bad),
+          '普通 ' + strip(b.bad) + '〜' + f(b.good),
+          '良い ' + f(b.good) + '〜'];
+}
+
+/** 判定ラインを読める文字にする。％の指標と本数の指標で単位が変わる。 */
+function benchValue_(b, v) {
+  if (typeof v !== 'number') { return '—'; }
+  return b.count ? String(Math.round(v * 10) / 10) + '本' : benchPct_(v);
 }
 
 /** 判定ラインを読める％にする。0.005%のような小さい値も潰れないようにする。 */
@@ -705,8 +737,10 @@ function writePresetRow_(sheet, current, currentMood) {
  * 上＝赤になるライン（未満）、下＝黄色になるライン（以上）。あいだが緑。
  */
 function writeBenchmarkRows_(sheet, savedValues) {
-  [[BAD_ROW, '🔴 赤になる（未満）', BAD],
-   [GOOD_ROW, '🟡 黄色になる（以上）', GOOD]].forEach(function (spec) {
+  // 「未満／以上」は指標によって向きが逆になるので、行の見出しには書かない。
+  // どちら向きかは、各セルのメモに入れる。
+  [[BAD_ROW, '🔴 赤になるライン', BAD],
+   [GOOD_ROW, '🟡 黄色になるライン', GOOD]].forEach(function (spec) {
     sheet.getRange(spec[0], 1, 1, 2).merge().setValue(spec[1])
       .setFontWeight('bold').setFontSize(9).setBackground(spec[2].bg).setFontColor(spec[2].fg)
       .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true);
@@ -715,21 +749,30 @@ function writeBenchmarkRows_(sheet, savedValues) {
     sheet.setRowHeight(spec[0], 22);
   });
 
-  var rule = SpreadsheetApp.newDataValidation()
+  var pctRule = SpreadsheetApp.newDataValidation()
     .requireNumberBetween(0, 1)
     .setAllowInvalid(false)
     .setHelpText('0〜1の割合で入れてください。3% と打っても入ります（3 とだけ打つと入りません）。')
+    .build();
+  var countRule = SpreadsheetApp.newDataValidation()
+    .requireNumberBetween(0, 100000)
+    .setAllowInvalid(false)
+    .setHelpText('本数で入れてください。')
     .build();
 
   BENCHMARKS.forEach(function (b) {
     var letter = col_(b.key);
     var saved = savedValues && savedValues[b.key];
     var format = calcFormat_(b.key);
+    var note = b.invert
+      ? b.key + 'は少ないほど良い指標です。\n' + benchLabels_(b).join('\n')
+      : b.key + '\n' + benchLabels_(b).join('\n');
 
     [[BAD_ROW, saved ? saved[0] : b.bad, BAD],
      [GOOD_ROW, saved ? saved[1] : b.good, GOOD]].forEach(function (t) {
       sheet.getRange(letter + t[0]).setValue(t[1])
-        .setNumberFormat(format).setDataValidation(rule)
+        .setNumberFormat(format).setDataValidation(b.count ? countRule : pctRule)
+        .setNote(note)
         .setBackground(COLOR_SETTING_BG).setFontColor(t[2].fg).setFontWeight('bold')
         .setBorder(true, true, true, true, false, false, COLOR_BORDER, SpreadsheetApp.BorderStyle.SOLID);
     });
@@ -881,9 +924,15 @@ function applyConditionalFormats_(sheet) {
     var guard = 'ISNUMBER(' + cell + '),' + active
               + ',ISNUMBER(' + bad + '),ISNUMBER(' + good + ')';
     // 空欄を赤くしないよう ISNUMBER で必ず絞る。
-    [[cell + '<' + bad, BAD],
-     [cell + '>=' + bad + ',' + cell + '<' + good, OK],
-     [cell + '>=' + good, GOOD]].forEach(function (t) {
+    // 少ないほど良い指標は、赤と黄色の向きが逆になる。
+    var tiers = b.invert
+      ? [[cell + '>=' + bad, BAD],
+         [cell + '>' + good + ',' + cell + '<' + bad, OK],
+         [cell + '<=' + good, GOOD]]
+      : [[cell + '<' + bad, BAD],
+         [cell + '>=' + bad + ',' + cell + '<' + good, OK],
+         [cell + '>=' + good, GOOD]];
+    tiers.forEach(function (t) {
       rules.push(SpreadsheetApp.newConditionalFormatRule()
         .whenFormulaSatisfied('=AND(' + guard + ',' + t[0] + ')')
         .setBackground(t[1].bg).setFontColor(t[1].fg).setBold(true)
@@ -1003,15 +1052,24 @@ function writeNotes_(sheet, start) {
     ['広告だけで集める場合の金額も出ます。LINE友だち追加広告(CPF)の相場が1件100〜150円のため、中央値130円で計算しています。'],
     ['達成率はランクには入れていません。目標を自分で決められる以上、混ぜるとランクを甘くできてしまうためです。'],
     [''],
-    ['■ 市場スコアとランク（S / A / B / C）'],
-    ['合計行にだけ出ます。4・5行目の目安に対して、指標ごとに 良い＝2点／普通＝1点／悪い＝0点で採点し、'],
-    ['満点を100点として出したのが市場スコアです。50点＝すべて業界の「普通」の水準、100点＝すべて「良い」。'],
-    ['1ヶ月目から出ます。他の月と比べるのではなく市場の目安と比べるので、データが溜まるのを待つ必要がありません。'],
-    ['業種プルダウンを変えると目安が変わり、スコアもランクも一緒に変わります。'],
-    ['表示→採用率は最終成果なので2倍で数えています。達成率は目標を自分で決められるため点数に入れていません。'],
+    ['■ 運用スコアとランク（S / A / B / C）'],
+    ['合計行にだけ出ます。4・5行目の目安に対して 良い＝2点／普通＝1点／悪い＝0点で採点し、100点満点にしたものです。'],
+    ['50点＝すべての指標が業界の「普通」の水準。100点＝すべて「良い」。1ヶ月目から出ます。'],
+    [''],
+    ['点数に入るのは、運用でコントロールできる5つだけです。'],
+    ['　リーチ率／保存シェア率／プロフ表示率／リンククリック率／LINE登録率（表示〜LINE登録まで）'],
+    ['エントリー率から先（応募・面接・採用・定着）は、求人内容・時給・現場の対応で決まる部分が大きいため、'],
+    ['色は付けて原因を探せるようにしつつ、運用の点数には入れていません。'],
+    ['達成率も、目標を自分で決められる以上は点数に入れていません（目標を下げれば点が上がってしまうため）。'],
+    [''],
     ['ランクの切れ目は2行目右の「評価：〜」で変えられます。甘め＝S75/A50/B25、ふつう＝S85/A60/B35、厳しめ＝S90/A70/B50。'],
     ['先月よりスコアが上がった月にはCを付けません。目安に届いていなくても、伸びている月にCを出し続けると続かないためです。'],
     ['数字を入れていない指標は採点に入りません。追っている指標だけで評価されます。'],
+    [''],
+    ['■ 月次で見てはいけない指標'],
+    ['表示→採用率と1採用あたり投稿数は、月の採用が0人か1人かで数字が跳ねます。母数が小さすぎるためです。'],
+    ['この2つは月ごとではなく、年間合計・月平均の行で見てください。運用スコアにも入れていません。'],
+    ['1採用あたり投稿数は「少ないほど良い」指標なので、色の向きが他と逆です（多いと赤）。'],
     [''],
     ['■ 指標の意味'],
     ['表示回数', 'インプレッション・再生回数。媒体によって呼び名が違うだけで、表示された延べ回数'],
@@ -1033,8 +1091,11 @@ function writeNotes_(sheet, start) {
     ['広告費', 'そのチャネルにその月かけた金額。オーガニックの行は空欄でよい'],
     ['採用単価', '広告費 ÷ 採用数。広告を続けるか止めるかはこの数字で決める'],
     ['LINE登録単価', '広告費 ÷ LINE友だち追加。採用が出る前でも広告の良し悪しが早く分かる'],
-    ['市場スコア', '0〜100点。目安に対して 良い2点／普通1点／悪い0点で採点した平均。50点で業界の普通の水準'],
-    ['ランク', '市場スコアを S/A/B/C に落としたもの。他社の目安が物差しなので、初月から意味を持つ']
+    ['リーチ率', 'リーチ ÷ 表示回数。1人あたり何回見せたかの裏返し。参考指標として色を付けている'],
+    ['エントリー率', 'エントリー ÷ LINE登録。LINEは「気になる」段階なので、応募まで進むのは2〜3割が上限'],
+    ['1採用あたり投稿数', '少ないほど良い。25本で1人なら月6本の運用で4ヶ月に1人。60本を超えると効率が悪い'],
+    ['運用スコア', '0〜100点。表示〜LINE登録の5指標を、目安に対して採点した平均。50点で業界の普通の水準'],
+    ['ランク', '運用スコアを S/A/B/C に落としたもの。他社の目安が物差しなので、初月から意味を持つ']
   ];
 
   notes.forEach(function (n, i) {

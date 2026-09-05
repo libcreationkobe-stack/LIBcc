@@ -50,13 +50,15 @@ var REVIEW_METRICS = [
   {label: '表示回数',          key: '表示回数'},
   {label: 'リーチ数',          key: 'リーチ数'},
   {label: '保存＋シェア',      key: '保存・シェア'},
-  {label: '保存シェア率',      key: '保存シェア率',     rate: true},
+  {label: 'リーチ率',          key: 'リーチ率',         rate: true, bench: true},
+  {label: '保存シェア率',      key: '保存シェア率',     rate: true, bench: true},
   {label: 'プロフ表示率',      key: 'プロフ表示率',     rate: true, bench: true},
   {label: 'リンククリック率',  key: 'リンククリック率', rate: true, bench: true},
   {label: 'LINE登録率',        key: 'LINE登録率',       rate: true, bench: true},
-  {label: 'エントリー率',      key: 'エントリー率',     rate: true},
+  {label: 'エントリー率',      key: 'エントリー率',     rate: true, bench: true},
   {label: '面接率',            key: '面接率',           rate: true},
-  {label: '採用率(面接→採用)', key: '採用率',           rate: true},
+  {label: '採用率(面接→採用)', key: '採用率',           rate: true, bench: true},
+  {label: '1採用あたり投稿数', key: '1採用あたり投稿数', bench: true},
   {label: 'LINE友だち追加',    key: 'LINE友だち追加'},
   {label: 'LINE追加 目標',     key: 'LINE追加目標'},
   {label: 'LINE追加 達成率',   key: '達成率',           rate: true, bench: true},
@@ -441,6 +443,12 @@ function judge_(key, value) {
   for (var i = 0; i < list.length; i++) {
     var b = list[i];
     if (b.key !== key) { continue; }
+    if (b.invert) {
+      // 少ないほど良い指標は向きが逆になる。
+      if (value >= b.bad) { return '悪い'; }
+      if (value > b.good) { return '普通'; }
+      return '良い';
+    }
     if (value < b.bad) { return '悪い'; }
     if (value < b.good) { return '普通'; }
     return '良い';
