@@ -113,7 +113,10 @@ function checkInstagramSettings() {
     try {
       var list = igListAccounts_(token);
       lines.push('', '見えているアカウント：');
-      list.forEach(function (a) { lines.push('　@' + a.username + '（' + a.page + '）'); });
+      list.forEach(function (a) {
+        lines.push('　@' + a.username + '（' + a.page + '）');
+        lines.push('　　' + a.id);
+      });
       lines.push('', '※ ここに出ないアカウントは、メニューの'
         + '「InstagramアカウントIDを直接入れる」で指定できます。');
       if (!list.length) {
@@ -240,34 +243,59 @@ function igAskAccount_(list) {
   return list[index];
 }
 
-/** トークンで見えるページと、それに紐付いたInstagramアカウント。 */
+/**
+ * トークンで見えるInstagramアカウントを、集められる限り集める。
+ *
+ * me/accounts は「自分がページの管理者として直接入っているページ」しか返さない。
+ * ビジネスポートフォリオ経由で預かっているクライアントのページはここに出ないので、
+ * ビジネス配下のページも見に行く（business_management があるときだけ通る）。
+ */
 function igListAccounts_(token) {
-  // ページとInstagramの紐付きは2通りある。
-  // instagram_business_account は新しい繋ぎ方、connected_instagram_account は古い繋ぎ方。
-  // 片方しか見ないと、繋いでいるのに一覧に出てこないアカウントが出る。
-  var url = igUrl_('me/accounts',
-    {fields: 'name,instagram_business_account{id,username},'
-           + 'connected_instagram_account{id,username},instagram_accounts{id,username}',
-     limit: 100}, token);
-  var data = igRequest_(url).data || [];
-
   var out = [];
   var seen = {};
-  var add = function (ig, pageName) {
-    if (!ig || !ig.id || seen[ig.id]) { return; }
-    seen[ig.id] = true;
-    out.push({id: ig.id, username: ig.username || ig.id, page: pageName});
+
+  var pageFields = 'name,instagram_business_account{id,username},'
+                 + 'connected_instagram_account{id,username},instagram_accounts{id,username}';
+
+  var collect = function (path) {
+    var data = igTry_(function () {
+      return igRequest_(igUrl_(path, {fields: pageFields, limit: 100}, token));
+    });
+    if (!data) { return; }
+
+    (data.data || []).forEach(function (page) {
+      igAddAccounts_(page, out, seen);
+    });
   };
 
-  data.forEach(function (page) {
-    add(page.instagram_business_account, page.name);
-    add(page.connected_instagram_account, page.name);
-    // 古い繋ぎ方だと複数返ることがある。
-    ((page.instagram_accounts || {}).data || []).forEach(function (ig) {
-      add(ig, page.name);
-    });
+  // ① 自分が管理者として入っているページ
+  collect('me/accounts');
+
+  // ② ビジネスポートフォリオ配下のページ。
+  //    owned_pages は自社所有、client_pages は クライアントから預かっているページ。
+  var businesses = igTry_(function () {
+    return igRequest_(igUrl_('me/businesses', {fields: 'name', limit: 100}, token));
   });
+  if (businesses) {
+    (businesses.data || []).forEach(function (biz) {
+      collect(biz.id + '/owned_pages');
+      collect(biz.id + '/client_pages');
+    });
+  }
+
   return out;
+}
+
+/** ページに紐付いたInstagramを、繋ぎ方3通りぶん拾う。 */
+function igAddAccounts_(page, out, seen) {
+  var add = function (ig) {
+    if (!ig || !ig.id || seen[ig.id]) { return; }
+    seen[ig.id] = true;
+    out.push({id: ig.id, username: ig.username || ig.id, page: page.name || ''});
+  };
+  add(page.instagram_business_account);
+  add(page.connected_instagram_account);
+  ((page.instagram_accounts || {}).data || []).forEach(add);
 }
 
 /* ---------------- 取得 ---------------- */

@@ -540,11 +540,15 @@ LINE友だち追加から先は API に無いので手入力のまま。ここ�
 - どれか1つが取れなくても、取れた指標だけ書き込む。Metaは版で指標の扱いを変えるので、
   全部か無かにしない（`igTry_`）
 - ページとInstagramの紐付きは3通りある（`instagram_business_account` /
-  `connected_instagram_account` / `instagram_accounts`）。全部見ても、
-  **トークンに権限があるのに `me/accounts` へ出てこないアカウントは残る**。
-  ビジネスポートフォリオ経由で管理しているページが `me/accounts` に出ないため。
-  逃げ道として `setInstagramAccountId` でIDを直接指定できるようにした。
+  `connected_instagram_account` / `instagram_accounts`）。3つとも見る
+- **`me/accounts` は「自分がページの管理者として直接入っているページ」しか返さない。**
+  ビジネスポートフォリオ経由で預かっているクライアントのページは出てこないので、
+  `me/businesses` → `owned_pages` / `client_pages` も見に行く。
+  ここは `business_management` が要るので、無ければ黙って諦める（`igTry_`）
+- それでも出ないときの逃げ道として `setInstagramAccountId` でIDを直接指定できる。
   指定されたIDは一覧に無くても使う（ユーザー名を引いて実在だけ確かめる）
+- 設定の確認では**IDも一緒に出す**。クライアントごとのシートを作るとき、
+  どのIDがどのアカウントかを突き合わせられるようにするため
 - **フォロワー数は「いま何人か」しか取れない**。過去にさかのぼれないので、
   一番新しい月にだけ書く。過去月に今日の数字を入れると推移が嘘になる
 - 必要な権限は `instagram_basic` / `instagram_manage_insights` /
