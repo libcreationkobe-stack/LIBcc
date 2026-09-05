@@ -71,7 +71,8 @@ var METER_METRICS = [
   {key: 'プロフ表示率',     note: '投稿からプロフィールへの興味喚起'},
   {key: 'リンククリック率', note: 'プロフィール文と導線の出来'},
   {key: 'LINE登録率',       note: 'LP・登録導線の出来'},
-  {key: '表示→採用率',      note: '全体の最終CVR'}
+  {key: '表示→採用率',      note: '全体の最終CVR'},
+  {key: '定着率',           note: '採用の質。3ヶ月後に残っているか'}
 ];
 
 /** 用語解説スライドに載せる内容。 */
@@ -82,7 +83,9 @@ var GLOSSARY = [
   ['LINE登録率', 'LINE友だち追加 ÷ リンククリック。LPと登録導線の出来。20〜40%が一般的。'],
   ['エントリー率', 'エントリー数 ÷ LINE友だち追加。LINE内トークの出来。業種差が大きいため目安は置いていない。'],
   ['表示→採用率', '採用数 ÷ 表示回数。チャネルをまたいで比べられる最終CVR。目安は暫定値なので、実績が溜まったら自社の値に置き換える。'],
-  ['採用単価', '広告費 ÷ 採用数。Meta広告とTikTokプロモートの判断はこの数字で行う。自社の許容上限と比べる。']
+  ['採用単価', '広告費 ÷ 採用数。Meta広告とTikTokプロモートの判断はこの数字で行う。自社の許容上限と比べる。'],
+  ['保存シェア率', '（保存＋シェア）÷ リーチ数。伸びの先行指標。ここが増えた翌月に表示回数が伸びる。'],
+  ['定着率', '3ヶ月定着数 ÷ 採用数。3ヶ月遅れて分かる。ここを見ないと「採る→辞める」を繰り返す。目安は仮置き。']
 ];
 
 /* ---------------- 入口 ---------------- */
@@ -280,17 +283,18 @@ function renderChannels_(slide, index, data) {
 
   var nameW = 150;
   var barX = PAD + nameW;
-  var barW = BODY_W - nameW - 420;
+  var barW = BODY_W - nameW - 460;
   var maxViews = Math.max.apply(null, rows.map(function (c) { return Number(c.views) || 0; })) || 1;
 
-  var cols = [{label: 'LINE追加', key: 'line'}, {label: '採用', key: 'hires'},
-              {label: '広告費', key: 'cost', money: true}, {label: '採用単価', key: 'cpa', money: true}];
+  var cols = [{label: 'フォロワー', key: 'followers'}, {label: 'LINE追加', key: 'line'},
+              {label: '採用', key: 'hires'}, {label: '広告費', key: 'cost', money: true},
+              {label: '採用単価', key: 'cpa', money: true}];
   rows.forEach(function (c) {
     c.cpa = (c.cost && c.hires) ? Math.round(c.cost / c.hires) : '';
   });
   text_(slide, barX, body.top - 18, barW, 12, '表示回数', {size: 9, color: C_INK_FAINT});
   cols.forEach(function (c, i) {
-    text_(slide, barX + barW + 16 + i * 100, body.top - 18, 92, 12, c.label,
+    text_(slide, barX + barW + 14 + i * 90, body.top - 18, 84, 12, c.label,
       {size: 9, color: C_INK_FAINT, align: 'right'});
   });
 
@@ -313,7 +317,7 @@ function renderChannels_(slide, index, data) {
       var v = c[col.key];
       var shown = (v === '' || v === null || v === undefined || v === 0) ? '—'
         : (col.money ? '¥' + num_(v) : num_(v));
-      text_(slide, barX + barW + 16 + j * 100, y + 3, 92, textH, shown,
+      text_(slide, barX + barW + 14 + j * 90, y + 3, 84, textH, shown,
         {size: 11, color: col.key === 'hires' ? C_NAVY : C_INK,
          bold: col.key === 'hires', align: 'right'});
     });
@@ -409,9 +413,14 @@ function renderMeters_(slide, index) {
         TIER_STYLE[tier].bar, 3);
     }
 
+    // 目盛りの文字は、2本の線の間隔に合わせて幅を詰める。
+    // 悪い／普通の境目が近い指標（定着率など）でも重ならない。
+    var gap = Math.abs((bench.good - bench.bad) / max) * trackW;
+    var tickW = Math.max(24, Math.min(52, gap - 4));
     [bench.bad, bench.good].forEach(function (t) {
-      box_(slide, trackX + (t / max) * trackW, y, 1, 22, '#9a9a94');
-      text_(slide, trackX + (t / max) * trackW - 26, y + 24, 52, 12, fmtBench_(t),
+      var tx = trackX + (t / max) * trackW;
+      box_(slide, tx, y, 1, 22, '#9a9a94');
+      text_(slide, tx - tickW / 2, y + 24, tickW, 12, fmtBench_(t),
         {size: 8, color: C_INK_FAINT, align: 'center'});
     });
 

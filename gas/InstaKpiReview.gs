@@ -37,8 +37,11 @@ var REVIEW_BODY_COLS = 7;                     // C〜I（総評からリンク�
 var REVIEW_METRICS = [
   {label: '投稿数',            key: '投稿数'},
   {label: '広告費',            key: '広告費', money: true},
+  {label: 'フォロワー数',      key: 'フォロワー数'},
   {label: '表示回数',          key: '表示回数'},
   {label: 'リーチ数',          key: 'リーチ数'},
+  {label: '保存＋シェア',      key: '保存・シェア'},
+  {label: '保存シェア率',      key: '保存シェア率',     rate: true},
   {label: 'プロフ表示率',      key: 'プロフ表示率',     rate: true, bench: true},
   {label: 'リンククリック率',  key: 'リンククリック率', rate: true, bench: true},
   {label: 'LINE登録率',        key: 'LINE登録率',       rate: true, bench: true},
@@ -50,6 +53,8 @@ var REVIEW_METRICS = [
   {label: 'エントリー数',      key: 'エントリー数'},
   {label: '面接数',            key: '面接'},
   {label: '採用数',            key: '採用数'},
+  {label: '3ヶ月定着数',       key: '3ヶ月定着数'},
+  {label: '定着率',            key: '定着率',           rate: true, bench: true},
   {label: '表示→採用率',       key: '表示→採用率',      rate: true, bench: true},
   {label: '採用単価',          key: '採用単価',         money: true},
   {label: 'LINE登録単価',      key: 'LINE登録単価',     money: true}
@@ -370,7 +375,7 @@ function collectMonthData_(index) {
 /** その月のチャネル別の実績。スライドの比較に使う。 */
 function readChannelRows_(kpi, index) {
   var first = channelFirstRow_(index);
-  var pick = ['表示回数', '広告費', 'LINE友だち追加', 'エントリー数', '採用数'];
+  var pick = ['表示回数', '広告費', 'フォロワー数', 'LINE友だち追加', 'エントリー数', '採用数'];
   return CHANNELS.map(function (name, i) {
     var row = first + i;
     var out = {name: name};
@@ -379,6 +384,7 @@ function readChannelRows_(kpi, index) {
       name: name,
       views: out['表示回数'],
       cost: out['広告費'],
+      followers: out['フォロワー数'],
       line: out['LINE友だち追加'],
       entry: out['エントリー数'],
       hires: out['採用数']
@@ -438,10 +444,11 @@ function buildReviewPrompt_(data) {
     '数字は ' + CHANNELS.join('・') + ' の合計です。');
 
   if (data.channels) {
-    lines.push('', '【チャネル別の実績（表示回数／LINE追加／エントリー／採用）】');
+    lines.push('', '【チャネル別の実績】');
     data.channels.forEach(function (c) {
-      if (!c.views && !c.line && !c.hires && !c.cost) { return; }
-      var line = '- ' + c.name + '：表示 ' + (c.views || 0).toLocaleString()
+      if (!c.views && !c.line && !c.hires && !c.cost && !c.followers) { return; }
+      var line = '- ' + c.name + '：フォロワー ' + (c.followers || 0).toLocaleString()
+        + ' / 表示 ' + (c.views || 0).toLocaleString()
         + ' / LINE ' + (c.line || 0) + ' / 応募 ' + (c.entry || 0) + ' / 採用 ' + (c.hires || 0);
       if (c.cost) {
         line += ' / 広告費 ¥' + Math.round(c.cost).toLocaleString();
@@ -452,6 +459,11 @@ function buildReviewPrompt_(data) {
     lines.push('どのチャネルが効いているかにも触れてください。');
     lines.push('広告（Meta広告・TikTokプロモート）は、採用単価が見合っているかを必ず評価してください。');
   }
+
+  lines.push('', '【見るときの注意】',
+    '保存＋シェアは伸びの先行指標です。ここが増えていれば来月の表示回数が伸びます。',
+    'フォロワー数は積み上がる資産です。増えていないなら、今月の数字が良くても来月また同じ苦労をします。',
+    '3ヶ月定着数は3ヶ月遅れて入るため、直近の月は空欄が普通です。空欄の月の定着率には触れないでください。');
 
   return lines.join('\n');
 }
