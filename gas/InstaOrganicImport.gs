@@ -114,6 +114,7 @@ function checkInstagramSettings() {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty(META_TOKEN_PROP);
   lines.push('トークン：' + (token ? '登録あり（' + metaMask_(token) + '）' : '未登録'));
+  if (token) { metaTokenLines_(token).forEach(function (l) { lines.push(l); }); }
 
   var saved = props.getProperty(IG_ACCOUNT_PROP);
   lines.push('Instagramアカウント：' + (saved ? saved : '未選択（取り込み時に選びます）'));

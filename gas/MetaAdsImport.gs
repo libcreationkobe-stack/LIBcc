@@ -31,6 +31,15 @@ var META_FIELDS = [
   {api: 'inline_link_clicks', key: 'クリック'}
 ];
 
+/**
+ * トークンに入っていてほしい権限。足りないものは設定確認で名指しする。
+ * read_insights はFacebookページを見るときだけ要るので、ここには入れない。
+ */
+var META_REQUIRED_SCOPES = [
+  'ads_read', 'instagram_basic', 'instagram_manage_insights',
+  'pages_show_list', 'pages_read_engagement'
+];
+
 /* ---------------- 入口 ---------------- */
 
 /** メニューから実行する。今日までの月をまとめて取り込む。 */
@@ -94,6 +103,7 @@ function checkMetaSettings() {
 
   var token = PropertiesService.getScriptProperties().getProperty(META_TOKEN_PROP);
   lines.push('トークン：' + (token ? '登録あり（' + metaMask_(token) + '）' : '未登録'));
+  if (token) { metaTokenLines_(token).forEach(function (l) { lines.push(l); }); }
 
   if (!sheet) {
     lines.push('広告タブ：ありません。先に「シートを整える」を実行してください。');
@@ -260,6 +270,62 @@ function metaFetchInsights_(token, accountId, span, campaign) {
     if (!isNaN(n)) { out[f.key] = n; }
   });
   return Object.keys(out).length ? out : null;
+}
+
+/**
+ * トークンの期限と権限を調べる。
+ *
+ * 切れてから気づくと、その月の数字が丸ごと抜ける。しかもエラーは
+ * 「アカウントが見つかりません」の形で出ることがあり、原因を探す先を間違える。
+ * 設定確認のときに、いつ切れるかを必ず見せる。
+ */
+function metaTokenInfo_(token) {
+  try {
+    var url = 'https://graph.facebook.com/' + META_API_VERSION + '/debug_token'
+      + '?input_token=' + encodeURIComponent(token)
+      + '&access_token=' + encodeURIComponent(token);
+    var res = UrlFetchApp.fetch(url, {muteHttpExceptions: true});
+    if (res.getResponseCode() !== 200) { return null; }
+    var data = (JSON.parse(res.getContentText()) || {}).data || {};
+    return {
+      valid: data.is_valid !== false,
+      expires: Number(data.expires_at) || 0,   // 0 なら無期限
+      scopes: data.scopes || []
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/** 期限と足りない権限を、そのまま画面に出せる行にする。 */
+function metaTokenLines_(token) {
+  var info = metaTokenInfo_(token);
+  if (!info) { return ['　期限：調べられませんでした']; }
+  if (!info.valid) {
+    return ['　⚠ このトークンは無効です。発行し直してください。'];
+  }
+
+  var lines = [];
+  if (!info.expires) {
+    lines.push('　期限：無期限');
+  } else {
+    var when = new Date(info.expires * 1000);
+    var days = Math.floor((when - new Date()) / 86400000);
+    var text = '　期限：' + Utilities.formatDate(when, 'JST', 'yyyy/MM/dd HH:mm')
+             + '（あと' + days + '日）';
+    lines.push(days <= 7 ? text + '　⚠ もうすぐ切れます' : text);
+  }
+
+  var missing = META_REQUIRED_SCOPES.filter(function (name) {
+    return info.scopes.indexOf(name) < 0;
+  });
+  if (missing.length) {
+    lines.push('　⚠ 足りない権限：' + missing.join(' / '));
+  }
+  if (info.scopes.indexOf('read_insights') < 0) {
+    lines.push('　（Facebookページのインサイトを見るなら read_insights も必要です）');
+  }
+  return lines;
 }
 
 /** Metaのエラーを、次に何をすればいいか分かる文にする。 */
