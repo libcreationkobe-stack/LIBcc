@@ -1,0 +1,544 @@
+<title>雅 代表密着台本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#f5f4f7;
+  --surface:#ffffff;
+  --ink:#231f29;
+  --muted:#6b6474;
+  --line:#e2dee8;
+  --accent:#5b3a6e;      /* 江戸紫 */
+  --accent-soft:#efe8f3;
+  --star:#b5761a;
+  --star-soft:#fbf1e2;
+  --done:#9a93a3;
+  --ok:#2f7a55;
+  --act-bg:#eef3f1;
+  --act-ink:#2f5b4b;
+  --shadow:0 1px 2px rgba(35,31,41,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#17141b;--surface:#211d27;--ink:#ece8f1;--muted:#a59dae;--line:#342e3c;
+    --accent:#c7a4dc;--accent-soft:#2e2536;--star:#e2a64f;--star-soft:#33291b;
+    --done:#6e6776;--ok:#6fc69a;--act-bg:#1e2a26;--act-ink:#9fd2bd;--shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#17141b;--surface:#211d27;--ink:#ece8f1;--muted:#a59dae;--line:#342e3c;
+  --accent:#c7a4dc;--accent-soft:#2e2536;--star:#e2a64f;--star-soft:#33291b;
+  --done:#6e6776;--ok:#6fc69a;--act-bg:#1e2a26;--act-ink:#9fd2bd;--shadow:none;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  font-size:16px;line-height:1.7;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:0 96px}
+
+/* header */
+.top{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:5;
+  background:var(--bg);border-bottom:1px solid var(--line);
+  margin-inline:-16px;padding:10px 16px 8px;
+}
+.top-row{display:flex;align-items:center;gap:12px}
+.progress-num{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;white-space:nowrap}
+.progress-num small{color:var(--muted);font-weight:500}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.sync{font-size:12px;color:var(--muted);white-space:nowrap;display:flex;align-items:center;gap:5px}
+.sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--done)}
+.sync.live::before{background:var(--ok)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  flex:none;font:inherit;font-size:13px;line-height:1;padding:7px 10px;border-radius:999px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;
+  font-variant-numeric:tabular-nums;
+}
+.chip b{font-weight:700}
+.chip.full{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+
+/* title block */
+.hero{padding-block:22px 6px}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted)}
+h1{
+  font-family:"Shippori Mincho","Hiragino Mincho ProN",serif;font-weight:700;
+  font-size:24px;line-height:1.45;margin:6px 0 10px;text-wrap:balance;
+}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.concept{
+  margin-top:14px;font-family:"Shippori Mincho",serif;font-size:17px;color:var(--accent);
+}
+.purpose{font-size:14px;color:var(--muted);margin:8px 0 0}
+
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-block:18px 4px}
+.toggle,.btn{
+  font:inherit;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);
+}
+.toggle[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{margin-left:auto;color:var(--muted)}
+.btn.danger.armed{color:#fff;background:#b23a3a;border-color:#b23a3a}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* sections */
+section{padding-top:26px;scroll-margin-top:110px}
+.sec-head{display:flex;align-items:baseline;gap:10px}
+.sec-no{font-family:"Shippori Mincho",serif;font-size:20px;color:var(--accent);flex:none}
+h2{font-size:18px;font-weight:700;margin:0;line-height:1.4;text-wrap:balance}
+.sec-count{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.goal{font-size:13.5px;color:var(--muted);margin:4px 0 10px}
+.goal b{color:var(--ink);font-weight:500}
+h3{font-size:13px;letter-spacing:.08em;color:var(--muted);font-weight:500;margin:16px 0 6px}
+
+.list{
+  list-style:none;margin:0;padding:0;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);
+}
+.list li+li{border-top:1px solid var(--line)}
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.item input{
+  appearance:none;-webkit-appearance:none;flex:none;margin:2px 0 0;
+  width:22px;height:22px;border-radius:6px;border:2px solid var(--line);background:var(--surface);
+  display:grid;place-items:center;cursor:pointer;transition:background .15s,border-color .15s;
+}
+.item input::after{
+  content:"";width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;
+  transform:rotate(45deg) translate(-1px,-1px);opacity:0;
+}
+.item input:checked{background:var(--accent);border-color:var(--accent)}
+.item input:checked::after{opacity:1}
+.txt{flex:1;min-width:0}
+.txt .t{transition:color .15s}
+.item.done .t{text-decoration:line-through;text-decoration-thickness:1.5px;color:var(--done)}
+.item.key{background:var(--star-soft)}
+.item.key.done{background:transparent}
+.star{
+  display:inline-block;font-size:11px;font-weight:700;color:var(--star);letter-spacing:.06em;
+  border:1px solid currentColor;border-radius:4px;padding:0 5px;margin-right:6px;line-height:1.6;vertical-align:1px;
+}
+.item.done .star{color:var(--done)}
+.sub{display:block;font-size:12.5px;color:var(--muted);margin-top:2px}
+
+.act{
+  display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:13.5px;
+  background:var(--act-bg);color:var(--act-ink);font-weight:500;
+}
+.act::before{content:"▶";font-size:10px}
+
+.hints .item input{border-radius:50%}
+.hints .item.done .t{text-decoration:none;color:var(--ok)}
+.hints .item.done input{background:var(--ok);border-color:var(--ok)}
+
+.note{
+  margin-top:10px;font-size:13.5px;color:var(--muted);
+  padding-left:12px;border-left:2px solid var(--line);
+}
+.note p{margin:0}
+.note p+p{margin-top:4px}
+.quote{color:var(--ink);font-family:"Shippori Mincho",serif}
+
+/* reference blocks */
+.ref{margin-top:34px;padding-top:6px;border-top:1px solid var(--line)}
+.flow{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.flow li{position:relative;padding:6px 0 6px 22px;font-size:14.5px}
+.flow li::before{content:"";position:absolute;left:5px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.flow li:not(:last-child)::after{content:"";position:absolute;left:8px;top:24px;bottom:-8px;width:1px;background:var(--line)}
+.flow .tag{font-size:11.5px;color:var(--accent);margin-left:6px}
+.caution{display:grid;gap:10px}
+.caution div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.caution b{display:block;font-size:14.5px}
+.caution span{font-size:13.5px;color:var(--muted)}
+.memo{display:flex;flex-wrap:wrap;gap:6px}
+.memo span{font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+.closing{margin-top:14px;font-family:"Shippori Mincho",serif;font-size:15px}
+
+.empty-msg{font-size:13px;color:var(--muted);padding:10px 2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="top" id="top">
+    <div class="top-row">
+      <span class="progress-num" id="pnum">0<small> / 0</small></span>
+      <div class="bar"><i id="pbar"></i></div>
+      <span class="sync" id="sync">この端末のみ</span>
+    </div>
+    <nav class="chips" id="chips" aria-label="セクションへ移動"></nav>
+  </div>
+
+  <header class="hero">
+    <div class="eyebrow">YOUTUBE 横動画 ・ 15〜20分 ・ 完全密着</div>
+    <h1>【訪問看護】13年目の代表に1日密着！今も現場に出続ける理由とは？訪問看護ステーション雅</h1>
+    <div class="concept">「私が求めた、訪問看護のカタチ」</div>
+    <p class="purpose">想いを語るだけでなく、動いている姿で証明する。「現場を知らない経営者に決められる」という同業の不満に、直接の回答を示す。</p>
+    <div class="tools">
+      <button class="toggle" id="fStar" aria-pressed="false">★だけ表示</button>
+      <button class="toggle" id="fHide" aria-pressed="false">済みを隠す</button>
+      <button class="btn danger" id="reset">チェックをリセット</button>
+    </div>
+  </header>
+
+  <main id="main"></main>
+
+  <div class="ref" id="ref-structure">
+    <h3>この動画の構造</h3>
+    <ol class="flow">
+      <li>朝：代表なのに現場にいる<span class="tag">違和感＋伏線</span></li>
+      <li>なぜ看護師に</li>
+      <li>なぜ独立したのか<span class="tag">核心①</span></li>
+      <li>なぜ今も現場に出続けるのか<span class="tag">核心②</span></li>
+      <li>スタッフから見た代表</li>
+      <li>経営側から見た代表</li>
+      <li>夕方：今日はどうだった<span class="tag">伏線回収</span></li>
+      <li>ありがとうを聞くために<span class="tag">締め</span></li>
+    </ol>
+    <p class="closing">篠本さんの回が「戻れた人の物語」なら、この回は「作った人の物語」。</p>
+
+    <h3>撮影上の注意</h3>
+    <div class="caution">
+      <div><b>「語らせる」より「動いている姿を撮る」</b><span>今回はこれが正解。</span></div>
+      <div><b>電話対応は最優先で押さえる</b><span>現場・家族・医師からの相談を受けている姿は、言葉より雄弁。</span></div>
+      <div><b>合樂さんとの会話を狙う</b><span>代表は合樂さん相手だと自然に話せる。2人で話している場面が撮れたら、それがいい素材になる。</span></div>
+    </div>
+
+    <h3>取材メモ（打ち合わせより）</h3>
+    <div class="memo">
+      <span>人間関係問題の理想</span><span>病院時代</span><span>子育て</span>
+      <span>3人産んでから看護学校</span><span>准看護師から</span><span>正看を取りたかった</span>
+      <span>パワフルさ</span><span>子育てしながら看護師を続けてきた</span>
+      <span>訪問看護と出会ったきっかけがあった</span><span>そこで管理者をして経営や素晴らしさを知った</span>
+      <span>社会課題を感じて自分の色を作りたかった</span><span>病院系だと</span>
+      <span>経験は関係ないかも</span><span>雅って？</span><span>想い</span><span>大事にしてる事</span>
+      <span>家族写真＆写真</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- 台本データ ----------
+   type: q=質問 / a=動き(チェックなし) / h=引き出したいこと
+   key: true で★ */
+const SCRIPT = [
+  { id:"flow", no:"順", nav:"構成", title:"構成・撮れ高チェック",
+    goal:"※当日の動きで順番変更あり",
+    groups:[{ items:[
+      {id:"f01",t:"ダイジェスト（アバン）"},
+      {id:"f02",t:"密着スタート"},
+      {id:"f03",t:"スケジュール"},
+      {id:"f04",t:"朝の申し送り"},
+      {id:"f05",t:"訪問へ"},
+      {id:"f06",t:"車内トーク"},
+      {id:"f07",t:"現場"},
+      {id:"f08",t:"電話対応"},
+      {id:"f09",t:"移動中の質問"},
+      {id:"f10",t:"スタッフからの反応（1〜2）"},
+      {id:"f11",t:"合樂さんからの反応"},
+      {id:"f12",t:"事務所での様子"},
+      {id:"f13",t:"最後のインタビュー"},
+      {id:"f14",t:"CTA"}
+    ]}]
+  },
+  { id:"shots", no:"画", nav:"押さえる画", title:"回しっぱなしで押さえる画",
+    goal:"「語り」より「動いている姿」を優先",
+    groups:[{ items:[
+      {id:"p01",t:"電話対応",sub:"現場・家族・医師からの相談を受けている姿",key:true},
+      {id:"p02",t:"スタッフとのやり取り",sub:"回しっぱなしで押さえる"},
+      {id:"p03",t:"合樂さんと代表が2人で話している場面",key:true},
+      {id:"p04",t:"家族写真＆写真"}
+    ]}]
+  },
+  { id:"s1", no:"①", nav:"①朝", title:"密着スタート・本人インタビュー（朝）",
+    goal:"経営者が現場にいる違和感を、冒頭で作る。",
+    groups:[{ items:[
+      {id:"q101",t:"今日はよろしくお願いします。簡単な自己紹介。"},
+      {type:"a",t:"朝礼"},
+      {id:"q102",t:"今日はどんなスケジュールですか？"},
+      {id:"q103",t:"代表なのに、現場に出られてるんですか？",key:true},
+      {id:"q104",t:"何件回るんですか？"},
+      {id:"q105",t:"所長さんっていつもどんな仕事してるんですか？",sub:"管理者の仕事"}
+    ]}],
+    notes:["冒頭で「代表なのに現場」という違和感を提示しておくと、視聴者が「なぜ？」を抱えたまま見続ける。"]
+  },
+  { id:"s2", no:"②", nav:"②車内", title:"車内トーク①（1件目へ向かう道中）",
+    goal:"バックボーンの入口。深入りしない。",
+    groups:[{ items:[
+      {id:"q201",t:"現場に出る日って、週にどれくらいあるんですか？"},
+      {id:"q202",t:"代表もして、管理者もしてって、大変じゃないですか？"},
+      {id:"q203",t:"そもそも、なんで看護師になったんですか？",key:true},
+      {id:"q204",t:"管理者さんの色で、訪問看護の色って変わりそうですよね"}
+    ]}],
+    notes:["社会人を経てから看護師になったという経歴が出るはず。ここは一度聞くだけで、深掘りは③へ。"]
+  },
+  { id:"s3", no:"③", nav:"③移動中", title:"移動中・本人質問（2件目以降）",
+    goal:"<b>核心①</b> 独立の理由。",
+    groups:[
+      { items:[
+        {id:"q301",t:"看護学校に行ったのは、お子さんを産んでからなんですよね？"},
+        {id:"q302",t:"3人育てながら、勉強するってどうでしたか？"},
+        {id:"q303",t:"准看護師から始められたと聞きました"},
+        {id:"q304",t:"正看護師を取ろうと思ったのは、なぜですか？"},
+        {id:"q305",t:"子育てしながら看護師を続けるって、しんどくなかったですか？"},
+        {id:"q306",t:"訪問看護に移ったのは、なぜだったんですか？"},
+        {id:"q307",t:"病院では、どんなことを感じていましたか？"},
+        {id:"q308",t:"独立しようと思ったきっかけって、何かあったんですか？",sub:"きっかけはたくさんある"},
+        {id:"q309",t:"作りたかったのは、どんな場所でしたか？"},
+        {id:"q310",t:"13年前、不安はなかったですか？",key:true}
+      ]},
+      { label:"引き出したいこと", hints:true, items:[
+        {id:"h301",t:"一般職で働き、出産を経てから看護学校へ（26歳頃）"},
+        {id:"h302",t:"准看護師からスタート"},
+        {id:"h303",t:"子ども3人（末っ子は0歳）を育てながら通学"},
+        {id:"h304",t:"新卒で私立病院に入ったが、三交代と子育ての両立が難しかった"},
+        {id:"h305",t:"家族の協力がないと厳しい状況だった"},
+        {id:"h306",t:"20年前の宝塚には、訪問看護が数えるほどしかなかった"},
+        {id:"h307",t:"組織の制限に縛られず、何事にも動く一人の看護師がいた"},
+        {id:"h308",t:"創りたかったのは「安心して生きられる、温かい場所」"}
+      ]}
+    ]
+  },
+  { id:"s4", no:"④", nav:"④合間", title:"現場の合間・本人質問（お昼休憩でも可）",
+    goal:"<b>核心②</b> なぜ現場に出続けるのか。",
+    groups:[
+      { items:[
+        {id:"q401",t:"13年目ですけど、いまも現場に出続けているのはなぜですか？",key:true},
+        {id:"q402",t:"現場を離れると、何が変わると思いますか？"},
+        {id:"q403",t:"経営だけに集中したほうが、いいとは思わないですか？",key:true},
+        {id:"q404",t:"スタッフからは、どう見られていると思いますか？"}
+      ]},
+      { label:"引き出したいこと", hints:true, items:[
+        {id:"h401",t:"机の上だけで決めたことは、現場と合わない"},
+        {id:"h402",t:"現場の声を拾いたい"},
+        {id:"h403",t:"「同じ目線で悩みを共有できる」",key:true}
+      ]}
+    ],
+    notes:["なぜそこまでするのかが語られると、動画全体が整う。"]
+  },
+  { id:"s5", no:"⑤", nav:"⑤スタッフ", title:"周りからの反応インタビュー（スタッフ）",
+    goal:"本人が言えないことを、第三者に語らせる。",
+    groups:[
+      { label:"スタッフ 1", items:[
+        {id:"q501",t:"所長さんって、どんな人ですか？"},
+        {id:"q502",t:"現場に出てくる代表って、珍しくないですか？"},
+        {id:"q503",t:"所長に相談してよかった、と思った場面はありますか？",key:true}
+      ]},
+      { label:"スタッフ 2", items:[
+        {id:"q511",t:"所長さんって、どんな人ですか？"},
+        {id:"q512",t:"入る前と、入った後で印象は変わりましたか？"},
+        {id:"q513",t:"分からないことがあった時、所長さんに聞けますか？",key:true},
+        {id:"q514",t:"新しく入る人に、所長さんのことをどう伝えますか？"}
+      ]}
+    ]
+  },
+  { id:"s6", no:"⑥", nav:"⑥合樂さん", title:"合樂さんからの反応インタビュー",
+    goal:"経営側から見た代表。役割の違いを見せる。",
+    groups:[{ items:[
+      {id:"q601",t:"所長さんって、どういう存在ですか？"},
+      {id:"q602",t:"経営者としては、どう見えますか？",key:true},
+      {id:"q603",t:"お二人で意見が分かれることはありますか？"},
+      {id:"q604",t:"所長が現場に出ることについて、どう思っていますか？",key:true},
+      {id:"q605",t:"親子で働くって、実際どうですか？"}
+    ]}],
+    notes:[
+      "打ち合わせで合樂さんが話していた内容：",
+      "<span class=\"quote\">「所長の現場と、僕が後ろにいることのバランスが取れてるから、ってみんな言ってくれる」</span>",
+      "役割が違う二人で成り立っているという構造が見えると、組織としての信頼が出る。"
+    ]
+  },
+  { id:"s7", no:"⑦", nav:"⑦締め", title:"最後の本人インタビュー（1日の終わり）",
+    goal:"締め。今日の実感から、これからの話へ。",
+    groups:[{ items:[
+      {id:"q701",t:"今日、お疲れさまでした。どんな一日でしたか？"},
+      {id:"q702",t:"この仕事をしていて良かったと思うのは、どんな時ですか？"},
+      {id:"q703",t:"雅を創って今までやってきて、何か変わったことはありますか？",key:true},
+      {id:"q704",t:"これから、やりたいことはありますか？",key:true},
+      {id:"q705",t:"雅はどんなとこか教えてください！"},
+      {id:"q706",t:"これから訪問看護を考えている方に、伝えたいことはありますか？"},
+      {id:"q707",t:"最後に「あなたにとって、看護とは何ですか？」"}
+    ]}]
+  }
+];
+
+/* ---------- 状態 ---------- */
+const LS_KEY = "miyabi-mitchaku-checks-v1";
+const PREF_KEY = "miyabi-mitchaku-prefs-v1";
+let checks = {};            // id -> true
+let db = null;              // 共有ストア（使えない時は端末保存）
+let prefs = { star:false, hide:false };
+
+function lsGet(k){ try{ return JSON.parse(localStorage.getItem(k)||"null"); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+
+checks = lsGet(LS_KEY) || {};
+prefs = Object.assign(prefs, lsGet(PREF_KEY) || {});
+
+const allItems = [];
+SCRIPT.forEach(s => s.groups.forEach(g => g.items.forEach(it => { if(it.id) allItems.push(it); })));
+
+/* ---------- 描画 ---------- */
+const main = document.getElementById("main");
+const chips = document.getElementById("chips");
+
+function esc(s){ return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function build(){
+  let html = "";
+  SCRIPT.forEach(s => {
+    html += `<section id="sec-${s.id}" data-sec="${s.id}">
+      <div class="sec-head"><span class="sec-no">${s.no}</span><h2>${esc(s.title)}</h2><span class="sec-count" data-count="${s.id}"></span></div>
+      ${s.goal ? `<p class="goal">${s.goal}</p>` : ""}`;
+    s.groups.forEach(g => {
+      if(g.label) html += `<h3>${esc(g.label)}</h3>`;
+      html += `<ul class="list${g.hints ? " hints" : ""}">`;
+      g.items.forEach(it => {
+        if(it.type === "a"){ html += `<li class="act-row" data-act><div class="act">${esc(it.t)}</div></li>`; return; }
+        html += `<li data-li="${it.id}"${it.key ? " data-key" : ""}><label class="item${it.key ? " key" : ""}" for="c-${it.id}">
+          <input type="checkbox" id="c-${it.id}" data-id="${it.id}">
+          <span class="txt"><span class="t">${it.key ? '<span class="star">★</span>' : ""}${esc(it.t)}</span>${it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ""}</span>
+        </label></li>`;
+      });
+      html += `</ul>`;
+    });
+    html += `<p class="empty-msg" data-empty="${s.id}" hidden>このセクションは表示対象がありません。</p>`;
+    if(s.notes) html += `<div class="note">${s.notes.map(n => `<p>${n}</p>`).join("")}</div>`;
+    html += `</section>`;
+  });
+  main.innerHTML = html;
+
+  chips.innerHTML = SCRIPT.map(s => `<button class="chip" data-go="${s.id}">${esc(s.nav)} <b data-chip="${s.id}"></b></button>`).join("")
+    + `<button class="chip" data-go="ref">構造・注意</button>`;
+}
+
+function refresh(){
+  let done = 0;
+  allItems.forEach(it => {
+    const on = !!checks[it.id];
+    if(on) done++;
+    const box = document.getElementById("c-" + it.id);
+    if(box.checked !== on) box.checked = on;
+    const li = box.closest("li");
+    box.closest(".item").classList.toggle("done", on);
+    const hideByStar = prefs.star && !it.key;
+    const hideByDone = prefs.hide && on;
+    li.hidden = hideByStar || hideByDone;
+  });
+  document.querySelectorAll("[data-act]").forEach(li => li.hidden = prefs.star || prefs.hide);
+
+  SCRIPT.forEach(s => {
+    const ids = [];
+    s.groups.forEach(g => g.items.forEach(it => { if(it.id) ids.push(it.id); }));
+    const n = ids.filter(id => checks[id]).length;
+    document.querySelector(`[data-count="${s.id}"]`).textContent = `${n} / ${ids.length}`;
+    const chip = document.querySelector(`[data-chip="${s.id}"]`);
+    chip.textContent = `${n}/${ids.length}`;
+    chip.parentElement.classList.toggle("full", n === ids.length);
+    const sec = document.getElementById("sec-" + s.id);
+    sec.querySelectorAll("ul.list").forEach(ul => {
+      ul.hidden = ![...ul.children].some(li => !li.hidden);
+      const h = ul.previousElementSibling;
+      if(h && h.tagName === "H3") h.hidden = ul.hidden;
+    });
+    const anyVisible = [...sec.querySelectorAll("ul.list")].some(ul => !ul.hidden);
+    document.querySelector(`[data-empty="${s.id}"]`).hidden = anyVisible;
+  });
+
+  const total = allItems.length;
+  document.getElementById("pnum").innerHTML = `${done}<small> / ${total}</small>`;
+  document.getElementById("pbar").style.width = (total ? done / total * 100 : 0) + "%";
+  document.getElementById("fStar").setAttribute("aria-pressed", prefs.star);
+  document.getElementById("fHide").setAttribute("aria-pressed", prefs.hide);
+}
+
+/* ---------- 保存 ---------- */
+const pending = {};   // id -> 書き込み中の値（1ドキュメント1書き込み）
+async function persist(id){
+  lsSet(LS_KEY, checks);
+  if(!db) return;
+  if(pending[id]) { pending[id].again = true; return; }
+  pending[id] = { again:false };
+  try{
+    do{
+      pending[id].again = false;
+      await db.doc("checks/" + id).set({ done: !!checks[id] });
+    }while(pending[id].again);
+  }catch(e){
+    if(e && e.code === "unavailable"){
+      await new Promise(r => setTimeout(r, 400 + Math.random()*600));
+      try{ await db.doc("checks/" + id).set({ done: !!checks[id] }); }catch(_){}
+    }
+  }finally{ delete pending[id]; }
+}
+
+main.addEventListener("change", e => {
+  const id = e.target.dataset.id;
+  if(!id) return;
+  if(e.target.checked) checks[id] = true; else delete checks[id];
+  refresh();
+  persist(id);
+});
+
+chips.addEventListener("click", e => {
+  const b = e.target.closest("[data-go]");
+  if(!b) return;
+  const el = b.dataset.go === "ref" ? document.getElementById("ref-structure") : document.getElementById("sec-" + b.dataset.go);
+  el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"start" });
+});
+
+document.getElementById("fStar").onclick = () => { prefs.star = !prefs.star; lsSet(PREF_KEY, prefs); refresh(); };
+document.getElementById("fHide").onclick = () => { prefs.hide = !prefs.hide; lsSet(PREF_KEY, prefs); refresh(); };
+
+const resetBtn = document.getElementById("reset");
+let armTimer = null;
+resetBtn.onclick = async () => {
+  if(!resetBtn.classList.contains("armed")){
+    resetBtn.classList.add("armed");
+    resetBtn.textContent = "もう一度押すと全て外れます";
+    armTimer = setTimeout(() => { resetBtn.classList.remove("armed"); resetBtn.textContent = "チェックをリセット"; }, 3500);
+    return;
+  }
+  clearTimeout(armTimer);
+  resetBtn.classList.remove("armed");
+  resetBtn.textContent = "チェックをリセット";
+  const ids = Object.keys(checks);
+  checks = {};
+  refresh();
+  lsSet(LS_KEY, checks);
+  if(db){ for(const id of ids){ try{ await db.doc("checks/" + id).set({ done:false }); }catch(_){} } }
+};
+
+build();
+refresh();
+
+/* ---------- 共有（使える環境のみ） ---------- */
+(async () => {
+  try{
+    if(!window.claude || !window.claude.use) return;
+    const d = await window.claude.use("db");
+    if(!d) return;
+    db = d;
+    const sync = document.getElementById("sync");
+    db.collection("checks").onSnapshot(snap => {
+      const next = {};
+      snap.docs.forEach(doc => { const v = doc.data(); if(v && v.done) next[doc.id] = true; });
+      Object.keys(pending).forEach(id => { if(checks[id]) next[id] = true; else delete next[id]; });
+      checks = next;
+      lsSet(LS_KEY, checks);
+      sync.textContent = "共有中";
+      sync.classList.add("live");
+      refresh();
+    }, () => {
+      db = null;
+      sync.textContent = "この端末のみ";
+      sync.classList.remove("live");
+    });
+  }catch(e){}
+})();
+</script>
