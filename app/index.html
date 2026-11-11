@@ -165,6 +165,20 @@ details.more[open] > summary { margin-bottom: 10px; }
 .flist .goal b { color: var(--accent); }
 .meter { height: 6px; background: var(--field); border-radius: 3px; overflow: hidden; min-width: 80px; }
 .meter i { display: block; height: 100%; background: var(--accent); }
+.meter.lg { height: 8px; border-radius: 4px; }
+.meter i.ok { background: var(--good); }
+.ctile .pct { font-family: var(--num); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 700; line-height: 1.1; }
+.ctile .pct.ok { color: var(--good); }
+.ctile .av { font-size: 12px; color: var(--muted); }
+.ctile .av b { color: var(--ink); font-family: var(--num); font-size: 14px; }
+.ctile .row { justify-content: space-between; }
+.commit-sum { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: center; background: var(--side); color: var(--side-ink); border-radius: var(--radius); padding: 20px 24px; }
+.commit-sum .big { font-family: var(--num); font-size: clamp(40px, 6vw, 56px); font-weight: 700; line-height: 1; color: var(--accent); }
+.commit-sum p { margin: 4px 0 0; font-size: 12px; color: var(--side-muted); }
+.commit-sum .eyebrow { color: var(--side-muted); }
+td input.cell { width: 92px; text-align: right; background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; font-family: var(--num); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+td input.cell::placeholder { color: var(--muted); opacity: .7; }
+tr.now td { background: var(--accent-soft); }
 
 /* tables */
 .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
@@ -466,7 +480,9 @@ const FIELD = {
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
 const AGES = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
-const DEFAULT_TARGET = { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 3 };
+const DEFAULT_TARGET = { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 3, gReach: null, gProfile: null, gLine: null, gEntry: null, gInterview: null };
+// monthly KPI goals: [record key, standard-goal key in targets]
+const GOAL_KEYS = [['reach', 'gReach'], ['profileViews', 'gProfile'], ['line', 'gLine'], ['entry', 'gEntry'], ['interview', 'gInterview'], ['hire', 'goal']];
 const STATUSES = ['契約中', '提案中', '休止中'];
 const HEARING = [
   ['target', '届けたい相手（ターゲット像）'], ['strength', '強み・選ばれる理由'], ['competitor', '競合・比較される相手'],
@@ -514,7 +530,8 @@ function seed() {
     },
     demo: { aurora: { recruit: { '2026-10': { female: 64, male: 35, other: 1, ages: { '13-17': 2, '18-24': 22, '25-34': 39, '35-44': 21, '45-54': 10, '55-64': 4, '65+': 2 }, locations: '大阪府 38\n兵庫県 27\n京都府 12\n東京都 8\n奈良県 5' } } } },
     notes: { aurora: { recruit: { '2026-10': { summary: 'リーチ16万・プロフィール流入4,000と過去最高。LINE登録40、エントリー4、採用1。', outlook: 'プロフィール→LINEの移行率を上げるため、ハイライトに「社員の1日」を追加し、LINE特典を見直す。' } } } },
-    targets: {},
+    targets: { aurora: { recruit: { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 1, gReach: 150000, gProfile: 3500, gLine: 35, gEntry: 5, gInterview: 3 } } },
+    goals: { aurora: { recruit: { '2026-05': { entry: 3, line: 20, reach: 90000, profileViews: 2000, interview: 1, hire: 0 }, '2026-06': { entry: 3, line: 25, reach: 100000, profileViews: 2400, interview: 2, hire: 1 }, '2026-07': { entry: 4, line: 28, reach: 115000, profileViews: 2800, interview: 2, hire: 1 }, '2026-08': { entry: 4, line: 30, reach: 125000, profileViews: 3200, interview: 2, hire: 1 }, '2026-09': { entry: 5, line: 35, reach: 140000, profileViews: 3500, interview: 3, hire: 1 } } } },
     tasks: { aurora: [
       { id: uid(), title: '11月 リール台本（社員インタビュー）', assignee: 'アプリ所有者', channel: 'instagram', start: '2026-11-02', end: '2026-11-08', status: 'done' },
       { id: uid(), title: '撮影（現場密着）', assignee: 'アプリ所有者', channel: 'instagram', start: '2026-11-09', end: '2026-11-13', status: 'doing' },
@@ -532,7 +549,7 @@ const store = {
 };
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
-['records', 'demo', 'notes', 'targets', 'tasks'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals'].forEach(k => S[k] = S[k] || {});
 function save(msg) { const ok = store.set(S); if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます'); }
 
 /* ================= helpers ================= */
@@ -556,7 +573,57 @@ function chRecs(ch, cid, ver) { const b = (S.records[cid || S.current] || {})[ve
 function rec(ch, m, cid, ver) { return chRecs(ch, cid, ver).find(r => r.month === m) || null; }
 function ensureRec(ch, m) { const b = bucket(); b[ch] = b[ch] || []; let r = b[ch].find(x => x.month === m); if (!r) { r = { month: m }; b[ch].push(r); } return r; }
 function monthsOf(cid, ver) { const b = (S.records[cid || S.current] || {})[ver || S.ver] || {}; const set = new Set(); Object.values(b).forEach(a => a.forEach(r => set.add(r.month))); return [...set].sort(); }
-function curMonth() { const ms = monthsOf(); if (S.month && (ms.includes(S.month) || !ms.length)) return S.month; return ms.length ? ms[ms.length - 1] : thisMonth(); }
+function curMonth() { if (S.month && /^\d{4}-\d{2}$/.test(S.month)) return S.month; const ms = monthsOf(); return ms.length ? ms[ms.length - 1] : thisMonth(); }
+function goalsFor(m, cid, ver) {
+  const t = tgt(cid, ver), o = (((S.goals[cid || S.current] || {})[ver || S.ver]) || {})[m] || {}, g = {};
+  GOAL_KEYS.forEach(([k, d]) => { g[k] = isNum(o[k]) ? Number(o[k]) : (isNum(t[d]) ? Number(t[d]) : null); });
+  return g;
+}
+function goalOverride(m) { return (((S.goals[S.current] || {})[S.ver]) || {})[m] || {}; }
+function goalEdit(m) { const c = S.current, v = S.ver; S.goals[c] = S.goals[c] || {}; S.goals[c][v] = S.goals[c][v] || {}; S.goals[c][v][m] = S.goals[c][v][m] || {}; return S.goals[c][v][m]; }
+// commitment: actual vs monthly goal, with a month-end forecast for the running month
+function commit(m, cid, ver) {
+  const r = rec('instagram', m, cid, ver) || {}, g = goalsFor(m, cid, ver);
+  const now = new Date(), running = m === thisMonth();
+  const days = new Date(+m.slice(0, 4), +m.slice(5, 7), 0).getDate(), elapsed = running ? now.getDate() : days;
+  const items = GOAL_KEYS.map(([k]) => {
+    const a = isNum(r[k]) ? Number(r[k]) : null, goal = g[k];
+    const rt = isNum(goal) && goal > 0 && a !== null ? a / goal * 100 : null;
+    const fc = running && a !== null && elapsed > 0 ? Math.round(a / elapsed * days) : null;
+    return { k, label: fl(k), actual: a, goal, rate: rt, rest: isNum(goal) && a !== null ? Math.max(0, goal - a) : null, forecast: fc, forecastRate: fc !== null && isNum(goal) && goal > 0 ? fc / goal * 100 : null };
+  });
+  const set = items.filter(i => i.rate !== null);
+  const overall = set.length ? set.reduce((s2, i) => s2 + Math.min(100, i.rate), 0) / set.length : null;
+  return { items, overall, hit: set.filter(i => i.rate >= 100).length, count: set.length, running, elapsed, days };
+}
+function commitTiles(m) {
+  const cm = commit(m), unit = k => k === 'reach' || k === 'profileViews' ? '' : '件';
+  return '<div class="tiles t3">' + cm.items.map(i => {
+    if (!isNum(i.goal)) return '<div class="tile ctile"><span class="lbl">' + I.target + esc(i.label) + '</span><span class="val empty">目標未設定</span><span class="sub">実績 ' + fmt(i.actual) + unit(i.k) + '　<a href="#targets">目標を設定</a></span></div>';
+    const ok = i.rate !== null && i.rate >= 100;
+    return '<div class="tile ctile"><div class="row"><span class="lbl">' + I.target + esc(i.label) + '</span>' + (i.rate === null ? '<span class="chip">実績未入力</span>' : ok ? '<span class="chip good">達成</span>' : '<span class="chip bad">あと ' + fmt(i.rest) + unit(i.k) + '</span>') + '</div>' +
+      '<span class="pct' + (ok ? ' ok' : '') + '">' + fmtPct(i.rate) + '</span><span class="av">実績 <b>' + fmt(i.actual) + '</b> / 目標 <b>' + fmt(i.goal) + '</b>' + unit(i.k) + '</span>' +
+      '<div class="meter lg"><i class="' + (ok ? 'ok' : '') + '" style="width:' + Math.min(100, i.rate || 0).toFixed(0) + '%"></i></div>' +
+      (i.forecast !== null ? '<span class="sub">着地見込み ' + fmt(i.forecast) + unit(i.k) + '（' + fmtPct(i.forecastRate) + '）</span>' : '') + '</div>';
+  }).join('') + '</div>';
+}
+function commitSummary(m) {
+  const cm = commit(m), e = cm.items.find(i => i.k === 'entry');
+  return '<div class="commit-sum"><div><div class="eyebrow">総合コミット率</div><div class="big">' + fmtPct(cm.overall) + '</div></div><div><b style="font-size:15px">' + mLabel(m) + '：目標を設定した ' + cm.count + ' 項目のうち ' + cm.hit + ' 項目を達成</b>' +
+    '<p>' + VER[S.ver].entry + ' ' + fmt(e.actual) + ' / ' + fmt(e.goal) + '件（' + fmtPct(e.rate) + '）' + (cm.running ? '　・　' + cm.elapsed + '/' + cm.days + '日経過、' + VER[S.ver].entry + 'の着地見込み ' + fmt(e.forecast) + '件' : '') + '</p>' +
+    '<p>総合コミット率は、目標を設定した各KPIの達成率（1項目あたり上限100%）の平均です。</p></div></div>';
+}
+function commitHistory(m, n) {
+  const ms = monthsOf().filter(x => x <= m).slice(-(n || 6));
+  const e = VER[S.ver].entry;
+  return '<div class="tbl-wrap"><table><thead><tr><th>月</th><th class="n">' + e + ' 目標</th><th class="n">' + e + ' 実績</th><th class="n">' + e + ' コミット率</th><th class="n">' + VER[S.ver].goal + ' 実績/目標</th><th class="n">総合コミット率</th><th>判定</th></tr></thead><tbody>' +
+    ms.map(x => { const cm = commit(x), en = cm.items.find(i => i.k === 'entry'), h = cm.items.find(i => i.k === 'hire'); return '<tr' + (x === m ? ' class="now"' : '') + '><td>' + mLabel(x) + '</td><td class="n">' + fmt(en.goal) + '</td><td class="n">' + fmt(en.actual) + '</td><td class="n"><b>' + fmtPct(en.rate) + '</b></td><td class="n">' + fmt(h.actual) + ' / ' + fmt(h.goal) + '</td><td class="n">' + fmtPct(cm.overall) + '</td><td>' + (en.rate === null ? '<span class="chip">—</span>' : en.rate >= 100 ? '<span class="chip good">' + e + '達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>'; }).join('') + '</tbody></table></div>';
+}
+function commitChart(m) {
+  const ms = monthsOf().filter(x => x <= m).slice(-6), cms = ms.map(x => commit(x));
+  const ser = [{ name: VER[S.ver].entry + ' 実績', values: cms.map(c => c.items.find(i => i.k === 'entry').actual), kind: 'bar', c: 0 }, { name: VER[S.ver].entry + ' 目標', values: cms.map(c => c.items.find(i => i.k === 'entry').goal), kind: 'line', c: 1, dash: true }, { name: '総合コミット率', values: cms.map(c => c.overall), kind: 'line', axis: 'R', c: 4 }];
+  return legend(ser) + '<div class="chart">' + (chart({ labels: ms.map(mShort), series: ser }) || emptyBox('データがありません', '月次データと目標を入力すると表示されます', I.target)) + '</div>';
+}
 function tgt(cid, ver) { const t = ((S.targets[cid || S.current] || {})[ver || S.ver]) || {}; return Object.assign({}, DEFAULT_TARGET, t); }
 function demoFor(m, cid, ver) {
   const d = ((S.demo[cid || S.current] || {})[ver || S.ver]) || {};
@@ -786,7 +853,9 @@ R.dashboard = () => {
     '<div class="tile"><span class="lbl">' + I.link + 'LINE登録</span><span class="val">' + fmt(r.line) + '</span>' + delta(r.line, p.line) + '</div>' +
     '<div class="tile"><span class="lbl">' + I.input + v.entry + '</span><span class="val">' + fmt(r.entry) + '<small>件</small></span>' + delta(r.entry, p.entry, '件') + '</div>' +
     '<div class="tile ink"><span class="lbl">' + I.pct + 'LINE転換率</span><span class="val">' + fmtPct(rate(r.line, r.profileViews)) + '</span><span class="sub">プロフィール→LINE（目標 ' + fmtPct(t.pl) + '）</span></div>' +
-    '<div class="tile"><span class="lbl">' + I.target + v.goal + '</span><span class="val">' + fmt(r.hire) + '<small>/ ' + fmt(t.goal) + '件</small></span><span class="sub">月目標の ' + fmtPct(rate(r.hire, t.goal)) + '</span></div></div>';
+    '<div class="tile"><span class="lbl">' + I.target + v.goal + '</span><span class="val">' + fmt(r.hire) + '<small>/ ' + fmt(goalsFor(m).hire) + '件</small></span><span class="sub">月目標の ' + fmtPct(rate(r.hire, goalsFor(m).hire)) + '</span></div></div>';
+  h += '<section class="sec-head"><div><div class="eyebrow">MONTHLY COMMITMENT</div><h2>約束した数字に、どこまで届いたか。</h2><p>月ごとのKPI目標に対する達成率（コミット率）です。目標は「目標設定」で月ごとに変えられます。</p></div><a class="btn" href="#targets">' + I.target + '月間目標を設定</a></section>' + commitSummary(m) + commitTiles(m) +
+    '<div class="split even"><div class="panel"><div class="panel-h"><div class="eyebrow">COMMIT TREND</div><h3 class="bar-title">' + v.entry + 'の目標と実績の推移</h3></div>' + commitChart(m) + '</div><div class="panel"><div class="panel-h"><div class="eyebrow">HISTORY</div><h3 class="bar-title">月別コミット率</h3></div>' + commitHistory(m, 4) + '</div></div>';
   const ms = monthsOf().filter(x => x <= m).slice(-6), rs = ms.map(x => rec('instagram', x) || {});
   const ser1 = [{ name: 'プロフィール流入', values: rs.map(x => x.profileViews), kind: 'line', c: 0, area: true }, { name: 'リーチ', values: rs.map(x => x.reach), kind: 'line', axis: 'R', c: 1, dash: true }];
   h += '<div class="split"><div class="panel"><div class="panel-h"><div class="eyebrow">REACH & PROFILE</div><h3 class="bar-title">届いた先に、次のアクション。</h3><div class="right">' + legend(ser1) + '</div></div>' +
@@ -794,7 +863,7 @@ R.dashboard = () => {
   const st = steps(m);
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">' + v.en + ' FUNNEL</div><h3 class="bar-title">' + v.funnelName + '</h3><span class="right chip">' + mShort(m) + '</span></div><div class="flist">' +
     [['リーチ', 'Instagramのリーチ', r.reach], ['プロフィール', '移行率 ' + fmtPct(st[0].rate), r.profileViews], ['LINE登録', '移行率 ' + fmtPct(st[1].rate), r.line], [v.entry, '移行率 ' + fmtPct(st[2].rate), r.entry], [v.interview, '移行率 ' + fmtPct(st[3].rate), r.interview]].map(x => '<div><span>' + x[0] + '</span><small>' + x[1] + '</small><b>' + fmt(x[2]) + '</b></div>').join('') +
-    '<div class="goal"><span>' + v.hire + '</span><small>目標 ' + fmt(t.goal) + '件 / 移行率 ' + fmtPct(st[4].rate) + '</small><b>' + fmt(r.hire) + '</b></div></div></div></div>';
+    '<div class="goal"><span>' + v.hire + '</span><small>目標 ' + fmt(goalsFor(m).hire) + '件 / 移行率 ' + fmtPct(st[4].rate) + '</small><b>' + fmt(r.hire) + '</b></div></div></div></div>';
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">KPI CONVERSION WALLS</div><h3 class="bar-title">成果を分ける、5つの壁。</h3><a class="right btn sm" href="#targets">目標を変更する ' + I.arrow + '</a></div><div class="tbl-wrap"><table><thead><tr><th>段階</th><th class="n">実績</th><th class="n">目標</th><th class="n">差</th><th style="width:30%">達成度</th><th>状態</th></tr></thead><tbody>' +
     st.map(s => { const ok = isNum(s.rate) && s.rate >= s.target; return '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td class="n">' + (isNum(s.rate) ? (s.rate - s.target > 0 ? '+' : '') + (Math.round((s.rate - s.target) * 100) / 100) + 'pt' : '—') + '</td><td><div class="meter"><i style="width:' + (isNum(s.rate) ? Math.min(100, s.rate / s.target * 100) : 0).toFixed(0) + '%"></i></div></td><td>' + (!isNum(s.rate) ? '<span class="chip">未入力</span>' : ok ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
   const tabs = [['followers', 'フォロワー'], ['stories', 'ストーリーズ'], ['taps', 'リンクタップ']];
@@ -1081,7 +1150,8 @@ R.report = () => {
     '<div class="hero-num"><span class="eyebrow">' + mLabel(m) + ' / プロフィール流入</span><span class="v">' + fmt(r.profileViews) + '</span><span style="font-size:12px">リーチ ' + fmt(r.reach) + ' → プロフィール ' + fmt(r.profileViews) + ' → LINE ' + fmt(r.line) + ' → ' + v.entry + ' ' + fmt(r.entry) + ' → ' + v.hire + ' ' + fmt(r.hire) + '</span></div>' +
     '<div class="comment"><b>今月の総評</b><p>' + esc(n.summary || 'リーチ ' + fmt(r.reach) + '、プロフィール流入 ' + fmt(r.profileViews) + '、LINE登録 ' + fmt(r.line) + '、' + v.entry + ' ' + fmt(r.entry) + '、' + v.hire + ' ' + fmt(r.hire) + '件でした。') + '</p></div>' +
     '<div class="comment"><b>今後の展望</b><p>' + esc(n.outlook || suggestions(m).map(s => s.t).join('／')) + '</p></div>' +
-    '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">KPI FUNNEL</div><h2>集客から' + v.hire + 'までの、流れ。</h2></div></div><div class="tbl-wrap"><table><thead><tr><th>段階</th><th class="n">実績</th><th class="n">目標</th><th>状態</th></tr></thead><tbody>' + st.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td>' + (!isNum(s.rate) ? '<span class="chip">未入力</span>' : s.rate >= s.target ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>').join('') + '<tr class="total"><td>' + v.goal + '（月目標 ' + fmt(t.goal) + '件）</td><td class="n">' + fmt(r.hire) + '件</td><td class="n">' + fmtPct(rate(r.hire, t.goal)) + '</td><td></td></tr></tbody></table></div></section>' +
+    '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">MONTHLY COMMITMENT</div><h2>約束した数字に、どこまで届いたか。</h2></div></div>' + commitSummary(m) + commitTiles(m) + commitHistory(m, 6) + '</section>' +
+    '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">KPI FUNNEL</div><h2>集客から' + v.hire + 'までの、流れ。</h2></div></div><div class="tbl-wrap"><table><thead><tr><th>段階</th><th class="n">実績</th><th class="n">目標</th><th>状態</th></tr></thead><tbody>' + st.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td>' + (!isNum(s.rate) ? '<span class="chip">未入力</span>' : s.rate >= s.target ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>').join('') + '<tr class="total"><td>' + v.goal + '（月目標 ' + fmt(goalsFor(m).hire) + '件）</td><td class="n">' + fmt(r.hire) + '件</td><td class="n">' + fmtPct(rate(r.hire, goalsFor(m).hire)) + '</td><td></td></tr></tbody></table></div></section>' +
     '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><span class="chip">' + mLabel(m) + '</span></div>' + crossTiles(m) + crossTable(m) + '</section>' +
     '<section style="display:grid;gap:14px">' + storiesSection(m) + '</section>' +
     '<section style="display:grid;gap:14px">' + followerSection(m) + '</section>' +
@@ -1096,8 +1166,17 @@ R.targets = () => {
   const t = tgt(), v = VER[S.ver];
   const f = (k, label, unit) => '<label class="field"><span>' + label + '</span><div class="suffix"><input type="number" step="any" min="0" id="t_' + k + '" value="' + t[k] + '"><em>' + unit + '</em></div></label>';
   let h = head('TARGET SETTINGS', '基準を、決めよう。', cLead(), '<button class="btn dark" data-act="saveTargets">' + I.check + '保存する</button>');
-  h += '<div class="panel"><div class="grid3">' + f('rp', 'リーチ → プロフィール', '%') + f('pl', 'プロフィール → LINE', '%') + f('le', 'LINE → ' + v.entry, '%') + f('ei', v.entry + ' → ' + v.interview, '%') + f('ih', v.interview + ' → ' + v.hire, '%') + f('goal', v.goal + '・月目標', '件') + '</div>' +
-    '<div class="note" style="margin-top:18px"><span class="dot"></span><div><b>目標基準はクライアント・バージョンごとに。</b>ここで決めた移行率が、ダッシュボードとレポートの「達成／未達」の判定と、次の一手の提案に使われます。業種や商材の単価に合わせて調整してください。</div></div></div>';
+  const fv = (k, label, unit) => '<label class="field"><span>' + label + '</span><div class="suffix"><input type="number" step="any" min="0" id="t_' + k + '" value="' + (isNum(t[k]) ? t[k] : '') + '" placeholder="未設定"><em>' + unit + '</em></div></label>';
+  h += '<section class="sec-head"><div><div class="eyebrow">CONVERSION TARGETS</div><h2>移行率の目標</h2><p>各段階で何％が次に進めば良いか。ダッシュボードの「5つの壁」と次の一手の提案に使います。</p></div></section>';
+  h += '<div class="panel"><div class="grid3">' + f('rp', 'リーチ → プロフィール', '%') + f('pl', 'プロフィール → LINE', '%') + f('le', 'LINE → ' + v.entry, '%') + f('ei', v.entry + ' → ' + v.interview, '%') + f('ih', v.interview + ' → ' + v.hire, '%') + '</div></div>';
+  h += '<section class="sec-head"><div><div class="eyebrow">MONTHLY KPI COMMITMENT</div><h2>毎月の目標件数（コミット）</h2><p>毎月「' + v.entry + '何件」などの目標を決めると、実績との比率をコミット率として表示します。まず標準の月目標を決め、月ごとに変えたいときだけ下の表に入力してください。</p></div></section>';
+  h += '<div class="panel"><div class="panel-h"><h3 class="bar-title">標準の月目標</h3><span class="right hint">空欄の項目はコミット率を計算しません</span></div><div class="grid3">' + fv('gEntry', v.entry + '・月目標', '件') + fv('gInterview', v.interview + '・月目標', '件') + fv('goal', v.goal + '・月目標', '件') + fv('gLine', 'LINE登録・月目標', '件') + fv('gProfile', 'プロフィール流入・月目標', '') + fv('gReach', 'リーチ数・月目標', '') + '</div>' +
+    '<div class="row" style="margin-top:16px"><button class="btn dark" data-act="saveTargets">' + I.check + '移行率と標準目標を保存</button></div></div>';
+  const ms = monthsOf(), last = ms.length ? ms[ms.length - 1] : thisMonth(), first = ms.length ? ms[Math.max(0, ms.length - 6)] : thisMonth();
+  const rows = []; let x = first; const endM = addMonth(last > thisMonth() ? last : thisMonth(), 3); while (x <= endM && rows.length < 24) { rows.push(x); x = addMonth(x, 1); }
+  h += '<div class="panel"><div class="panel-h"><h3 class="bar-title">月ごとの目標</h3><span class="right hint">入力すると自動で保存。空欄は標準の月目標を使います</span></div><div class="tbl-wrap"><table><thead><tr><th>月</th>' + GOAL_KEYS.map(([k]) => '<th class="n">' + esc(fl(k)) + '</th>').join('') + '<th class="n">' + v.entry + ' コミット率</th><th></th></tr></thead><tbody>' +
+    rows.map(mo => { const o = goalOverride(mo), g = goalsFor(mo), e = commit(mo).items.find(i => i.k === 'entry'); return '<tr' + (mo === thisMonth() ? ' class="now"' : '') + '><td>' + mLabel(mo) + (mo === thisMonth() ? ' <span class="chip acc">今月</span>' : '') + '</td>' + GOAL_KEYS.map(([k]) => '<td class="n"><input class="cell" type="number" min="0" step="any" data-goal="' + k + '" data-gm="' + mo + '" aria-label="' + esc(mLabel(mo) + ' ' + fl(k)) + '" value="' + (isNum(o[k]) ? o[k] : '') + '" placeholder="' + (isNum(g[k]) ? fmt(g[k]) : '—') + '"></td>').join('') + '<td class="n">' + fmtPct(e.rate) + '</td><td><button class="btn sm ghost" data-act="copyPrevGoal" data-m="' + mo + '">前月をコピー</button></td></tr>'; }).join('') + '</tbody></table></div>' +
+    '<div class="note" style="margin-top:14px"><span class="dot"></span><div><b>コミット率 ＝ 実績 ÷ 目標</b>実績は「月次データ入力」のInstagram欄（LINE登録以降は全媒体の合計）を使います。今月は経過日数から月末の着地見込みも出します。総合コミット率は、目標を設定した各KPIの達成率（1項目あたり上限100%）の平均です。</div></div></div>';
   return h;
 };
 
@@ -1283,13 +1362,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -1347,10 +1426,11 @@ A.cmpRange = el => { const n = +el.dataset.n, all = monthsOf(), end = all.length
 A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
+A.copyPrevGoal = el => { const m = el.dataset.m, prev = goalsFor(addMonth(m, -1)); const g = goalEdit(m); GOAL_KEYS.forEach(([k]) => { if (isNum(prev[k])) g[k] = prev[k]; }); save(mLabel(addMonth(m, -1)) + 'の目標をコピーしました'); render(); };
 A.saveTargets = () => {
   const t = {};
-  for (const k of Object.keys(DEFAULT_TARGET)) { const v = toNum($('#t_' + k).value); if (v === null || v < 0) { toast('数字を入力してください'); $('#t_' + k).focus(); return; } t[k] = v; }
-  S.targets[S.current] = S.targets[S.current] || {}; S.targets[S.current][S.ver] = t; save(VER[S.ver].name + 'の目標を保存しました');
+  for (const k of Object.keys(DEFAULT_TARGET)) { const el = $('#t_' + k); if (!el) continue; const v = toNum(el.value); const optional = k[0] === 'g'; if ((v === null && !optional) || (v !== null && v < 0)) { toast('数字を入力してください'); el.focus(); return; } t[k] = v; }
+  S.targets[S.current] = S.targets[S.current] || {}; S.targets[S.current][S.ver] = t; save(VER[S.ver].name + 'の目標を保存しました'); render();
 };
 A.delEditor = el => arm(el, () => { S.editors = S.editors.filter(e => e.id !== el.dataset.id); save('削除しました'); render(); });
 A.setTheme = el => { S.brand.theme = el.dataset.k; S.brand.custom = {}; applyTheme(); save('テーマを「' + THEMES[el.dataset.k].name + '」にしました'); render(); };
@@ -1370,7 +1450,14 @@ function route() {
   const q = new URLSearchParams(location.search).get('view');
   return VIEWS[q] ? q : 'dashboard';
 }
+let rendering = false, rerender = false;
 function render() {
+  if (rendering) { rerender = true; return; }
+  rendering = true;
+  try { renderNow(); } finally { rendering = false; }
+  if (rerender) { rerender = false; setTimeout(render); }
+}
+function renderNow() {
   const v = route(), meta = VIEWS[v];
   let nav = '', g = '';
   Object.entries(VIEWS).forEach(([k, m]) => {
@@ -1407,6 +1494,7 @@ document.addEventListener('input', e => {
   else if (d.demo) { demoEdit(m)[d.demo] = d.demo === 'locations' ? t.value : toNum(t.value); saveSoon(); }
   else if (d.age) { demoEdit(m).ages[d.age] = toNum(t.value); saveSoon(); }
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
+  else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
   else if (d.cf) { const c = client(); c[d.cf] = t.value; saveSoon(); if (d.cf === 'name') { $('#clientSel').selectedOptions[0].textContent = t.value; } }
   else if (d.hear) { const c = client(); c.hearing = c.hearing || {}; c.hearing[d.hear] = t.value; saveSoon(); }
   else if (t.id === 'fq') { ui.filters.q = t.value; const pos = t.selectionStart; render(); const n = $('#fq'); n.focus(); n.setSelectionRange(pos, pos); }
@@ -1432,6 +1520,7 @@ document.addEventListener('change', e => {
   else if (['csvCh', 'csvMonth', 'csvVer', 'csvClient'].includes(t.id)) { const T = csvT(); if (t.id === 'csvCh') ui.csvCh = t.value; if (t.id === 'csvClient') T.c = t.value; if (t.id === 'csvMonth' && t.value) T.m = t.value; if (t.id === 'csvVer') T.v = t.value; render(); }
   else if (t.id === 'csvFile' && t.files[0]) readCsvFile(t.files[0]);
   else if (t.id === 'logoFile' && t.files[0]) readLogo(t.files[0]);
+  else if (d.goal && route() === 'targets') { render(); }
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
   else if (t.id === 'crossMetric') { ui.crossMetric = t.value; render(); }
