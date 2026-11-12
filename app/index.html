@@ -468,11 +468,12 @@ const VER = {
   attract: { name: '集客', en: 'ATTRACT', entry: '問い合わせ', interview: '来店・商談', hire: '成約', goal: '成約数', funnelName: '集客ファネル' }
 };
 const CH = [
-  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth'] },
+  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth'] },
   { k: 'meta', l: 'Meta広告', sub: 'Facebook・Instagram広告', src: 'Meta広告マネージャ', ads: true, fields: ['impressions', 'reach', 'clicks', 'linkTaps', 'spend', 'results'] },
   { k: 'tiktok', l: 'TikTok', sub: 'オーガニック投稿', src: 'TikTok Studio（アナリティクス）', fields: ['views', 'reach', 'profileViews', 'linkTaps', 'followers', 'followerGrowth'] },
   { k: 'tiktokPromote', l: 'TikTokプロモート', sub: '広告配信', src: 'TikTokプロモート / 広告マネージャー', ads: true, fields: ['impressions', 'reach', 'views', 'clicks', 'spend', 'results'] },
-  { k: 'youtube', l: 'YouTubeショート', sub: 'ショート動画', src: 'YouTube Studio（アナリティクス）', fields: ['views', 'impressions', 'clicks', 'followers', 'followerGrowth'] }
+  { k: 'youtube', l: 'YouTubeショート', sub: 'ショート動画（縦）', src: 'YouTube Studio（アナリティクス）', fields: ['views', 'impressions', 'clicks', 'watchTime', 'followers', 'followerGrowth'] },
+  { k: 'youtubeLong', l: 'YouTube（横動画）', sub: '通常の動画（横）', src: 'YouTube Studio（アナリティクス）', fields: ['views', 'impressions', 'clicks', 'watchTime', 'followers', 'followerGrowth'] }
 ];
 const CHM = Object.fromEntries(CH.map(c => [c.k, c]));
 const FIELD = {
@@ -480,7 +481,7 @@ const FIELD = {
   entry: { l: 'エントリー', u: '件' }, interview: { l: '面接', u: '件' }, hire: { l: '採用数', u: '件' },
   impressions: { l: 'インプレッション（閲覧数）' }, views: { l: '再生数', u: '回' }, storyViews: { l: 'ストーリーズ閲覧数', u: '回' },
   storyCompletion: { l: 'ストーリーズ閲覧完了率', u: '%' }, linkTaps: { l: 'リンクタップ' }, followers: { l: 'フォロワー数', u: '人' },
-  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
+  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
 };
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
@@ -751,7 +752,7 @@ function steps(m) {
 }
 function crossTotals(m) {
   const g = k => sum(CH.map(c => (rec(c.k, m) || {})[k]));
-  return { impressions: g('impressions'), reach: g('reach'), views: g('views'), followers: g('followers'), followerGrowth: g('followerGrowth'), profileViews: g('profileViews'), linkTaps: g('linkTaps'), clicks: g('clicks'), spend: g('spend'), results: g('results') };
+  return { interactions: g('interactions'), watchTime: g('watchTime'), impressions: g('impressions'), reach: g('reach'), views: g('views'), followers: g('followers'), followerGrowth: g('followerGrowth'), profileViews: g('profileViews'), linkTaps: g('linkTaps'), clicks: g('clicks'), spend: g('spend'), results: g('results') };
 }
 function crossTiles(m) {
   const p = addMonth(m, -1), a = crossTotals(m), b = crossTotals(p);
@@ -761,7 +762,7 @@ function crossTiles(m) {
     '<div class="tile"><span class="lbl">' + I.coin + '広告の成果（CV）</span><span class="val">' + fmt(a.results) + '<small>件</small></span><span class="sub">広告費 ' + yen(a.spend) + '　CPA ' + (isNum(a.spend) && a.results ? yen(a.spend / a.results) : '—') + '</span><span class="sub">Meta広告・TikTokプロモートの合計</span></div></div>';
 }
 function crossTable(m) {
-  const cols = [['impressions', 'インプレッション'], ['reach', 'リーチ'], ['views', '再生数'], ['followers', 'フォロワー'], ['profileViews', 'プロフィール流入'], ['linkTaps', 'リンクタップ']];
+  const cols = [['impressions', 'インプレッション'], ['reach', 'リーチ'], ['views', '再生数'], ['interactions', 'インタラクション'], ['followers', 'フォロワー'], ['profileViews', 'プロフィール流入'], ['linkTaps', 'リンクタップ']];
   const tot = crossTotals(m);
   let h = '<div class="tbl-wrap"><table><thead><tr><th>媒体</th>' + cols.map(c => '<th class="n">' + c[1] + '</th>').join('') + '<th>データ</th></tr></thead><tbody>';
   CH.forEach(c => {
@@ -959,7 +960,7 @@ R.input = () => {
   h += '<div class="banner"><span>' + I.csv.replace('<svg', '<svg width="22" height="22"') + '</span><div><b>CSVから月次実績を取り込む</b>Instagram・Meta広告・TikTok・YouTubeの書き出しCSVを読み込み、下のフォームに反映します。</div><a class="btn dark" href="#csv" data-act="csvFor" data-ch="' + ch.k + '">' + I.upload + 'CSVインポート</a></div>';
   h += '<div class="tabs">' + CH.map(x => '<button data-act="inputCh" data-k="' + x.k + '" class="' + (ui.inputCh === x.k ? 'on' : '') + '">' + x.l + (rec(x.k, m) ? ' <span class="chip good" style="padding:0 6px">済</span>' : '') + '</button>').join('') + '</div>';
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">' + esc(ch.l) + ' · ' + mLabel(m) + '</div><h3 class="bar-title">' + esc(ch.l) + 'の実績</h3><span class="right hint">取得元：' + esc(ch.src) + '</span></div><div class="grid3">' +
-    ch.fields.map(k => '<label class="field"><span>' + esc(ch.k === 'youtube' && k === 'followers' ? 'チャンネル登録者数' : fl(k)) + (fu(k) ? '（' + fu(k) + '）' : '') + '</span><input type="number" step="any" inputmode="decimal" data-rec="' + k + '" value="' + (isNum(r[k]) ? r[k] : '') + '" placeholder="未入力"></label>').join('') + '</div>' +
+    ch.fields.map(k => '<label class="field"><span>' + esc((ch.k === 'youtube' || ch.k === 'youtubeLong') && k === 'followers' ? 'チャンネル登録者数' : fl(k)) + (fu(k) ? '（' + fu(k) + '）' : '') + '</span><input type="number" step="any" inputmode="decimal" data-rec="' + k + '" value="' + (isNum(r[k]) ? r[k] : '') + '" placeholder="未入力"></label>').join('') + '</div>' +
     '<p class="hint" style="margin-top:12px">空欄は「未入力」として扱い、グラフや合計から外します。0件の場合は 0 を入力してください。</p>' +
     (ch.k === 'instagram' ? '<div class="note" style="margin-top:14px"><span class="dot"></span><div><b>ファネルの数字はInstagramの欄にまとめて入力します</b>リーチ・プロフィール流入はInstagramの値、LINE登録以降は全媒体からの合計を入れてください。</div></div>' : '') + '</div>';
   if (ch.k === 'instagram') {
@@ -1055,7 +1056,7 @@ R.channels = () => {
   h += crossTiles(m);
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">ALL CHANNELS / SIDE BY SIDE</div><h3 class="bar-title">すべての媒体を、同じ一覧で。</h3><a class="right btn sm" href="#input">入力画面を開く</a></div><div style="display:grid;gap:14px">' + crossTable(m) + '</div>' +
     '<div class="note" style="margin-top:14px"><span class="dot"></span><div><b>合計はユニーク人数ではありません。</b>同じ人が複数の媒体で数えられている可能性があります。媒体ごとの傾向を見る目安として使ってください。</div></div></div>';
-  const metrics = [['profileViews', 'プロフィール流入'], ['reach', 'リーチ'], ['impressions', 'インプレッション'], ['views', '再生数'], ['followers', 'フォロワー数'], ['linkTaps', 'リンクタップ'], ['clicks', 'クリック数'], ['spend', '広告費'], ['results', '成果数']];
+  const metrics = [['profileViews', 'プロフィール流入'], ['reach', 'リーチ'], ['impressions', 'インプレッション'], ['views', '再生数'], ['interactions', 'インタラクション'], ['watchTime', '総再生時間'], ['followers', 'フォロワー数'], ['linkTaps', 'リンクタップ'], ['clicks', 'クリック数'], ['spend', '広告費'], ['results', '成果数']];
   const k = ui.crossMetric, ms = monthsOf().filter(x => x <= m).slice(-6);
   const chs = CH.filter(c => c.fields.includes(k));
   const ser = [{ name: '合計（全媒体）', values: ms.map(x => sum(chs.map(c => (rec(c.k, x) || {})[k]))), kind: 'line', c: 1, dash: true }].concat(chs.slice(0, 4).map((c, i) => ({ name: c.l, values: ms.map(x => (rec(c.k, x) || {})[k]), kind: 'line', c: [0, 3, 4, 2][i] })));
@@ -1070,7 +1071,7 @@ R.compare = () => {
   const all = monthsOf();
   if (!ui.cmp) ui.cmp = { from: all.length ? all[Math.max(0, all.length - 6)] : thisMonth(), to: all.length ? all[all.length - 1] : thisMonth(), metric: 'reach', chs: ['instagram', 'meta'], clients: S.clients.slice(0, 3).map(x => x.id), view: 'line' };
   const q = ui.cmp;
-  const metrics = [['reach', 'リーチ数'], ['impressions', 'インプレッション'], ['profileViews', 'プロフィール流入'], ['views', '再生数'], ['followers', 'フォロワー数'], ['linkTaps', 'リンクタップ'], ['line', 'LINE登録'], ['entry', fl('entry')], ['hire', fl('hire')], ['spend', '広告費'], ['results', '成果数']];
+  const metrics = [['reach', 'リーチ数'], ['impressions', 'インプレッション'], ['profileViews', 'プロフィール流入'], ['views', '再生数'], ['interactions', 'インタラクション'], ['watchTime', '総再生時間'], ['followers', 'フォロワー数'], ['linkTaps', 'リンクタップ'], ['line', 'LINE登録'], ['entry', fl('entry')], ['hire', fl('hire')], ['spend', '広告費'], ['results', '成果数']];
   const ml = (metrics.find(x => x[0] === q.metric) || [q.metric, q.metric])[1];
   let h = head('PERIOD / CROSS-CHANNEL COMPARISON', '期間で、成果を見比べる。', cLead(), '<a class="btn dark" href="#csv">' + I.upload + 'CSVインポート</a>');
   h += '<div class="seg">' + [['period', '同一クライアント期間比較'], ['multi', '複数クライアント比較']].map(([k, l]) => '<button data-act="compareTab" data-k="' + k + '" class="' + (ui.compareTab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
@@ -1279,7 +1280,8 @@ function parseCSV(text) {
 }
 const DETECT = [
   ['storyCompletion', ['完了率', 'completion']], ['storyViews', ['ストーリー', 'story']],
-  ['followerGrowth', ['フォロワー増', '純増', '増加', 'followers gained', 'subscribers gained', 'new followers', '登録者増', '登録者の増', 'チャンネル登録者', 'subscribers', 'フォロー数', 'follows', '新しいフォロワー']],
+  ['watchTime', ['総再生時間', '再生時間', '視聴時間', 'watch time']], ['interactions', ['インタラクション', 'interaction', 'エンゲージメント', 'engagement']],
+  ['followerGrowth', ['フォロワー増', '純増', '増加', 'followers gained', 'subscribers gained', 'new followers', '登録者増', '登録者の増', 'チャンネル登録者', 'subscribers', 'フォロー数', 'follows', '新しいフォロワー', 'でのフォロー', 'フォロー']],
   ['followers', ['フォロワー', 'follower', '登録者', 'subscriber']], ['profileViews', ['プロフィール', 'profile']],
   ['line', ['line登録', 'line友だち', 'line友達', '友だち追加', 'line']], ['spend', ['消化金額', '広告費', '費用', 'amount spent', 'spend', 'cost']],
   ['linkTaps', ['リンク', 'link', 'タップ', '外部']], ['clicks', ['クリック', 'click']],
@@ -1312,7 +1314,7 @@ function toCh(v) {
   if (/insta|インスタ/.test(s)) return 'instagram';
   if (/tiktok|ティックトック/.test(s)) return /promo|プロモ|広告|ad/.test(s) ? 'tiktokPromote' : 'tiktok';
   if (/meta|facebook|fb|メタ|フェイスブック/.test(s)) return 'meta';
-  if (/youtube|ユーチューブ|ショート/.test(s)) return 'youtube';
+  if (/youtube|ユーチューブ|ショート|動画/.test(s)) return /横|長尺|ロング|long|通常/.test(s) ? 'youtubeLong' : 'youtube';
   return null;
 }
 function toNum(v) { const s = String(v == null ? '' : v).replace(/[,\s%件人回円¥￥]/g, ''); if (s === '' || s === '-' || s === '—') return null; const n = Number(s); return isNaN(n) ? null : n; }
@@ -1428,7 +1430,7 @@ const AI_FIELD_HELP = {
   reach: 'リーチ（届いたアカウント数）', profileViews: 'プロフィールへのアクセス・プロフィール表示', line: 'LINE登録・友だち追加', entry: 'エントリー・応募・問い合わせ',
   interview: '面接・来店・商談', hire: '採用・成約・契約', impressions: 'インプレッション・表示回数（Instagramの「閲覧数/Views」もここ）', views: '動画の再生数・視聴回数（TikTok/YouTube）',
   storyViews: 'ストーリーズの閲覧数', storyCompletion: 'ストーリーズの閲覧完了率(%)', linkTaps: 'リンクのタップ・リンククリック・外部リンク', followers: 'フォロワーの累計数',
-  followerGrowth: 'フォロワーの増加数・新規フォロー数（日ごとの値、YouTubeの「チャンネル登録者」も）', clicks: 'クリック数（リンク以外も含む全体）', spend: '広告費・消化金額', results: '広告の成果数・コンバージョン・結果'
+  followerGrowth: 'フォロワーの増加数・新規フォロー数（日ごとの値、YouTubeの「チャンネル登録者」も）', interactions: 'インタラクション（いいね・コメント・保存・シェアの合計、エンゲージメント）', watchTime: '総再生時間（時間）', clicks: 'クリック数（リンク以外も含む全体）', spend: '広告費・消化金額', results: '広告の成果数・コンバージョン・結果'
 };
 async function aiRead(f) {
   const sample = await getSampler(); if (!sample) return;
@@ -1437,7 +1439,7 @@ async function aiRead(f) {
     'ファイル名: ' + f.name + '\n表の上にあった行: ' + (f.pre || 'なし') + '\n\n列（番号: 見出し）:\n' + f.headers.map((h, i) => i + ': ' + h).join('\n') +
     '\n\n先頭のデータ行:\n' + f.rows.slice(0, 6).map(r => r.join(' | ')).join('\n') +
     '\n\n使える項目キー:\nmonth: 日付・年月の列\nchannel: 媒体名の列（行ごとに媒体が違う場合だけ）\n' + Object.keys(AI_FIELD_HELP).map(k => k + ': ' + AI_FIELD_HELP[k]).join('\n') +
-    '\n\n媒体キー: instagram, meta（Meta広告・Facebook広告）, tiktok, tiktokPromote（TikTokプロモート・TikTok広告）, youtube\n\n' +
+    '\n\n媒体キー: instagram, meta（Meta広告・Facebook広告）, tiktok, tiktokPromote（TikTokプロモート・TikTok広告）, youtube（YouTubeショート・縦動画）, youtubeLong（YouTubeの通常の横動画）\n\n' +
     'ルール: どの項目にも当てはまらない列（いいね数、コメント、シェア、キャンペーン名、単価、率、平均など）は入れない。同じ項目キーは1列だけ。数字が1列しかなく見出しが「Primary」「値」などの場合は、ファイル名か表の上の行から項目を決める。\n\n' +
     '次の形のJSONだけを返してください:\n{"channel":"媒体キー（channel列で分けるなら auto）","month":"YYYY-MM か null（日付列がないときだけ）","columns":{"列番号":"項目キー"}}';
   try {
