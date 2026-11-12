@@ -348,6 +348,23 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .next li span { color: var(--side-muted); }
 .next li svg { color: var(--accent); width: 16px; height: 16px; margin-top: 2px; }
 
+/* content cards */
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.pcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: grid; min-width: 0; align-content: start; }
+.pthumb { position: relative; background: var(--side) center / cover no-repeat; color: var(--side-ink); display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 18px 14px 40px; overflow: hidden; }
+.pthumb:not(.img) { background-image: linear-gradient(160deg, var(--side), color-mix(in srgb, var(--side) 70%, var(--accent))); }
+.pthumb .ptype { font-size: 10px; letter-spacing: .14em; color: var(--accent); font-weight: 700; }
+.pthumb .pcap { font-size: 13px; font-weight: 700; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.pthumb .rank { position: absolute; top: 8px; left: 8px; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 13px; background: var(--accent); color: var(--accent-ink); font: 700 13px/26px var(--num); text-align: center; }
+.pthumb .pmetric { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 10px 8px; background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff; font-size: 10.5px; }
+.pthumb .pmetric b { font: 700 15px var(--num); margin-left: 4px; }
+.pinfo { padding: 10px 12px 12px; display: grid; gap: 8px; }
+.pcap2 { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; }
+.pstats span { display: grid; font-size: 10px; color: var(--muted); }
+.pstats b { font: 600 13px var(--num); color: var(--ink); font-variant-numeric: tabular-nums; }
+.th-btn { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.th-btn:hover { color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--side); color: var(--side-ink); padding: 10px 18px; border-radius: var(--radius); font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -544,6 +561,25 @@ function seed() {
       { id: uid(), title: 'Meta広告 クリエイティブ差し替え', assignee: 'アプリ所有者', channel: 'meta', start: '2026-11-12', end: '2026-11-18', status: 'todo' },
       { id: uid(), title: '10月レポート提出', assignee: 'アプリ所有者', channel: 'instagram', start: '2026-11-04', end: '2026-11-06', status: 'done' }
     ] },
+    posts: { aurora: { recruit: (() => {
+      const P = (type, d, caption, o) => Object.assign({ id: 'smp_' + type + d, type, date: '2026-10-' + d, month: '2026-10', caption, permalink: '' }, o);
+      return [
+        P('reel', '03', '【密着】現場スタッフの1日', { views: 9905, reach: 5120, likes: 41, comments: 2, saves: 12, shares: 3, follows: 9 }),
+        P('reel', '08', '未経験から2年目の先輩に聞いてみた', { views: 4341, reach: 2410, likes: 22, comments: 1, saves: 8, shares: 1, follows: 3 }),
+        P('reel', '12', '休みの日は何してる？', { views: 3728, reach: 2050, likes: 18, comments: 0, saves: 6, shares: 2, follows: 2 }),
+        P('reel', '17', '施工前と施工後', { views: 3617, reach: 2210, likes: 25, comments: 1, saves: 9, shares: 4, follows: 4 }),
+        P('reel', '22', '社長に質問コーナー', { views: 3410, reach: 1980, likes: 15, comments: 1, saves: 4, shares: 0, follows: 1 }),
+        P('reel', '27', '給与と休日をはっきり答えます', { views: 3335, reach: 1697, likes: 12, comments: 0, saves: 2, shares: 1, follows: 2 }),
+        P('feed', '05', '採用説明会のお知らせ', { views: 1840, reach: 1320, likes: 31, comments: 3, saves: 5, shares: 1 }),
+        P('feed', '19', '社員紹介 vol.4', { views: 1530, reach: 1105, likes: 27, comments: 2, saves: 3, shares: 0 }),
+        P('story', '02', '説明会の申込はLINEから', { views: 980, reach: 820, completions: 300, replies: 2, shares: 0, linkClicks: 14 }),
+        P('story', '06', '質問箱の回答', { views: 1210, reach: 960, completions: 380, replies: 6, shares: 0, linkClicks: 3 }),
+        P('story', '10', '現場の朝礼', { views: 860, reach: 700, completions: 250, replies: 0, shares: 0, linkClicks: 0 }),
+        P('story', '15', '新しいリールを公開', { views: 1040, reach: 880, completions: 310, replies: 1, shares: 0, linkClicks: 9 }),
+        P('story', '21', 'アンケート：働き方', { views: 1320, reach: 1010, completions: 420, replies: 12, shares: 0, linkClicks: 2 }),
+        P('story', '26', '先輩の一言', { views: 790, reach: 650, completions: 230, replies: 0, shares: 0, linkClicks: 1 })
+      ];
+    })() } },
     editors: [{ id: 'owner', name: 'アプリ所有者', email: '', role: 'owner', clients: [] }],
     brand: defaultBrand()
   };
@@ -556,7 +592,7 @@ const store = {
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
-['records', 'demo', 'notes', 'targets', 'tasks', 'goals'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts'].forEach(k => S[k] = S[k] || {});
 function save(msg) { const ok = store.set(S); if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます'); }
 
 /* ================= helpers ================= */
@@ -825,7 +861,7 @@ function suggestions(m) {
 }
 
 /* ================= views ================= */
-let ui = { designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
+let ui = { postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
 
 const VIEWS = {
   dashboard: { label: 'ダッシュボード', group: 'WORKSPACE', icon: 'dash' },
@@ -835,6 +871,7 @@ const VIEWS = {
   csv: { label: 'CSVインポート', group: 'DATA', icon: 'upload' },
   connect: { label: 'アカウント連携', group: 'DATA', icon: 'link' },
   followers: { label: 'フォロワー分析', group: 'ANALYTICS', icon: 'users' },
+  posts: { label: 'コンテンツ分析', group: 'ANALYTICS', icon: 'image' },
   channels: { label: '媒体横断分析', group: 'ANALYTICS', icon: 'layers' },
   compare: { label: '期間比較', group: 'ANALYTICS', icon: 'compare' },
   report: { label: '成果レポート', group: 'ANALYTICS', icon: 'report' },
@@ -998,6 +1035,14 @@ R.csv = () => {
       const agg = aggregate(f);
       if (!agg.error) total += agg.groups ? agg.groups.length : 1;
       h += '<div class="panel"><div class="panel-h"><h3 class="bar-title" style="overflow-wrap:anywhere">' + esc(f.name) + '</h3><span class="right">' + (agg.error ? '<span class="chip bad">読み取れませんでした</span>' : '<span class="chip good">読み取り完了</span>') + '</span><button class="btn sm ghost" data-act="csvDropFile" data-i="' + i + '">外す</button></div>';
+      if (f.kind === 'posts') {
+        if (!agg.error) {
+          const cnt = t => agg.posts.filter(p => p.type === t).length, ms = [...new Set(agg.posts.map(p => p.month))].sort();
+          h += '<p style="margin:0 0 12px">投稿 <b>' + agg.posts.length + '件</b>（' + Object.entries(PTYPES).map(([t, l]) => l + ' ' + cnt(t)).join('・') + '）／ ' + ms.map(mLabel).join('・') + '</p>' +
+            '<div class="tbl-wrap"><table><thead><tr><th>投稿日</th><th>種類</th><th>キャプション</th><th class="n">閲覧数</th><th class="n">リーチ</th><th class="n">いいね</th></tr></thead><tbody>' + agg.posts.slice(0, 5).map(p => '<tr><td class="num">' + p.date + '</td><td>' + PTYPES[p.type] + '</td><td style="white-space:normal">' + esc(p.caption.slice(0, 40)) + '</td><td class="n">' + fmt(p.views) + '</td><td class="n">' + fmt(p.reach) + '</td><td class="n">' + fmt(p.likes) + '</td></tr>').join('') + '</tbody></table></div>' + (agg.posts.length > 5 ? '<p class="hint" style="margin-top:6px">ほか ' + (agg.posts.length - 5) + '件</p>' : '');
+        } else h += '<p class="hint">' + esc(agg.error) + '</p>';
+        h += '</div>'; return;
+      }
       if (f.kind === 'demo') {
         h += '<div class="grid3" style="margin-bottom:12px"><label class="field"><span>何月の属性？</span><input type="month" data-fm="' + i + '" value="' + f.month + '"></label></div>' + (agg.error ? '<p class="hint">' + esc(agg.error) + '</p>' : '<div class="grid3"><div><b style="font-size:12px">性別</b>' + hbars(agg.demo.g) + '</div><div><b style="font-size:12px">年齢</b>' + hbars(agg.demo.a) + '</div><div><b style="font-size:12px">地域</b>' + hbars(agg.demo.l) + '</div></div>') + '</div>';
         return;
@@ -1045,6 +1090,149 @@ R.followers = () => {
     rows.map(({ c, r, p }) => '<tr><td>' + c.l + '</td><td class="n">' + fmt(r.followers) + '</td><td class="n">' + (isNum(r.followerGrowth) ? '+' + fmt(r.followerGrowth) : '—') + '</td><td class="n">' + (isNum(r.followers) && isNum(p.followers) && p.followers ? (Math.round((r.followers - p.followers) / p.followers * 1000) / 10) + '%' : '—') + '</td></tr>').join('') + '</tbody></table></div></div>';
   return h;
 };
+
+/* ---- content (posts / reels / stories) ---- */
+const PTYPES = { reel: 'リール', feed: 'フィード投稿', story: 'ストーリーズ' };
+const PMETRICS = {
+  reel: [['views', '閲覧数'], ['reach', 'リーチ'], ['likes', 'いいね'], ['comments', 'コメント'], ['saves', '保存'], ['shares', 'シェア'], ['eng', 'ENG数'], ['engRate', 'ENG率'], ['follows', 'フォロー']],
+  story: [['views', '閲覧数'], ['reach', 'リーチ'], ['completions', '閲覧完了数'], ['replies', '返信'], ['shares', 'シェア'], ['linkClicks', 'リンククリック'], ['follows', 'フォロー']]
+};
+PMETRICS.feed = PMETRICS.reel;
+function postsOf(cid, ver) { const c = cid || S.current, v = ver || S.ver; S.posts[c] = S.posts[c] || {}; S.posts[c][v] = S.posts[c][v] || []; return S.posts[c][v]; }
+function pval(p, k) {
+  if (k === 'eng') { const v = ['likes', 'comments', 'saves', 'shares'].map(x => p[x]).filter(isNum); return v.length ? v.reduce((a, b) => a + Number(b), 0) : null; }
+  if (k === 'engRate') { const e = pval(p, 'eng'); return isNum(e) && isNum(p.reach) && p.reach > 0 ? e / p.reach * 100 : null; }
+  return isNum(p[k]) ? Number(p[k]) : null;
+}
+const pfmt = (k, v) => k === 'engRate' ? fmtPct(v) : fmt(v);
+function postSummary(list, type) {
+  const s = k => sum(list.map(p => pval(p, k)));
+  const tile = (l, v, sub) => '<div class="tile"><span class="lbl">' + l + '</span><span class="val">' + v + '</span>' + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div>';
+  if (type === 'story') {
+    const n = list.length, reach = s('reach'), views = s('views');
+    return '<div class="tiles">' + tile('投稿数', fmt(n)) + tile('リーチ数', fmt(reach), '平均 ' + (n && isNum(reach) ? fmt(Math.round(reach / n)) : '—')) + tile('閲覧数', fmt(views), '平均 ' + (n && isNum(views) ? fmt(Math.round(views / n)) : '—')) +
+      tile('閲覧完了数', fmt(s('completions')), '完了率 ' + fmtPct(rate(s('completions'), views))) + tile('シェア数', fmt(s('shares'))) + tile('リンククリック数', fmt(s('linkClicks'))) + '</div>';
+  }
+  const eng = s('eng'), reach = s('reach');
+  return '<div class="tiles">' + tile('投稿数', fmt(list.length)) + tile('いいね数', fmt(s('likes'))) + tile('コメント数', fmt(s('comments'))) + tile('保存数', fmt(s('saves'))) +
+    tile('ENG数', fmt(eng), 'いいね・コメント・保存・シェアの合計') + tile('ENG率', fmtPct(rate(eng, reach)), 'ENG数 ÷ リーチ') + tile('リーチ数', fmt(reach)) + tile('閲覧数', fmt(s('views'))) + '</div>';
+}
+function sortPosts(list, type) {
+  const k = ui.postSort[type] || 'views', dir = ui.postDir[type] || -1;
+  return list.slice().sort((a, b) => {
+    const x = k === 'date' ? a.date : pval(a, k), y = k === 'date' ? b.date : pval(b, k);
+    if (x === y) return 0; if (x === null || x === undefined) return 1; if (y === null || y === undefined) return -1;
+    return (x < y ? -1 : 1) * dir;
+  });
+}
+function postThumb(p, rank, k, kl) {
+  const ratio = p.type === 'feed' ? '4 / 5' : '9 / 16';
+  const bg = p.thumb ? 'background-image:url(' + esc(p.thumb) + ')' : '';
+  return '<div class="pthumb' + (p.thumb ? ' img' : '') + '" style="aspect-ratio:' + ratio + ';' + bg + '">' + (rank ? '<span class="rank">' + rank + '</span>' : '') +
+    (p.thumb ? '' : '<span class="ptype">' + PTYPES[p.type] + '</span><span class="pcap">' + esc((p.caption || '（キャプションなし）').slice(0, 60)) + '</span>') +
+    '<span class="pmetric">' + esc(kl) + ' <b>' + pfmt(k, pval(p, k)) + '</b></span></div>';
+}
+R.posts = () => {
+  const c = client(); if (!c) return noClient('上げたものを、振り返る。');
+  const all = postsOf(), months = [...new Set(all.map(p => p.month))].sort();
+  let m = ui.postMonth || (months.includes(curMonth()) ? curMonth() : months[months.length - 1]) || curMonth();
+  if (!months.includes(m)) months.push(m), months.sort();
+  const type = ui.postType;
+  const inMonth = all.filter(p => p.month === m), list = inMonth.filter(p => p.type === type);
+  const metrics = PMETRICS[type], k = ui.postSort[type] || 'views', kl = k === 'date' ? '投稿日' : (metrics.find(x => x[0] === k) || [k, k])[1];
+  let h = head('CONTENT ANALYTICS', '上げたものを、振り返る。', cLead() + '　その月に投稿したリール・フィード投稿・ストーリーズを、数字の高い順に並べて見られます。',
+    '<select class="input" style="width:auto" id="postMonth" aria-label="対象月">' + months.map(x => '<option value="' + x + '"' + (x === m ? ' selected' : '') + '>' + mLabel(x) + '</option>').join('') + '</select><button class="btn" data-act="togglePostForm">' + I.plus + '手入力で追加</button><a class="btn dark" href="#csv">' + I.upload + 'コンテンツのCSVを取り込む</a>');
+  h += sampleBar();
+  h += '<div class="tabs">' + Object.entries(PTYPES).map(([t, l]) => '<button data-act="postType" data-k="' + t + '" class="' + (type === t ? 'on' : '') + '">' + l + ' <span class="chip" style="padding:0 7px">' + inMonth.filter(p => p.type === t).length + '</span></button>').join('') + '</div>';
+  h += '<section class="sec-head"><div><div class="eyebrow">' + (type === 'story' ? 'STORIES' : type === 'reel' ? 'REELS' : 'FEED POSTS') + ' SUMMARY · ' + mLabel(m) + '</div><h2>' + PTYPES[type] + 'サマリー</h2></div></section>' + postSummary(list, type);
+  if (ui.postForm) {
+    h += '<form class="panel" id="postForm"><div class="panel-h"><h3 class="bar-title">' + PTYPES[type] + 'を手入力で追加</h3></div><div class="grid3">' +
+      '<label class="field"><span>投稿日</span><input type="date" id="pDate" required value="' + m + '-01"></label><label class="field"><span>キャプション・メモ</span><input id="pCap" placeholder="例：現場の1日に密着"></label><label class="field"><span>Instagramのリンク（任意）</span><input id="pLink" type="url" placeholder="https://www.instagram.com/..."></label></div>' +
+      '<div class="grid4" style="margin-top:12px">' + metrics.filter(([x]) => x !== 'eng' && x !== 'engRate').map(([x, l]) => '<label class="field"><span>' + l + '</span><input type="number" min="0" step="any" data-pm="' + x + '"></label>').join('') + '</div>' +
+      '<div class="row" style="margin-top:14px"><button class="btn dark" type="submit">' + I.plus + '追加する</button><button class="btn ghost" type="button" data-act="togglePostForm">閉じる</button></div></form>';
+  }
+  h += '<div class="row"><span class="hint">並び替え</span><select class="input" style="width:auto" id="postSort">' + metrics.concat([['date', '投稿日']]).map(([x, l]) => '<option value="' + x + '"' + (x === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+    '<button class="btn sm" data-act="postDir">' + ((ui.postDir[type] || -1) < 0 ? '高い順 ↓' : '低い順 ↑') + '</button><div class="seg" style="margin-left:auto">' + [['card', 'カード'], ['table', '表']].map(([x, l]) => '<button data-act="postView" data-k="' + x + '" class="' + (ui.postView === x ? 'on' : '') + '">' + l + '</button>').join('') + '</div></div>';
+  if (!list.length) return h + '<div class="panel">' + emptyBox(mLabel(m) + 'の' + PTYPES[type] + 'はまだありません', 'Meta Business Suite の「コンテンツ」から書き出したCSVを取り込むか、手入力で追加してください。', I.image) + '</div>';
+  const sorted = sortPosts(list, type), ranked = k !== 'date' && (ui.postDir[type] || -1) < 0;
+  if (ui.postView === 'table') {
+    h += '<div class="tbl-wrap"><table><thead><tr><th>#</th><th><button class="th-btn" data-act="postSortBy" data-k="date">投稿日' + (k === 'date' ? ' ●' : '') + '</button></th><th>キャプション</th>' + metrics.map(([x, l]) => '<th class="n"><button class="th-btn" data-act="postSortBy" data-k="' + x + '">' + l + (k === x ? ' ●' : '') + '</button></th>').join('') + '<th></th></tr></thead><tbody>' +
+      sorted.map((p, i) => '<tr><td class="num">' + (i + 1) + '</td><td class="num">' + esc(p.date.slice(5).replace('-', '/')) + '</td><td style="white-space:normal;min-width:180px">' + esc((p.caption || '').slice(0, 50)) + '</td>' + metrics.map(([x]) => '<td class="n' + (x === k ? '" style="font-weight:700' : '') + '">' + pfmt(x, pval(p, x)) + '</td>').join('') + '<td>' + (p.permalink ? '<a href="' + esc(p.permalink) + '" target="_blank" rel="noopener">開く</a>' : '') + '</td></tr>').join('') + '</tbody></table></div>';
+    return h;
+  }
+  h += '<div class="pgrid">' + sorted.map((p, i) => {
+    const other = metrics.filter(([x]) => x !== k).slice(0, 6);
+    return '<div class="pcard">' + postThumb(p, ranked ? i + 1 : 0, k === 'date' ? 'views' : k, k === 'date' ? '閲覧数' : kl) +
+      '<div class="pinfo"><div class="row" style="justify-content:space-between"><span class="hint num">' + esc(p.date.replace(/-/g, '/')) + '</span>' + (p.permalink ? '<a class="hint" href="' + esc(p.permalink) + '" target="_blank" rel="noopener">Instagramで開く</a>' : '') + '</div>' +
+      (p.thumb && p.caption ? '<div class="pcap2">' + esc(p.caption.slice(0, 40)) + '</div>' : '') +
+      '<div class="pstats">' + other.map(([x, l]) => '<span>' + l + '<b>' + pfmt(x, pval(p, x)) + '</b></span>').join('') + '</div>' +
+      '<div class="row"><label class="btn sm ghost" for="th_' + p.id + '">' + I.image + (p.thumb ? '画像を変更' : '画像をつける') + '</label><input type="file" id="th_' + p.id + '" accept="image/*" data-thumb="' + p.id + '" hidden><button class="btn sm ghost" data-act="delPost" data-id="' + p.id + '" style="margin-left:auto">削除</button></div></div></div>';
+  }).join('') + '</div>';
+  h += '<p class="hint">CSVには画像が入っていないため、サムネイルは「画像をつける」から追加できます（スクリーンショットでもOK）。</p>';
+  return h;
+};
+function postsTop(m) {
+  const list = postsOf().filter(p => p.month === m); if (!list.length) return '';
+  const reels = list.filter(p => p.type !== 'story').sort((a, b) => (pval(b, 'views') || 0) - (pval(a, 'views') || 0)).slice(0, 3);
+  const stories = list.filter(p => p.type === 'story');
+  return '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CONTENT HIGHLIGHTS</div><h2>今月のコンテンツ</h2><p>閲覧数の多い投稿トップ3と、ストーリーズのまとめです。</p></div><span class="chip">' + mLabel(m) + '</span></div>' +
+    (reels.length ? '<div class="pgrid" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">' + reels.map((p, i) => '<div class="pcard">' + postThumb(p, i + 1, 'views', '閲覧数') + '<div class="pinfo"><span class="hint num">' + esc(p.date.replace(/-/g, '/')) + '　' + PTYPES[p.type] + '</span><div class="pstats">' + [['reach', 'リーチ'], ['eng', 'ENG数'], ['engRate', 'ENG率']].map(([x, l]) => '<span>' + l + '<b>' + pfmt(x, pval(p, x)) + '</b></span>').join('') + '</div></div></div>').join('') + '</div>' : '') +
+    (stories.length ? postSummary(stories, 'story') : '') + '</section>';
+}
+// CSV: content exports (one row per post)
+const PDETECT = [
+  ['id', ['投稿id', 'post id', 'メディアid', 'media id']], ['permalink', ['パーマリンク', 'permalink']], ['type', ['投稿タイプ', 'post type', 'コンテンツタイプ', 'content type', 'メディアタイプ']],
+  ['date', ['公開時間', 'publish time', '投稿日', '公開日', 'posted', '日付', 'date']], ['caption', ['説明', 'キャプション', 'description', 'caption']],
+  ['completions', ['閲覧完了', 'completion']], ['linkClicks', ['リンクのクリック', 'リンククリック', 'link click', 'リンク']], ['replies', ['返信', 'replies']],
+  ['views', ['閲覧数', 'views', '再生数', 'plays', 'インプレッション', 'impressions']], ['reach', ['リーチ', 'reach']], ['likes', ['いいね', 'likes']],
+  ['comments', ['コメント数', 'comments', 'コメント']], ['saves', ['保存', 'saves']], ['shares', ['シェア', 'shares']], ['follows', ['フォロー', 'follows']]
+];
+function postMap(headers) {
+  // key-first so e.g. 公開時間 wins over a generic 日付 column
+  const map = {}, norm = headers.map(h => String(h).toLowerCase().trim());
+  const skip = i => !norm[i] || /データコメント|data comment|アカウント|account|単価|率|rate|平均|average|秒|duration/.test(norm[i]);
+  PDETECT.forEach(([k, keys]) => {
+    for (const x of keys) { const i = norm.findIndex((s, n) => map[n] === undefined && !skip(n) && s.includes(x)); if (i >= 0) { map[i] = k; return; } }
+  });
+  return map;
+}
+function toDate(v) {
+  const s = String(v || '').trim(); let m;
+  if ((m = s.match(/(\d{4})[-\/年.](\d{1,2})[-\/月.](\d{1,2})/))) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+  if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) return m[3] + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+  const d = new Date(s); return isNaN(d) ? null : d.toISOString().slice(0, 10);
+}
+function toPType(v, file) {
+  const s = (String(v || '') + ' ' + file).toLowerCase();
+  if (/ストーリー|story|stories/.test(s)) return 'story';
+  if (/リール|reel/.test(s)) return 'reel';
+  return 'feed';
+}
+function parsePosts(f) {
+  const idx = k => Object.keys(f.pmap).find(i => f.pmap[i] === k);
+  const out = [];
+  f.rows.forEach(r => {
+    if (r.slice(0, 3).some(x => /^(合計|総計|total)/i.test(String(x).trim()))) return;
+    const g = k => { const i = idx(k); return i === undefined ? '' : r[i]; };
+    const date = toDate(g('date')); if (!date) return;
+    const p = { id: String(g('id') || g('permalink') || (date + '_' + String(g('caption')).slice(0, 20))), type: toPType(g('type'), f.name), date, month: date.slice(0, 7), caption: String(g('caption') || '').slice(0, 300), permalink: /^https?:\/\//.test(g('permalink')) ? g('permalink') : '' };
+    ['views', 'reach', 'likes', 'comments', 'saves', 'shares', 'follows', 'linkClicks', 'replies', 'completions'].forEach(k => { const v = toNum(g(k)); if (v !== null) p[k] = v; });
+    out.push(p);
+  });
+  return out;
+}
+function readThumb(file, id) {
+  if (!/^image\//.test(file.type)) { toast('画像ファイルを選んでください'); return; }
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    const w = 270, h = Math.round(img.height * w / img.width), cv = document.createElement('canvas');
+    cv.width = w; cv.height = Math.min(h, 600); cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    const p = postsOf().find(x => x.id === id); if (p) { p.thumb = cv.toDataURL('image/jpeg', .72); save('画像をつけました'); render(); }
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => toast('画像を読み込めませんでした');
+  img.src = url;
+}
 
 /* ---- cross channel ---- */
 R.channels = () => {
@@ -1162,6 +1350,7 @@ R.report = () => {
     '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><span class="chip">' + mLabel(m) + '</span></div>' + crossTiles(m) + crossTable(m) + '</section>' +
     '<section style="display:grid;gap:14px">' + storiesSection(m) + '</section>' +
     '<section style="display:grid;gap:14px">' + followerSection(m) + '</section>' +
+    postsTop(m) +
     '<section class="next"><div><div class="eyebrow" style="color:var(--side-muted)">NEXT ACTIONS</div><div class="big">WHAT\'S<br>NEXT<span>?</span></div></div><div><p style="margin:0 0 12px;font-size:12px;color:var(--side-muted)">次の成果につながる提案</p><ul>' + suggestions(m).map(s => '<li>' + I.check + '<div><b>' + esc(s.t) + '</b><span>' + esc(s.d) + '</span></div></li>').join('') + '</ul></div></section>' +
     '<p class="hint" style="text-align:center">' + esc(b.company || b.appName) + '　/　' + esc(c.name) + '　' + mLabel(m) + '</p></article>';
   return h;
@@ -1320,6 +1509,7 @@ function toCh(v) {
 function toNum(v) { const s = String(v == null ? '' : v).replace(/[,\s%件人回円¥￥]/g, ''); if (s === '' || s === '-' || s === '—') return null; const n = Number(s); return isNaN(n) ? null : n; }
 function aggregate(f) {
   const { rows, map, kind } = f;
+  if (kind === 'posts') { const posts = parsePosts(f); return posts.length ? { posts } : { error: '投稿日のある行が見つかりませんでした。' }; }
   if (kind === 'demo') {
     const g = [], a = [], l = [];
     rows.forEach(r => { const k = String(r[0]).trim(), item = String(r[1]).trim(), v = toNum(r[2]); if (v === null) return; if (/性別|gender/i.test(k)) g.push({ l: item, v }); else if (/年齢|age/i.test(k)) a.push({ l: item.replace(/歳$/, ''), v }); else if (/地域|地|city|country|location/i.test(k)) l.push({ l: item, v }); });
@@ -1378,6 +1568,12 @@ function loadFile(name, text) {
   const rows = all.slice(hi + 1).map(r => headers.map((_, i) => r[i] == null ? '' : String(r[i]).trim())).filter(r => r.some(x => x));
   const pre = all.slice(0, hi).map(r => r.join(' ')).join(' ');
   const isDemo = headers.some(h => /区分/.test(h)) && headers.some(h => /割合|%|比率/.test(h));
+  const pmap = postMap(headers), pk = Object.values(pmap);
+  if (!isDemo && (pk.includes('id') || pk.includes('permalink') || pk.includes('type')) && pk.includes('date') && pk.some(k => ['views', 'reach', 'likes'].includes(k))) {
+    ui.files = ui.files || [];
+    ui.files.push({ name, headers, rows, pmap, kind: 'posts', map: {} });
+    render(); return;
+  }
   const map = autoMap(headers);
   const metrics = Object.values(map).filter(k => k !== 'month' && k !== 'channel');
   if (!isDemo && !metrics.length) {
@@ -1477,13 +1673,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -1512,9 +1708,16 @@ A.csvImport = () => {
   const cl = S.clients.find(c => c.id === cid);
   if (cl && !(cl.versions || []).includes(ver)) cl.versions = (cl.versions || []).concat(ver);
   S.current = cid; S.ver = ver;
-  let n = 0, lastM = null, demoOnly = true;
+  let n = 0, lastM = null, demoOnly = true, postsOnly = true;
   (ui.files || []).forEach(f => {
     const agg = aggregate(f); if (agg.error) return;
+    if (f.kind === 'posts') {
+      demoOnly = false;
+      const list = postsOf(cid, ver);
+      agg.posts.forEach(p => { const ex = list.find(x => x.id === p.id); if (ex) Object.assign(ex, p, { thumb: ex.thumb }); else list.push(p); n++; if (!lastM || p.month > lastM) lastM = p.month; });
+      postsOnly = postsOnly && true; ui.postMonth = lastM; return;
+    }
+    postsOnly = false;
     if (f.kind === 'demo') {
       const d = demoEdit(f.month);
       agg.demo.g.forEach(x => { if (/女/.test(x.l) || /female/i.test(x.l)) d.female = x.v; else if (/男/.test(x.l) || /^male/i.test(x.l)) d.male = x.v; else d.other = x.v; });
@@ -1526,7 +1729,7 @@ A.csvImport = () => {
     agg.groups.forEach(g => { Object.assign(ensureRec(g.ch, g.month), g.v); n++; if (!lastM || g.month > lastM) lastM = g.month; });
   });
   if (!n) { toast('反映できる数字がありません'); return; }
-  S.month = lastM; ui.files = []; ui.csvT = null; save(n + '件を反映しました'); location.hash = demoOnly ? 'followers' : 'dashboard'; render();
+  S.month = lastM; ui.files = []; ui.csvT = null; save(n + '件を反映しました'); location.hash = postsOnly ? 'posts' : demoOnly ? 'followers' : 'dashboard'; render();
 };
 A.csvExport = () => {
   const c = client(); if (!c) return;
@@ -1558,6 +1761,12 @@ A.cmpRange = el => { const n = +el.dataset.n, all = monthsOf(), end = all.length
 A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
+A.postType = el => { ui.postType = el.dataset.k; render(); };
+A.postView = el => { ui.postView = el.dataset.k; render(); };
+A.postDir = () => { ui.postDir[ui.postType] = -(ui.postDir[ui.postType] || -1); render(); };
+A.postSortBy = el => { const t = ui.postType; if ((ui.postSort[t] || 'views') === el.dataset.k) ui.postDir[t] = -(ui.postDir[t] || -1); else { ui.postSort[t] = el.dataset.k; ui.postDir[t] = -1; } render(); };
+A.togglePostForm = () => { ui.postForm = !ui.postForm; render(); };
+A.delPost = el => arm(el, () => { const list = postsOf(), i = list.findIndex(p => p.id === el.dataset.id); if (i >= 0) list.splice(i, 1); save('削除しました'); render(); });
 A.copyPrevGoal = el => { const m = el.dataset.m, prev = goalsFor(addMonth(m, -1)); const g = goalEdit(m); GOAL_KEYS.forEach(([k]) => { if (isNum(prev[k])) g[k] = prev[k]; }); save(mLabel(addMonth(m, -1)) + 'の目標をコピーしました'); render(); };
 A.saveTargets = () => {
   const t = {};
@@ -1657,6 +1866,9 @@ document.addEventListener('change', e => {
   else if (d.goal && route() === 'targets') { render(); }
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
+  else if (t.id === 'postMonth') { ui.postMonth = t.value; render(); }
+  else if (t.id === 'postSort') { ui.postSort[ui.postType] = t.value; ui.postDir[ui.postType] = -1; render(); }
+  else if (d.thumb && t.files && t.files[0]) readThumb(t.files[0], d.thumb);
   else if (t.id === 'crossMetric') { ui.crossMetric = t.value; render(); }
   else if (t.id === 'cmpClient') { S.current = t.value; save(false); render(); }
   else if (d.cmp) { ui.cmp[d.cmp] = t.value; render(); }
@@ -1690,6 +1902,11 @@ document.addEventListener('submit', e => {
     ui.newEditor = false; save('「' + name + '」を登録しました'); render();
   } else if (id === 'fileForm') {
     const c = client(); c.files = c.files || []; c.files.push({ id: uid(), name: $('#fName').value.trim(), url: $('#fUrl').value.trim(), memo: $('#fMemo').value.trim() }); save('追加しました'); render();
+  } else if (id === 'postForm') {
+    const date = $('#pDate').value; if (!date) return;
+    const p = { id: 'man_' + uid(), type: ui.postType, date, month: date.slice(0, 7), caption: $('#pCap').value.trim(), permalink: $('#pLink').value.trim() };
+    $$('[data-pm]').forEach(i => { const v = toNum(i.value); if (v !== null) p[i.dataset.pm] = v; });
+    postsOf().push(p); ui.postMonth = p.month; ui.postForm = false; save('追加しました'); render();
   } else if (id === 'taskForm') {
     const s = $('#tStart').value, en = $('#tEnd').value; if (en < s) { toast('期限は開始日より後にしてください'); return; }
     S.tasks[S.current] = S.tasks[S.current] || [];
