@@ -788,15 +788,18 @@ function steps(m) {
     { k: 'ih', from: v.interview, to: v.hire, a: r.hire, b: r.interview }
   ].map(s => ({ ...s, rate: rate(s.a, s.b), target: t[s.k] }));
 }
+// TikTok (organic) has no impressions: its reach stands in for them in cross-channel views
+const IMP_FALLBACK = { tiktok: 'reach' };
+function chVal(c, r, k) { r = r || {}; if (k === 'impressions' && !isNum(r.impressions) && IMP_FALLBACK[c.k]) return isNum(r[IMP_FALLBACK[c.k]]) ? r[IMP_FALLBACK[c.k]] : null; return r[k]; }
 function crossTotals(m) {
-  const g = k => sum(CH.map(c => (rec(c.k, m) || {})[k]));
+  const g = k => sum(CH.map(c => chVal(c, rec(c.k, m), k)));
   return { interactions: g('interactions'), watchTime: g('watchTime'), impressions: g('impressions'), reach: g('reach'), views: g('views'), followers: g('followers'), followerGrowth: g('followerGrowth'), profileViews: g('profileViews'), linkTaps: g('linkTaps'), clicks: g('clicks'), spend: g('spend'), results: g('results') };
 }
 function crossTiles(m) {
   const p = addMonth(m, -1), a = crossTotals(m), b = crossTotals(p), hide = ui.inReport;
   const t = (icon, l, k, sub, unit) => hide && !isNum(a[k]) ? '' : '<div class="tile"><span class="lbl">' + icon + l + '</span><span class="val">' + fmt(a[k]) + (unit ? '<small>' + unit + '</small>' : '') + '</span>' + delta(a[k], b[k], '', true) + '<span class="sub">' + sub + '</span></div>';
   const ads = hide && !isNum(a.results) && !isNum(a.spend) ? '' : '<div class="tile"><span class="lbl">' + I.coin + '広告の成果（CV）</span><span class="val">' + fmt(a.results) + '<small>件</small></span><span class="sub">広告費 ' + yen(a.spend) + '　CPA ' + (isNum(a.spend) && a.results ? yen(a.spend / a.results) : '—') + '</span><span class="sub">Meta広告・TikTokプロモートの合計</span></div>';
-  const inner = t(I.eye, 'インプレッション合計', 'impressions', '入力済みの媒体を合算（再生数は別集計）') + t(I.trend, 'リーチ合計', 'reach', '媒体間の重複は除けません') + t(I.users, 'フォロワー合計', 'followers', 'Instagram・TikTok・YouTubeの合計', '人') +
+  const inner = t(I.eye, 'インプレッション合計', 'impressions', '入力済みの媒体を合算（TikTokはリーチの値）') + t(I.trend, 'リーチ合計', 'reach', '媒体間の重複は除けません') + t(I.users, 'フォロワー合計', 'followers', 'Instagram・TikTok・YouTubeの合計', '人') +
     t(I.arrow, 'プロフィール流入合計', 'profileViews', 'Instagram・TikTok') + t(I.tap, 'リンクタップ合計', 'linkTaps', '外部リンク・LINEへのタップ') + ads;
   return inner ? '<div class="tiles t3">' + inner + '</div>' : '';
 }
@@ -806,7 +809,7 @@ function crossTable(m) {
   const tot = crossTotals(m);
   let chs = CH;
   if (hide) {
-    chs = CH.filter(c => { const r = rec(c.k, m); return r && cols.some(([k]) => isNum(r[k])); });
+    chs = CH.filter(c => { const r = rec(c.k, m); return r && cols.some(([k]) => isNum(chVal(c, r, k))); });
     cols = cols.filter(([k]) => isNum(tot[k]));
   }
   let h = '';
@@ -814,9 +817,10 @@ function crossTable(m) {
     h += '<div class="tbl-wrap"><table><thead><tr><th>媒体</th>' + cols.map(c => '<th class="n">' + c[1] + '</th>').join('') + (hide ? '' : '<th>データ</th>') + '</tr></thead><tbody>';
     chs.forEach(c => {
       const r = rec(c.k, m);
-      h += '<tr><td><b>' + c.l + '</b><span class="sub">' + c.sub + '</span></td>' + cols.map(([k]) => c.fields.includes(k) ? '<td class="n">' + (r && isNum(r[k]) ? fmt(r[k]) : (hide ? '—' : '<span class="sub">未入力</span>')) + '</td>' : '<td class="n dim">' + (hide ? '—' : '対象外') + '</td>').join('') + (hide ? '' : '<td>' + (r ? '<span class="chip good">入力済</span>' : '<a class="chip" href="#csv" data-act="csvFor" data-ch="' + c.k + '">CSVで入力</a>') + '</td>') + '</tr>';
+      h += '<tr><td><b>' + c.l + '</b><span class="sub">' + c.sub + '</span></td>' + cols.map(([k]) => { const sub = k === 'impressions' && IMP_FALLBACK[c.k] && !(r && isNum(r.impressions)), v = chVal(c, r, k); return c.fields.includes(k) || sub ? '<td class="n">' + (isNum(v) ? fmt(v) + (sub ? '<span class="sub">リーチの値</span>' : '') : (hide ? '—' : '<span class="sub">未入力</span>')) + '</td>' : '<td class="n dim">' + (hide ? '—' : '対象外') + '</td>'; }).join('') + (hide ? '' : '<td>' + (r ? '<span class="chip good">入力済</span>' : '<a class="chip" href="#csv" data-act="csvFor" data-ch="' + c.k + '">CSVで入力</a>') + '</td>') + '</tr>';
     });
     h += '<tr class="total"><td>合計</td>' + cols.map(([k]) => '<td class="n">' + fmt(tot[k]) + '</td>').join('') + (hide ? '' : '<td></td>') + '</tr></tbody></table></div>';
+    if (cols.some(([k]) => k === 'impressions') && chs.some(c => IMP_FALLBACK[c.k] && isNum(chVal(c, rec(c.k, m), 'impressions')) && !isNum((rec(c.k, m) || {}).impressions))) h += '<p class="hint" style="margin-top:-6px">TikTokにはインプレッションの数字がないため、リーチの値を入れて合計しています。</p>';
   }
   const ads = CH.filter(c => c.ads && (!hide || isNum((rec(c.k, m) || {}).spend) || isNum((rec(c.k, m) || {}).results)));
   if (ads.length) h += '<div class="tbl-wrap"><table><thead><tr><th>広告媒体</th><th class="n">広告費</th><th class="n">インプレッション</th><th class="n">クリック</th><th class="n">CTR</th><th class="n">CPC</th><th class="n">CPM</th><th class="n">成果数</th><th class="n">CPA</th></tr></thead><tbody>' +
