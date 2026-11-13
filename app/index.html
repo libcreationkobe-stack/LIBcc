@@ -365,6 +365,18 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .pstats b { font: 600 13px var(--num); color: var(--ink); font-variant-numeric: tabular-nums; }
 .th-btn { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 .th-btn:hover { color: var(--ink); }
+.aud { display: grid; gap: 18px; }
+.aud-row { display: grid; gap: 8px; }
+.aud-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.aud-h b { font-size: 13px; } .aud-h .num { font-size: 18px; font-weight: 700; }
+.aud-h .sub { margin-left: auto; font-size: 11px; color: var(--muted); }
+.stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--field); }
+.stack i { display: block; height: 100%; }
+.stack i.f, .aud-legend i.f { background: var(--s1); }
+.stack i.n, .aud-legend i.n { background: var(--accent); }
+.aud-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.aud-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.aud-legend b { color: var(--ink); }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--side); color: var(--side-ink); padding: 10px 18px; border-radius: var(--radius); font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -485,7 +497,7 @@ const VER = {
   attract: { name: '集客', en: 'ATTRACT', entry: '問い合わせ', interview: '来店・商談', hire: '成約', goal: '成約数', funnelName: '集客ファネル' }
 };
 const CH = [
-  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth'] },
+  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth', 'reachF', 'reachN', 'impressionsF', 'impressionsN', 'interactionsF', 'interactionsN'] },
   { k: 'meta', l: 'Meta広告', sub: 'Facebook・Instagram広告', src: 'Meta広告マネージャ', ads: true, fields: ['impressions', 'reach', 'clicks', 'linkTaps', 'spend', 'results'] },
   { k: 'tiktok', l: 'TikTok', sub: 'オーガニック投稿', src: 'TikTok Studio（アナリティクス）', fields: ['views', 'reach', 'profileViews', 'linkTaps', 'followers', 'followerGrowth'] },
   { k: 'tiktokPromote', l: 'TikTokプロモート', sub: '広告配信', src: 'TikTokプロモート / 広告マネージャー', ads: true, fields: ['impressions', 'reach', 'views', 'clicks', 'spend', 'results'] },
@@ -498,7 +510,7 @@ const FIELD = {
   entry: { l: 'エントリー', u: '件' }, interview: { l: '面接', u: '件' }, hire: { l: '採用数', u: '件' },
   impressions: { l: 'インプレッション（閲覧数）' }, views: { l: '再生数', u: '回' }, storyViews: { l: 'ストーリーズ閲覧数', u: '回' },
   storyCompletion: { l: 'ストーリーズ閲覧完了率', u: '%' }, linkTaps: { l: 'リンクタップ' }, followers: { l: 'フォロワー数', u: '人' },
-  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
+  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, reachF: { l: 'リーチ（フォロワー）' }, reachN: { l: 'リーチ（フォロワー以外）' }, impressionsF: { l: '閲覧数（フォロワー）' }, impressionsN: { l: '閲覧数（フォロワー以外）' }, interactionsF: { l: 'インタラクション（フォロワー）' }, interactionsN: { l: 'インタラクション（フォロワー以外）' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
 };
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
@@ -537,7 +549,9 @@ function seed() {
             line: [21, 24, 26, 31, 35, 40], entry: [2, 2, 3, 3, 3, 4], interview: [1, 1, 1, 2, 2, 2], hire: [0, 0, 1, 1, 1, 1],
             impressions: [148000, 166000, 181000, 204000, 226000, 245000], storyViews: [7800, 8400, 8100, 9600, 10300, 11800],
             storyCompletion: [62, 58, 64, 61, 66, 68], linkTaps: [140, 160, 171, 196, 214, 238], followers: [10920, 11240, 11610, 12050, 12430, 12840],
-            followerGrowth: [280, 320, 370, 440, 380, 410]
+            followerGrowth: [280, 320, 370, 440, 380, 410],
+            reachF: [null, null, null, 41000, 43800, 45900], reachN: [null, null, null, 90000, 102200, 114100],
+            impressionsF: [null, null, null, 88000, 94000, 97000], impressionsN: [null, null, null, 116000, 132000, 148000]
           }),
           meta: ser({ impressions: [null, null, 52000, 61000, 70500, 78200], reach: [null, null, 31000, 36400, 41000, 45200], clicks: [null, null, 610, 720, 840, 905], linkTaps: [null, null, 520, 600, 702, 760], spend: [null, null, 60000, 70000, 80000, 80000], results: [null, null, 8, 10, 12, 14] }),
           tiktok: ser({ views: [12000, 18500, 22400, 30100, 41800, 52300], reach: [9100, 14000, 17100, 22800, 31500, 39400], profileViews: [210, 300, 360, 470, 620, 760], linkTaps: [12, 18, 21, 30, 41, 55], followers: [820, 1010, 1240, 1560, 1980, 2450], followerGrowth: [140, 190, 230, 320, 420, 470] }),
@@ -912,6 +926,32 @@ function followerSection(m, opts = {}) {
     (panels && d && d.month !== m ? '<p class="hint">属性は' + mLabel(d.month) + 'の値を表示しています。</p>' : '') +
     (ch2 || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER GROWTH</div><h3 class="bar-title">フォロワー数の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch2 || emptyBox('フォロワー数が未入力です', '月次データに入れると推移が表示されます')) + '</div></div>' : '');
 }
+const AUD_BASES = [['reach', 'リーチ'], ['impressions', '閲覧数'], ['interactions', 'インタラクション']];
+function audParts(r, b) {
+  const f = isNum(r[b + 'F']) ? Number(r[b + 'F']) : null, n = isNum(r[b + 'N']) ? Number(r[b + 'N']) : null;
+  if (f === null && n === null) return null;
+  const t = (f || 0) + (n || 0);
+  return { f, n, t, nr: t ? (n || 0) / t * 100 : null };
+}
+function audienceSection(m, opts = {}) {
+  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {};
+  const rows = AUD_BASES.map(([b, l]) => ({ b, l, a: audParts(r, b), pa: audParts(p, b) })).filter(x => x.a);
+  const ms = monthsOf().filter(x => x <= m).slice(-6);
+  const ser = AUD_BASES.map(([b, l], i) => ({ name: l + 'のフォロワー以外の割合', values: ms.map(x => { const a = audParts(rec('instagram', x) || {}, b); return a ? Math.round(a.nr * 10) / 10 : null; }), kind: 'line', c: [0, 1, 3][i] })).filter(s => s.values.some(isNum));
+  if (!rows.length) {
+    if (ui.inReport || !opts.showEmpty) return '';
+    return '<section class="sec-head"><div><div class="eyebrow">AUDIENCE REACH</div><h2>届いた相手：フォロワーと、フォロワー以外。</h2></div></section><div class="panel">' + emptyBox('内訳のデータがまだありません', 'Meta Business Suite の「リーチ」「閲覧数」のCSV（フォロワー／フォロワー以外の列があるもの）を取り込むと表示されます。', I.users) + '</div>';
+  }
+  const tr = ser.length && ms.length > 1 ? chart({ labels: ms.map(mShort), series: ser.map(s => ({ ...s, axis: 'L' })), fmtL: v => Math.round(v) + '%' }) : '';
+  return '<section class="sec-head"><div><div class="eyebrow">AUDIENCE REACH</div><h2>届いた相手：フォロワーと、フォロワー以外。</h2><p>フォロワー以外に届いた割合が高いほど、新しい人に見つけてもらえています。</p></div><span class="chip">' + mLabel(m) + '</span></section>' +
+    '<div class="panel"><div class="aud">' + rows.map(x => {
+      const fr = x.a.t ? (x.a.f || 0) / x.a.t * 100 : 0, d = x.pa && isNum(x.pa.nr) ? x.a.nr - x.pa.nr : null;
+      return '<div class="aud-row"><div class="aud-h"><b>' + x.l + '</b><span class="num">' + fmt(x.a.t) + '</span>' + (d !== null ? '<span class="sub">フォロワー以外の割合 前月比 <span class="delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d > 0 ? '+' : '') + Math.round(d * 10) / 10 + 'pt</span></span>' : '') + '</div>' +
+        '<div class="stack" role="img" aria-label="' + x.l + ' フォロワー ' + Math.round(fr) + '%、フォロワー以外 ' + Math.round(x.a.nr) + '%"><i class="f" style="width:' + fr.toFixed(1) + '%"></i><i class="n" style="width:' + (100 - fr).toFixed(1) + '%"></i></div>' +
+        '<div class="aud-legend"><span><i class="f"></i>フォロワー <b class="num">' + fmt(x.a.f) + '</b>（' + fmtPct(fr) + '）</span><span><i class="n"></i>フォロワー以外 <b class="num">' + fmt(x.a.n) + '</b>（' + fmtPct(x.a.nr) + '）</span></div></div>';
+    }).join('') + '</div></div>' +
+    (tr ? '<div class="panel"><div class="panel-h"><div class="eyebrow">NON-FOLLOWER SHARE</div><h3 class="bar-title">フォロワー以外に届いた割合の推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + tr + '</div></div>' : '');
+}
 function suggestions(m) {
   const st = steps(m), out = [];
   const miss = st.filter(s => isNum(s.rate) && s.rate < s.target).sort((a, b) => a.rate / a.target - b.rate / b.target);
@@ -988,6 +1028,7 @@ R.dashboard = () => {
   const aser = [{ name: 'LINE登録', values: rs.map(x => x.line), kind: 'bar', c: 0 }, { name: v.entry, values: rs.map(x => x.entry), kind: 'bar', c: 1 }, { name: v.interview, values: rs.map(x => x.interview), kind: 'bar', c: 2 }, { name: v.hire, values: rs.map(x => x.hire), kind: 'bar', c: 3 }];
   h += '<div class="split even"><div class="panel"><div class="panel-h"><div class="eyebrow">MONTHLY ENGAGEMENT</div><h3 class="bar-title">数字の変化を、見逃さない。</h3></div><div class="tabs" style="margin-bottom:12px">' + tabs.map(([k, l]) => '<button data-act="chartTab" data-k="' + k + '" class="' + (ui.chartTab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' + legend(tser) + '<div class="chart">' + (chart({ labels: ms.map(mShort), series: tser, minL: 'auto', fmtR: ui.chartTab === 'stories' ? undefined : compact }) || emptyBox('データがありません', '月次データ入力で追加できます')) + '</div></div>' +
     '<div class="panel"><div class="panel-h"><div class="eyebrow">ACTION FLOW</div><h3 class="bar-title">アクションの、その先まで。</h3></div>' + legend(aser) + '<div class="chart">' + chart({ labels: ms.map(mShort), series: aser }) + '</div></div></div>';
+  h += audienceSection(m);
   h += '<section class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><a class="btn" href="#channels">媒体横断の詳細を見る ' + I.arrow + '</a></section>' + crossTiles(m);
   return h;
 };
@@ -1166,7 +1207,7 @@ R.followers = () => {
   if (!client()) return noClient('フォロワーを、知ろう。');
   const m = curMonth();
   let h = head('FOLLOWER ANALYTICS', 'フォロワーを、知ろう。', cLead(), monthSelect() + '<a class="btn dark" href="#input" data-act="inputCh" data-k="' + (ui.folCh === 'all' ? 'instagram' : ui.folCh) + '" data-nav="1">' + I.input + '属性を編集</a>');
-  h += sampleBar() + verNote() + followerSection(m, { allChannels: true });
+  h += sampleBar() + verNote() + followerSection(m, { allChannels: true }) + audienceSection(m, { showEmpty: true });
   const rows = CH.filter(c => c.fields.includes('followers')).map(c => { const r = rec(c.k, m) || {}, p = rec(c.k, addMonth(m, -1)) || {}; return { c, r, p }; });
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWERS BY CHANNEL</div><h3 class="bar-title">媒体ごとのフォロワー</h3></div><div class="tbl-wrap"><table><thead><tr><th>媒体</th><th class="n">フォロワー数</th><th class="n">純増</th><th class="n">前月比</th></tr></thead><tbody>' +
     rows.map(({ c, r, p }) => '<tr><td>' + c.l + '</td><td class="n">' + fmt(r.followers) + '</td><td class="n">' + (isNum(r.followerGrowth) ? '+' + fmt(r.followerGrowth) : '—') + '</td><td class="n">' + (isNum(r.followers) && isNum(p.followers) && p.followers ? (Math.round((r.followers - p.followers) / p.followers * 1000) / 10) + '%' : '—') + '</td></tr>').join('') + '</tbody></table></div></div>';
@@ -1441,8 +1482,9 @@ R.report = () => {
         st.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td>' + (s.rate >= s.target ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>').join('') +
         (isNum(r.hire) ? '<tr class="total"><td>' + v.goal + (isNum(goalHire) ? '（月目標 ' + fmt(goalHire) + '件）' : '') + '</td><td class="n">' + fmt(r.hire) + '件</td><td class="n">' + (isNum(goalHire) ? fmtPct(rate(r.hire, goalHire)) : '') + '</td><td></td></tr>' : '') + '</tbody></table></div></section>' : '') +
       (cross ? '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><span class="chip">' + mLabel(m) + '</span></div>' + cross + '</section>' : '');
-    const stories = storiesSection(m), followers = followerSection(m);
+    const stories = storiesSection(m), followers = followerSection(m), aud = audienceSection(m);
     h += (stories ? '<section style="display:grid;gap:14px">' + stories + '</section>' : '') +
+      (aud ? '<section style="display:grid;gap:14px">' + aud + '</section>' : '') +
       (followers ? '<section style="display:grid;gap:14px">' + followers + '</section>' : '') +
       postsTop(m) +
       (sugg.length ? '<section class="next"><div><div class="eyebrow" style="color:var(--side-muted)">NEXT ACTIONS</div><div class="big">WHAT\'S<br>NEXT<span>?</span></div></div><div><p style="margin:0 0 12px;font-size:12px;color:var(--side-muted)">次の成果につながる提案</p><ul>' + sugg.map(s => '<li>' + I.check + '<div><b>' + esc(s.t) + '</b><span>' + esc(s.d) + '</span></div></li>').join('') + '</ul></div></section>' : '') +
@@ -1575,8 +1617,17 @@ const DETECT = [
 ];
 function autoMap(headers) {
   const map = {}, used = new Set();
+  // a "フォロワー以外 / non-followers" column means the フォロワー columns are a breakdown (reach or views by audience)
+  const breakdown = headers.some(h => /フォロワー以外|non-?follower/i.test(String(h)));
   headers.forEach((h, i) => {
     const s = String(h).toLowerCase().replace(/\s+/g, ' ').trim();
+    if (breakdown && /^(フォロワー|フォロワー以外|followers?|non-?followers?)$/.test(s)) return;
+    // e.g. "リーチ（フォロワー以外）" / "Views from non-followers"
+    const nonF = /フォロワー以外|non-?follower/.test(s), isF = !nonF && /フォロワー|follower/.test(s) && !/フォロワー数|増|gained|new/.test(s);
+    if (nonF || isF) {
+      const base = /リーチ|reach/.test(s) ? 'reach' : /閲覧|view|インプレッション|impression/.test(s) ? 'impressions' : /インタラクション|interaction|エンゲージメント|engagement/.test(s) ? 'interactions' : null;
+      if (base) { const k = base + (nonF ? 'N' : 'F'); if (!used.has(k)) { map[i] = k; used.add(k); } return; }
+    }
     if (/単価|per |cpa|cpc|cpm|ctr|率\(|割合/.test(s) && !/完了率/.test(s)) return;
     if (!used.has('month') && (/^(年月|月|日|日付|date|month|期間|day)$/.test(s) || /日付|年月|date|開始日|starts/.test(s))) { map[i] = 'month'; used.add('month'); return; }
     if (!used.has('channel') && /^(媒体|channel|platform|プラットフォーム|sns)$/.test(s)) { map[i] = 'channel'; used.add('channel'); return; }
@@ -1636,6 +1687,8 @@ function aggregate(f) {
       if (!vals.length) return;
       v[k] = k === 'followers' ? vals[vals.length - 1] : k === 'storyCompletion' ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : vals.reduce((a, b) => a + b, 0);
     });
+    // the total is the two audience parts added up when the file has no total column
+    ['reach', 'impressions', 'interactions'].forEach(b => { if (!isNum(v[b]) && (isNum(v[b + 'F']) || isNum(v[b + 'N']))) v[b] = (v[b + 'F'] || 0) + (v[b + 'N'] || 0); });
     return { ch, month, v };
   }).filter(g => Object.keys(g.v).length);
   if (!groups.length) return { error: '数字が入っている行が見つかりませんでした。' };
@@ -1716,7 +1769,19 @@ function loadFile(name, text) {
   }
   const map = autoMap(headers);
   const metrics = Object.values(map).filter(k => k !== 'month' && k !== 'channel');
-  if (!isDemo && !metrics.length) {
+  const fi = headers.findIndex(h => /^(フォロワー|followers?)$/i.test(String(h).trim())), ni = headers.findIndex(h => /^(フォロワー以外|non-?followers?)$/i.test(String(h).trim()));
+  if (!isDemo && (fi >= 0 || ni >= 0) && !metrics.length) {
+    // one metric split into フォロワー / フォロワー以外 (the metric name is in the title line or file name)
+    const src = (name + ' ' + pre).toLowerCase();
+    const base = /リーチ|reach/.test(src) ? 'reach' : /閲覧|view|インプレッション|impression/.test(src) ? 'impressions' : /インタラクション|interaction|エンゲージメント|engagement/.test(src) ? 'interactions' : null;
+    if (base) {
+      if (fi >= 0) map[fi] = base + 'F';
+      if (ni >= 0) map[ni] = base + 'N';
+      const ti = headers.findIndex((h, i) => map[i] === undefined && /^(primary|合計|total|値|value)$/i.test(String(h).trim()));
+      if (ti >= 0) map[ti] = base;
+    }
+  }
+  if (!isDemo && !metrics.length && !Object.values(map).some(k => /[FN]$/.test(k))) {
     // single-metric export (e.g. "リーチ.csv" with 日付 / 値): the metric comes from the file name or title line
     const src = (name + ' ' + pre).toLowerCase();
     const hit = DETECT.find(([, keys]) => keys.some(x => src.includes(x)));
@@ -1739,6 +1804,12 @@ function loadFile(name, text) {
   // a date column we can't turn into months (e.g. "October 1" with no year): ask for the month instead
   const mcol = Object.keys(map).find(i => map[i] === 'month');
   if (mcol !== undefined && rows.filter(r => toMonth(r[mcol])).length < rows.length / 2) delete map[mcol];
+  const fcol = Object.keys(map).find(i => map[i] === 'followers');
+  if (fcol !== undefined && Object.values(map).includes('month') && rows.length >= 5) {
+    const v = rows.map(r => toNum(r[fcol])).filter(x => x !== null);
+    const drops = v.filter((x, i) => i && x < v[i - 1] * 0.95).length;
+    if (v.length >= 5 && drops > (v.length - 1) * 0.2) delete map[fcol];
+  }
   const hasChannelCol = Object.values(map).includes('channel');
   const ch = hasChannelCol ? 'auto' : guessChannel(name, headers.join(' ') + ' ' + pre);
   if (ch === 'instagram') Object.keys(map).forEach(i => { if (map[i] === 'views') map[i] = 'impressions'; });
@@ -1766,7 +1837,7 @@ const AI_FIELD_HELP = {
   reach: 'リーチ（届いたアカウント数）', profileViews: 'プロフィールへのアクセス・プロフィール表示', line: 'LINE登録・友だち追加', entry: 'エントリー・応募・問い合わせ',
   interview: '面接・来店・商談', hire: '採用・成約・契約', impressions: 'インプレッション・表示回数（Instagramの「閲覧数/Views」もここ）', views: '動画の再生数・視聴回数（TikTok/YouTube）',
   storyViews: 'ストーリーズの閲覧数', storyCompletion: 'ストーリーズの閲覧完了率(%)', linkTaps: 'リンクのタップ・リンククリック・外部リンク', followers: 'フォロワーの累計数',
-  followerGrowth: 'フォロワーの増加数・新規フォロー数（日ごとの値、YouTubeの「チャンネル登録者」も）', interactions: 'インタラクション（いいね・コメント・保存・シェアの合計、エンゲージメント）', watchTime: '総再生時間（時間）', clicks: 'クリック数（リンク以外も含む全体）', spend: '広告費・消化金額', results: '広告の成果数・コンバージョン・結果'
+  followerGrowth: 'フォロワーの増加数・新規フォロー数（日ごとの値、YouTubeの「チャンネル登録者」も）', interactions: 'インタラクション（いいね・コメント・保存・シェアの合計、エンゲージメント）', reachF: 'リーチのうちフォロワー', reachN: 'リーチのうちフォロワー以外', impressionsF: '閲覧数のうちフォロワー', impressionsN: '閲覧数のうちフォロワー以外', interactionsF: 'インタラクションのうちフォロワー', interactionsN: 'インタラクションのうちフォロワー以外', watchTime: '総再生時間（時間）', clicks: 'クリック数（リンク以外も含む全体）', spend: '広告費・消化金額', results: '広告の成果数・コンバージョン・結果'
 };
 async function aiRead(f) {
   const sample = await getSampler(); if (!sample) return;
@@ -1776,7 +1847,7 @@ async function aiRead(f) {
     '\n\n先頭のデータ行:\n' + f.rows.slice(0, 6).map(r => r.join(' | ')).join('\n') +
     '\n\n使える項目キー:\nmonth: 日付・年月の列\nchannel: 媒体名の列（行ごとに媒体が違う場合だけ）\n' + Object.keys(AI_FIELD_HELP).map(k => k + ': ' + AI_FIELD_HELP[k]).join('\n') +
     '\n\n媒体キー: instagram, meta（Meta広告・Facebook広告）, tiktok, tiktokPromote（TikTokプロモート・TikTok広告）, youtube（YouTubeショート・縦動画）, youtubeLong（YouTubeの通常の横動画）\n\n' +
-    'ルール: どの項目にも当てはまらない列（いいね数、コメント、シェア、キャンペーン名、単価、率、平均など）は入れない。同じ項目キーは1列だけ。数字が1列しかなく見出しが「Primary」「値」などの場合は、ファイル名か表の上の行から項目を決める。\n\n' +
+    'ルール: 「フォロワー」「フォロワー以外」に分かれた列はリーチや閲覧数の内訳なので followers にしない。followers は日ごとに大きく増減しない累計の列だけ。どの項目にも当てはまらない列（いいね数、コメント、シェア、キャンペーン名、単価、率、平均など）は入れない。同じ項目キーは1列だけ。数字が1列しかなく見出しが「Primary」「値」などの場合は、ファイル名か表の上の行から項目を決める。\n\n' +
     '次の形のJSONだけを返してください:\n{"channel":"媒体キー（channel列で分けるなら auto）","month":"YYYY-MM か null（日付列がないときだけ）","columns":{"列番号":"項目キー"}}';
   try {
     const r = await sample.json(prompt, { modelTier: 'quick' });
