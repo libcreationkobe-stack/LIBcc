@@ -670,12 +670,23 @@ function commitChart(m) {
   return legend(ser) + '<div class="chart">' + (chart({ labels: ms.map(mShort), series: ser }) || emptyBox('データがありません', '月次データと目標を入力すると表示されます', I.target)) + '</div>';
 }
 function tgt(cid, ver) { const t = ((S.targets[cid || S.current] || {})[ver || S.ver]) || {}; return Object.assign({}, DEFAULT_TARGET, t); }
-function demoFor(m, cid, ver) {
+const FOL_CH = [['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['youtube', 'YouTube']];
+const FOLCH_OF = { instagram: 'instagram', tiktok: 'tiktok', tiktokPromote: 'tiktok', youtube: 'youtube', youtubeLong: 'youtube', meta: 'instagram' };
+function hasDemo(o) { return !!o && (isNum(o.female) || isNum(o.male) || Object.values(o.ages || {}).some(isNum) || !!o.locations || !!o.cities || !!o.countries); }
+function demoSrc(o, ch) { if (!o) return null; return !ch || ch === 'instagram' ? o : (o.byCh || {})[ch] || null; }
+function demoForCh(m, ch, cid, ver) {
   const d = ((S.demo[cid || S.current] || {})[ver || S.ver]) || {};
-  const ks = Object.keys(d).filter(k => k <= m).sort();
-  return ks.length ? { month: ks[ks.length - 1], ...d[ks[ks.length - 1]] } : null;
+  for (const k of Object.keys(d).filter(k => k <= m).sort().reverse()) { const o = demoSrc(d[k], ch); if (hasDemo(o)) return { ...o, month: k }; }
+  return null;
 }
-function demoEdit(m) { const c = S.current, v = S.ver; S.demo[c] = S.demo[c] || {}; S.demo[c][v] = S.demo[c][v] || {}; S.demo[c][v][m] = S.demo[c][v][m] || { ages: {} }; S.demo[c][v][m].ages = S.demo[c][v][m].ages || {}; return S.demo[c][v][m]; }
+function demoFor(m, cid, ver) { return demoForCh(m, 'instagram', cid, ver); }
+function demoEdit(m, ch) {
+  const c = S.current, v = S.ver; S.demo[c] = S.demo[c] || {}; S.demo[c][v] = S.demo[c][v] || {};
+  const root = S.demo[c][v][m] = S.demo[c][v][m] || { ages: {} };
+  let o = root;
+  if (ch && ch !== 'instagram') { root.byCh = root.byCh || {}; o = root.byCh[ch] = root.byCh[ch] || { ages: {} }; }
+  o.ages = o.ages || {}; return o;
+}
 function note(m) { return (((S.notes[S.current] || {})[S.ver]) || {})[m] || {}; }
 function noteEdit(m) { const c = S.current, v = S.ver; S.notes[c] = S.notes[c] || {}; S.notes[c][v] = S.notes[c][v] || {}; S.notes[c][v][m] = S.notes[c][v][m] || {}; return S.notes[c][v][m]; }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400); }
@@ -841,30 +852,65 @@ function storiesSection(m) {
     (ch || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">MONTHLY TREND</div><h3 class="bar-title">閲覧数と閲覧完了率の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('ストーリーズのデータがありません', '月次データ入力かCSVで追加してください', I.eye)) + '</div></div>' : '');
 }
 function attrLines(text) { return String(text || '').split('\n').map(l => l.trim().match(/^(.+?)[\s,:：]+([\d.]+)%?$/)).filter(Boolean).map(x => ({ l: x[1], v: Number(x[2]) })); }
+// follower stats for one platform (YouTube: Shorts and long-form share one channel)
+function folVal(ch, m, k) {
+  if (ch === 'youtube') { const a = rec('youtube', m) || {}, b = rec('youtubeLong', m) || {}; return isNum(a[k]) ? a[k] : (isNum(b[k]) ? b[k] : null); }
+  const r = rec(ch, m) || {}; return isNum(r[k]) ? r[k] : null;
+}
+function folStats(ch, m) {
+  if (ch === 'all') {
+    const parts = FOL_CH.map(([c]) => folStats(c, m));
+    return { followers: sum(parts.map(x => x.followers)), prev: sum(parts.map(x => x.prev)), growth: sum(parts.map(x => x.growth)), input: parts.some(x => x.input) };
+  }
+  const f = folVal(ch, m, 'followers'), pf = folVal(ch, addMonth(m, -1), 'followers'), g = folVal(ch, m, 'followerGrowth');
+  return { followers: f, prev: pf, growth: isNum(g) ? g : (isNum(f) && isNum(pf) ? f - pf : null), input: isNum(g) };
+}
+// combine each platform's attributes, weighted by its follower count
+function demoAll(m) {
+  const parts = FOL_CH.map(([ch]) => ({ ch, d: demoForCh(m, ch), w: folStats(ch, m).followers })).filter(x => x.d);
+  if (!parts.length) return null;
+  const weight = x => isNum(x.w) && x.w > 0 ? x.w : 1;
+  const avg = (has, val) => { const ps = parts.filter(has); const W = ps.reduce((a, x) => a + weight(x), 0); return ps.length ? Math.round(ps.reduce((a, x) => a + val(x) * weight(x), 0) / W * 10) / 10 : null; };
+  const out = { month: parts.map(x => x.d.month).sort().pop(), from: parts.map(x => x.ch), ages: {} };
+  ['female', 'male', 'other'].forEach(k => { const v = avg(x => isNum(x.d[k]), x => Number(x.d[k])); if (v !== null && parts.some(x => isNum(x.d[k]))) out[k] = v; });
+  // a platform that has any age data counts its missing brackets as 0%, so the combined ages still add up
+  AGES.forEach(a => { const v = avg(x => Object.values(x.d.ages || {}).some(isNum), x => Number((x.d.ages || {})[a]) || 0); if (v !== null && parts.some(x => isNum((x.d.ages || {})[a]))) out.ages[a] = v; });
+  ['locations', 'cities', 'countries'].forEach(k => {
+    const ps = parts.filter(x => attrLines(x.d[k]).length); if (!ps.length) return;
+    const W = ps.reduce((a, x) => a + weight(x), 0), acc = {};
+    ps.forEach(x => attrLines(x.d[k]).forEach(it => { acc[it.l] = (acc[it.l] || 0) + it.v * weight(x) / W; }));
+    out[k] = Object.entries(acc).sort((a, b) => b[1] - a[1]).map(([l, v]) => l + ' ' + Math.round(v * 100) / 100).join('\n');
+  });
+  return out;
+}
 function followerSection(m, opts = {}) {
-  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {}, d = demoFor(m), hide = ui.inReport;
+  const hide = ui.inReport, ch = ui.folCh || 'all', chName = ch === 'all' ? '総合' : FOL_CH.find(x => x[0] === ch)[1];
+  const st = folStats(ch, m), d = ch === 'all' ? demoAll(m) : demoForCh(m, ch);
   const ms = monthsOf().filter(x => x <= m).slice(-12);
-  const growth = isNum(r.followerGrowth) ? r.followerGrowth : (isNum(r.followers) && isNum(p.followers) ? r.followers - p.followers : null);
   const hasG = d && (isNum(d.female) || isNum(d.male)), ages = d ? AGES.filter(a => isNum((d.ages || {})[a])) : [];
   const locs = d ? attrLines(d.locations) : [], cities = d ? attrLines(d.cities) : [], countries = d ? attrLines(d.countries) : [];
-  const ser = [{ name: 'Instagram', values: ms.map(x => (rec('instagram', x) || {}).followers), kind: 'line', c: 0, area: true }];
-  if (opts.allChannels) { ser.push({ name: 'TikTok', values: ms.map(x => (rec('tiktok', x) || {}).followers), kind: 'line', c: 1 }); ser.push({ name: 'YouTube', values: ms.map(x => (rec('youtube', x) || {}).followers), kind: 'line', c: 3 }); }
-  const ch = chart({ labels: ms.map(mShort), series: ser, minL: opts.allChannels ? null : 'auto' });
-  const none = emptyBox('フォロワー属性は未入力', '月次データ入力かCSV（フォロワー属性）で追加できます');
+  const ser = ch === 'all'
+    ? FOL_CH.map(([c, l], i) => ({ name: l, values: ms.map(x => folVal(c, x, 'followers')), kind: 'line', c: [0, 1, 3][i] })).filter(s => s.values.some(isNum)).concat([{ name: '合計', values: ms.map(x => folStats('all', x).followers), kind: 'line', c: 2, dash: true }])
+    : [{ name: chName, values: ms.map(x => folVal(ch, x, 'followers')), kind: 'line', c: 0, area: true }];
+  const ch2 = chart({ labels: ms.map(mShort), series: ser, minL: ch === 'all' ? null : 'auto' });
+  const none = emptyBox(chName + 'のフォロワー属性は未入力', '月次データ入力かCSV（フォロワー属性）で追加できます');
   const panel = (eb, title, body, has, always) => (has || (always && !hide)) ? '<div class="panel"><div class="panel-h"><div class="eyebrow">' + eb + '</div><h3 class="bar-title">' + title + '</h3></div>' + (has ? body : none) + '</div>' : '';
   const panels = panel('GENDER RATIO', '男女比', hasG ? hbars([{ l: '女性', v: d.female }, { l: '男性', v: d.male }].concat(isNum(d.other) ? [{ l: 'その他・不明', v: d.other }] : [])) : '', hasG, true) +
     panel('AGE PROFILE', '年齢層', ages.length ? hbars(AGES.filter(a => !hide || isNum(d.ages[a])).map(a => ({ l: a + '歳', v: d.ages[a] }))) : '', ages.length, true) +
     panel('PREFECTURE', 'フォロワー居住地（都道府県）', hbars(locs.slice(0, 8)), locs.length, true) +
     panel('CITY', '市区町村（上位）', hbars(cities.slice(0, 8)), cities.length, false) +
     panel('COUNTRY', '国', hbars(countries.slice(0, 6)), countries.length, false);
-  const t1 = isNum(r.followers) || !hide ? '<div class="tile"><span class="lbl">' + I.users + 'フォロワー数（Instagram）</span><span class="val">' + fmt(r.followers) + '<small>人</small></span>' + delta(r.followers, p.followers, '人', true) + '</div>' : '';
-  const t2 = isNum(growth) || !hide ? '<div class="tile"><span class="lbl">' + I.trend + 'フォロワー増加数（純増）</span><span class="val">' + (isNum(growth) ? (growth > 0 ? '+' : '') + fmt(growth) : '—') + '<small>人</small></span><span class="sub">' + (isNum(r.followerGrowth) ? '入力値' : '前月との差から計算') + '</span></div>' : '';
-  if (hide && !t1 && !t2 && !panels && !ch) return '';
-  return '<section class="sec-head"><div><div class="eyebrow">FOLLOWERS INTELLIGENCE</div><h2>フォロワーの、その輪郭。</h2></div><span class="chip">' + mLabel(m) + '</span></section>' +
-    (t1 || t2 ? '<div class="tiles t3">' + t1 + t2 + '</div>' : '') +
+  const t1 = isNum(st.followers) || !hide ? '<div class="tile' + (ch === 'all' ? ' ink' : '') + '"><span class="lbl">' + I.users + 'フォロワー数（' + chName + '）</span><span class="val">' + fmt(st.followers) + '<small>人</small></span>' + delta(st.followers, st.prev, '人', true) + '</div>' : '';
+  const t2 = isNum(st.growth) || !hide ? '<div class="tile"><span class="lbl">' + I.trend + 'フォロワー増加数（純増）</span><span class="val">' + (isNum(st.growth) ? (st.growth > 0 ? '+' : '') + fmt(st.growth) : '—') + '<small>人</small></span><span class="sub">' + (st.input ? '入力値' : '前月との差から計算') + '</span></div>' : '';
+  const perCh = ch === 'all' ? FOL_CH.map(([c, l]) => { const s = folStats(c, m); return isNum(s.followers) ? '<div class="tile"><span class="lbl">' + l + '</span><span class="val">' + fmt(s.followers) + '<small>人</small></span>' + (isNum(s.growth) ? '<span class="sub">純増 ' + (s.growth > 0 ? '+' : '') + fmt(s.growth) + '人</span>' : '') + '</div>' : ''; }).join('') : '';
+  const tabs = '<div class="seg no-print" role="tablist" aria-label="媒体">' + [['all', '総合']].concat(FOL_CH).map(([k, l]) => '<button role="tab" aria-selected="' + (ch === k) + '" data-act="folCh" data-k="' + k + '" class="' + (ch === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>';
+  if (hide && !t1 && !t2 && !panels && !ch2) return '<section class="sec-head"><div><div class="eyebrow">FOLLOWERS INTELLIGENCE</div><h2>フォロワーの、その輪郭。</h2></div>' + tabs + '</section><p class="hint">' + chName + 'のフォロワーのデータはまだありません。</p>';
+  return '<section class="sec-head"><div><div class="eyebrow">FOLLOWERS INTELLIGENCE · ' + chName.toUpperCase() + '</div><h2>フォロワーの、その輪郭。</h2></div>' + tabs + '<span class="chip">' + mLabel(m) + '</span></section>' +
+    (t1 || t2 || perCh ? '<div class="tiles t3">' + t1 + t2 + perCh + '</div>' : '') +
     (panels ? '<div class="grid3">' + panels + '</div>' : '') +
-    (d && d.month !== m && panels ? '<p class="hint">属性は' + mLabel(d.month) + 'の値を表示しています。</p>' : '') +
-    (ch || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER GROWTH</div><h3 class="bar-title">フォロワー数の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('フォロワー数が未入力です', '月次データに入れると推移が表示されます')) + '</div></div>' : '');
+    (panels && ch === 'all' && d ? '<p class="hint">属性は ' + d.from.map(c => FOL_CH.find(x => x[0] === c)[1]).join('・') + ' のデータを、各媒体のフォロワー数で重み付けして合算しています。</p>' : '') +
+    (panels && d && d.month !== m ? '<p class="hint">属性は' + mLabel(d.month) + 'の値を表示しています。</p>' : '') +
+    (ch2 || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER GROWTH</div><h3 class="bar-title">フォロワー数の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch2 || emptyBox('フォロワー数が未入力です', '月次データに入れると推移が表示されます')) + '</div></div>' : '');
 }
 function suggestions(m) {
   const st = steps(m), out = [];
@@ -886,7 +932,7 @@ function suggestions(m) {
 }
 
 /* ================= views ================= */
-let ui = { postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
+let ui = { folCh: 'all', postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
 
 const VIEWS = {
   dashboard: { label: 'ダッシュボード', group: 'WORKSPACE', icon: 'dash' },
@@ -1025,13 +1071,16 @@ R.input = () => {
     ch.fields.map(k => '<label class="field"><span>' + esc((ch.k === 'youtube' || ch.k === 'youtubeLong') && k === 'followers' ? 'チャンネル登録者数' : fl(k)) + (fu(k) ? '（' + fu(k) + '）' : '') + '</span><input type="number" step="any" inputmode="decimal" data-rec="' + k + '" value="' + (isNum(r[k]) ? r[k] : '') + '" placeholder="未入力"></label>').join('') + '</div>' +
     '<p class="hint" style="margin-top:12px">空欄は「未入力」として扱い、グラフや合計から外します。0件の場合は 0 を入力してください。</p>' +
     (ch.k === 'instagram' ? '<div class="note" style="margin-top:14px"><span class="dot"></span><div><b>ファネルの数字はInstagramの欄にまとめて入力します</b>リーチ・プロフィール流入はInstagramの値、LINE登録以降は全媒体からの合計を入れてください。</div></div>' : '') + '</div>';
-  if (ch.k === 'instagram') {
-    const d = demoEdit(m);
-    h += '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER ATTRIBUTES</div><h3 class="bar-title">フォロワー属性（割合 0〜100%）</h3></div><div class="grid3">' +
+  const fch = FOLCH_OF[ch.k];
+  if (fch && ch.k !== 'meta' && ch.k !== 'tiktokPromote') {
+    const d = demoEdit(m, fch), fname = FOL_CH.find(x => x[0] === fch)[1];
+    h += '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER ATTRIBUTES</div><h3 class="bar-title">' + fname + 'のフォロワー属性（割合 0〜100%）</h3></div><div class="grid3">' +
       [['female', '女性'], ['male', '男性'], ['other', 'その他・不明']].map(([k, l]) => '<label class="field"><span>' + l + '（%）</span><input type="number" step="any" data-demo="' + k + '" value="' + (isNum(d[k]) ? d[k] : '') + '"></label>').join('') + '</div>' +
       '<p class="field" style="margin:16px 0 6px"><span>年齢層</span></p><div class="grid4">' + AGES.map(a => '<label class="field"><span>' + a + '歳（%）</span><input type="number" step="any" data-age="' + a + '" value="' + (isNum(d.ages[a]) ? d.ages[a] : '') + '"></label>').join('') + '</div>' +
       '<label class="field" style="margin-top:14px"><span>フォロワー居住地（1行に「地域名 割合」）</span><textarea data-demo="locations" placeholder="大阪府 38&#10;兵庫県 27">' + esc(d.locations || '') + '</textarea></label>' +
-      '<p class="hint" style="margin-top:8px">男女比は合計100%、年齢層も合計100%を目安に入力します。Instagramのインサイト「オーディエンス」で確認できます。</p></div>';
+      '<p class="hint" style="margin-top:8px">男女比は合計100%、年齢層も合計100%を目安に入力します。' + (fch === 'instagram' ? 'Instagramのインサイト「オーディエンス」' : fch === 'tiktok' ? 'TikTokのアナリティクス「フォロワー」' : 'YouTube Studioの「視聴者」') + 'で確認できます。' + (fch === 'youtube' ? 'ショートと横動画は同じチャンネルとしてまとめて記録します。' : '') + '</p></div>';
+  }
+  if (ch.k === 'instagram') {
     const n = note(m);
     h += '<div class="panel"><div class="panel-h"><div class="eyebrow">REPORT COMMENTS</div><h3 class="bar-title">レポートのコメント</h3></div><div class="grid2"><label class="field"><span>今月の総評（レポート掲載）</span><textarea data-note="summary">' + esc(n.summary || '') + '</textarea></label><label class="field"><span>今後の展望（改善施策）</span><textarea data-note="outlook">' + esc(n.outlook || '') + '</textarea></label></div></div>';
   }
@@ -1062,7 +1111,7 @@ R.csv = () => {
       h += '<div class="panel"><div class="panel-h"><h3 class="bar-title" style="overflow-wrap:anywhere">' + esc(f.name) + '</h3><span class="right">' + (agg.error ? '<span class="chip bad">読み取れませんでした</span>' : '<span class="chip good">読み取り完了</span>') + '</span><button class="btn sm ghost" data-act="csvDropFile" data-i="' + i + '">外す</button></div>';
       if (f.kind === 'attr') {
         const lab = { age: '年齢・男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr];
-        h += '<div class="grid3" style="margin-bottom:12px"><div class="field"><span>フォロワー属性</span><b style="padding-top:8px">' + lab + '</b></div><label class="field"><span>何月の属性？</span><input type="month" data-fm="' + i + '" value="' + f.month + '"></label></div>';
+        h += '<div class="grid3" style="margin-bottom:12px"><div class="field"><span>フォロワー属性</span><b style="padding-top:8px">' + lab + '</b></div><label class="field"><span>どの媒体の属性？</span><select data-ffch="' + i + '">' + FOL_CH.map(([k, l]) => '<option value="' + k + '"' + (f.fch === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><label class="field"><span>何月の属性？</span><input type="month" data-fm="' + i + '" value="' + f.month + '"></label></div>';
         if (agg.error) h += '<p class="hint">' + esc(agg.error) + '</p>';
         else if (f.attr === 'age') h += '<div class="grid2"><div><b style="font-size:12px">男女比</b>' + hbars([{ l: '女性', v: agg.attr.female }, { l: '男性', v: agg.attr.male }]) + '</div><div><b style="font-size:12px">年齢層</b>' + hbars(AGES.filter(a => isNum(agg.attr.ages[a])).map(a => ({ l: a + '歳', v: agg.attr.ages[a] }))) + '</div></div>';
         else h += hbars(agg.attr.items.slice(0, 8)) + (agg.attr.items.length > 8 ? '<p class="hint" style="margin-top:6px">ほか ' + (agg.attr.items.length - 8) + '件（「不明」は除いています）</p>' : '<p class="hint" style="margin-top:6px">「不明」は除いています</p>');
@@ -1116,7 +1165,7 @@ R.csv = () => {
 R.followers = () => {
   if (!client()) return noClient('フォロワーを、知ろう。');
   const m = curMonth();
-  let h = head('FOLLOWER ANALYTICS', 'フォロワーを、知ろう。', cLead(), monthSelect() + '<a class="btn dark" href="#input" data-act="inputCh" data-k="instagram" data-nav="1">' + I.input + '属性を編集</a>');
+  let h = head('FOLLOWER ANALYTICS', 'フォロワーを、知ろう。', cLead(), monthSelect() + '<a class="btn dark" href="#input" data-act="inputCh" data-k="' + (ui.folCh === 'all' ? 'instagram' : ui.folCh) + '" data-nav="1">' + I.input + '属性を編集</a>');
   h += sampleBar() + verNote() + followerSection(m, { allChannels: true });
   const rows = CH.filter(c => c.fields.includes('followers')).map(c => { const r = rec(c.k, m) || {}, p = rec(c.k, addMonth(m, -1)) || {}; return { c, r, p }; });
   h += '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWERS BY CHANNEL</div><h3 class="bar-title">媒体ごとのフォロワー</h3></div><div class="tbl-wrap"><table><thead><tr><th>媒体</th><th class="n">フォロワー数</th><th class="n">純増</th><th class="n">前月比</th></tr></thead><tbody>' +
@@ -1372,7 +1421,7 @@ R.report = () => {
   const m = curMonth(), b = S.brand, v = VER[S.ver], r = rec('instagram', m) || {}, n = note(m);
   let h = head('PERFORMANCE REPORT', '成果を、伝えよう。', cLead() + '　データのない項目は表示しません。', monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<a class="btn" href="#input">コメントを編集</a>');
   h += sampleBar();
-  if (!monthsOf().length && !demoFor(m) && !postsOf().some(x => x.month === m)) return h + '<div class="panel">' + emptyBox('レポートにできる数字がありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.report) + '</div>';
+  if (!monthsOf().length && !FOL_CH.some(([c]) => demoForCh(m, c)) && !postsOf().some(x => x.month === m)) return h + '<div class="panel">' + emptyBox('レポートにできる数字がありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.report) + '</div>';
   ui.inReport = true;
   try {
     const st = steps(m).filter(s => isNum(s.rate));
@@ -1656,7 +1705,7 @@ function loadFile(name, text) {
   const attr = detectAttr(headers);
   if (attr) {
     ui.files = ui.files || [];
-    ui.files.push({ name, headers, rows, kind: 'attr', attr, map: {}, month: monthFromText(name) || monthFromText(pre) || csvT().m });
+    ui.files.push({ name, headers, rows, kind: 'attr', attr, map: {}, fch: FOLCH_OF[toCh(name + ' ' + pre)] || 'instagram', month: monthFromText(name) || monthFromText(pre) || csvT().m });
     render(); return;
   }
   const pmap = postMap(headers), pk = Object.values(pmap);
@@ -1810,7 +1859,7 @@ A.csvImport = () => {
     }
     postsOnly = false;
     if (f.kind === 'attr') {
-      const d = demoEdit(f.month), a = agg.attr, lines = a.items ? a.items.map(x => x.l + ' ' + x.v).join('\n') : '';
+      const d = demoEdit(f.month, f.fch), a = agg.attr, lines = a.items ? a.items.map(x => x.l + ' ' + x.v).join('\n') : '';
       if (f.attr === 'age') { d.ages = a.ages; d.female = a.female; d.male = a.male; delete d.other; }
       else if (f.attr === 'pref') d.locations = lines;
       else if (f.attr === 'city') d.cities = lines;
@@ -1860,6 +1909,7 @@ A.cmpRange = el => { const n = +el.dataset.n, all = monthsOf(), end = all.length
 A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
+A.folCh = el => { ui.folCh = el.dataset.k; render(); };
 A.postType = el => { ui.postType = el.dataset.k; render(); };
 A.postView = el => { ui.postView = el.dataset.k; render(); };
 A.postDir = () => { ui.postDir[ui.postType] = -(ui.postDir[ui.postType] || -1); render(); };
@@ -1931,8 +1981,8 @@ function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => save
 document.addEventListener('input', e => {
   const t = e.target, d = t.dataset, m = curMonth();
   if (d.rec) { ensureRec(ui.inputCh, m)[d.rec] = toNum(t.value); saveSoon(); }
-  else if (d.demo) { demoEdit(m)[d.demo] = d.demo === 'locations' ? t.value : toNum(t.value); saveSoon(); }
-  else if (d.age) { demoEdit(m).ages[d.age] = toNum(t.value); saveSoon(); }
+  else if (d.demo) { demoEdit(m, FOLCH_OF[ui.inputCh])[d.demo] = d.demo === 'locations' ? t.value : toNum(t.value); saveSoon(); }
+  else if (d.age) { demoEdit(m, FOLCH_OF[ui.inputCh]).ages[d.age] = toNum(t.value); saveSoon(); }
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
   else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
   else if (d.cf) { const c = client(); c[d.cf] = t.value; saveSoon(); if (d.cf === 'name') { $('#clientSel').selectedOptions[0].textContent = t.value; } }
@@ -1957,6 +2007,7 @@ document.addEventListener('change', e => {
   if (t.id === 'monthSel' || t.id === 'inputMonth') { if (t.value) { S.month = t.value; save(false); render(); } }
   else if (d.brand && t.tagName === 'SELECT') render();
   else if (d.fmap !== undefined) { const f = ui.files[+d.fmap]; if (t.value) { Object.keys(f.map).forEach(j => { if (f.map[j] === t.value) delete f.map[j]; }); f.map[d.col] = t.value; } else delete f.map[d.col]; f.hasDate = Object.values(f.map).includes('month'); f.hasChannelCol = Object.values(f.map).includes('channel'); render(); }
+  else if (d.ffch !== undefined) { ui.files[+d.ffch].fch = t.value; render(); }
   else if (d.fch !== undefined) { ui.files[+d.fch].ch = t.value; render(); }
   else if (d.fm !== undefined) { if (t.value) { ui.files[+d.fm].month = t.value; render(); } }
   else if (['csvCh', 'csvMonth', 'csvVer', 'csvClient'].includes(t.id)) { const T = csvT(); if (t.id === 'csvCh') ui.csvCh = t.value; if (t.id === 'csvClient') T.c = t.value; if (t.id === 'csvMonth' && t.value) T.m = t.value; if (t.id === 'csvVer') T.v = t.value; render(); }
