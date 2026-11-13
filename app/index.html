@@ -641,7 +641,9 @@ function commit(m, cid, ver) {
 }
 function commitTiles(m) {
   const cm = commit(m), unit = k => k === 'reach' || k === 'profileViews' ? '' : '件';
-  return '<div class="tiles t3">' + cm.items.map(i => {
+  const items = ui.inReport ? cm.items.filter(i => isNum(i.goal) && i.rate !== null) : cm.items;
+  if (!items.length) return '';
+  return '<div class="tiles t3">' + items.map(i => {
     if (!isNum(i.goal)) return '<div class="tile ctile"><span class="lbl">' + I.target + esc(i.label) + '</span><span class="val empty">目標未設定</span><span class="sub">実績 ' + fmt(i.actual) + unit(i.k) + '　<a href="#targets">目標を設定</a></span></div>';
     const ok = i.rate !== null && i.rate >= 100;
     return '<div class="tile ctile"><div class="row"><span class="lbl">' + I.target + esc(i.label) + '</span>' + (i.rate === null ? '<span class="chip">実績未入力</span>' : ok ? '<span class="chip good">達成</span>' : '<span class="chip bad">あと ' + fmt(i.rest) + unit(i.k) + '</span>') + '</div>' +
@@ -749,7 +751,7 @@ function chart({ labels, series, h = 240, fmtL = compact, fmtR = v => Math.round
 function legend(series) { return '<div class="legend">' + series.map(s => '<span><i class="k' + s.c + (s.kind === 'bar' ? '' : ' ln') + '"></i>' + esc(s.name) + '</span>').join('') + '</div>'; }
 function hbars(items, opt = {}) {
   const max = Math.max(1, ...items.map(i => Number(i.v) || 0));
-  return '<div class="hbars">' + items.map(i => '<div class="hbar"><span>' + esc(i.l) + '</span><div class="tr' + (opt.tall ? ' tall' : '') + '"><i style="width:' + ((Number(i.v) || 0) / max * 100).toFixed(1) + '%"></i></div><span class="p">' + (isNum(i.v) ? fmt(i.v) + (i.u == null ? '%' : i.u) : '未入力') + '</span></div>').join('') + '</div>';
+  return '<div class="hbars">' + items.map(i => '<div class="hbar"><span>' + esc(i.l) + '</span><div class="tr' + (opt.tall ? ' tall' : '') + '"><i style="width:' + ((Number(i.v) || 0) / max * 100).toFixed(1) + '%"></i></div><span class="p">' + (isNum(i.v) ? (Number(i.v) > 0 && Number(i.v) < 1 ? (Math.round(i.v * 100) / 100).toLocaleString('ja-JP') : fmt(i.v)) + (i.u == null ? '%' : i.u) : '未入力') + '</span></div>').join('') + '</div>';
 }
 function emptyBox(title, sub, icon) { return '<div class="empty">' + (icon || I.users) + '<b>' + esc(title) + '</b><span>' + esc(sub) + '</span></div>'; }
 
@@ -791,55 +793,74 @@ function crossTotals(m) {
   return { interactions: g('interactions'), watchTime: g('watchTime'), impressions: g('impressions'), reach: g('reach'), views: g('views'), followers: g('followers'), followerGrowth: g('followerGrowth'), profileViews: g('profileViews'), linkTaps: g('linkTaps'), clicks: g('clicks'), spend: g('spend'), results: g('results') };
 }
 function crossTiles(m) {
-  const p = addMonth(m, -1), a = crossTotals(m), b = crossTotals(p);
-  const t = (icon, l, k, sub, unit) => '<div class="tile"><span class="lbl">' + icon + l + '</span><span class="val">' + fmt(a[k]) + (unit ? '<small>' + unit + '</small>' : '') + '</span>' + delta(a[k], b[k], '', true) + '<span class="sub">' + sub + '</span></div>';
-  return '<div class="tiles t3">' + t(I.eye, 'インプレッション合計', 'impressions', '入力済みの媒体を合算（再生数は別集計）') + t(I.trend, 'リーチ合計', 'reach', '媒体間の重複は除けません') + t(I.users, 'フォロワー合計', 'followers', 'Instagram・TikTok・YouTubeの合計', '人') +
-    t(I.arrow, 'プロフィール流入合計', 'profileViews', 'Instagram・TikTok') + t(I.tap, 'リンクタップ合計', 'linkTaps', '外部リンク・LINEへのタップ') +
-    '<div class="tile"><span class="lbl">' + I.coin + '広告の成果（CV）</span><span class="val">' + fmt(a.results) + '<small>件</small></span><span class="sub">広告費 ' + yen(a.spend) + '　CPA ' + (isNum(a.spend) && a.results ? yen(a.spend / a.results) : '—') + '</span><span class="sub">Meta広告・TikTokプロモートの合計</span></div></div>';
+  const p = addMonth(m, -1), a = crossTotals(m), b = crossTotals(p), hide = ui.inReport;
+  const t = (icon, l, k, sub, unit) => hide && !isNum(a[k]) ? '' : '<div class="tile"><span class="lbl">' + icon + l + '</span><span class="val">' + fmt(a[k]) + (unit ? '<small>' + unit + '</small>' : '') + '</span>' + delta(a[k], b[k], '', true) + '<span class="sub">' + sub + '</span></div>';
+  const ads = hide && !isNum(a.results) && !isNum(a.spend) ? '' : '<div class="tile"><span class="lbl">' + I.coin + '広告の成果（CV）</span><span class="val">' + fmt(a.results) + '<small>件</small></span><span class="sub">広告費 ' + yen(a.spend) + '　CPA ' + (isNum(a.spend) && a.results ? yen(a.spend / a.results) : '—') + '</span><span class="sub">Meta広告・TikTokプロモートの合計</span></div>';
+  const inner = t(I.eye, 'インプレッション合計', 'impressions', '入力済みの媒体を合算（再生数は別集計）') + t(I.trend, 'リーチ合計', 'reach', '媒体間の重複は除けません') + t(I.users, 'フォロワー合計', 'followers', 'Instagram・TikTok・YouTubeの合計', '人') +
+    t(I.arrow, 'プロフィール流入合計', 'profileViews', 'Instagram・TikTok') + t(I.tap, 'リンクタップ合計', 'linkTaps', '外部リンク・LINEへのタップ') + ads;
+  return inner ? '<div class="tiles t3">' + inner + '</div>' : '';
 }
 function crossTable(m) {
-  const cols = [['impressions', 'インプレッション'], ['reach', 'リーチ'], ['views', '再生数'], ['interactions', 'インタラクション'], ['followers', 'フォロワー'], ['profileViews', 'プロフィール流入'], ['linkTaps', 'リンクタップ']];
+  const hide = ui.inReport;
+  let cols = [['impressions', 'インプレッション'], ['reach', 'リーチ'], ['views', '再生数'], ['interactions', 'インタラクション'], ['followers', 'フォロワー'], ['profileViews', 'プロフィール流入'], ['linkTaps', 'リンクタップ']];
   const tot = crossTotals(m);
-  let h = '<div class="tbl-wrap"><table><thead><tr><th>媒体</th>' + cols.map(c => '<th class="n">' + c[1] + '</th>').join('') + '<th>データ</th></tr></thead><tbody>';
-  CH.forEach(c => {
-    const r = rec(c.k, m);
-    h += '<tr><td><b>' + c.l + '</b><span class="sub">' + c.sub + '</span></td>' + cols.map(([k]) => c.fields.includes(k) ? '<td class="n">' + (r && isNum(r[k]) ? fmt(r[k]) : '<span class="sub">未入力</span>') + '</td>' : '<td class="n dim">対象外</td>').join('') + '<td>' + (r ? '<span class="chip good">入力済</span>' : '<a class="chip" href="#csv" data-act="csvFor" data-ch="' + c.k + '">CSVで入力</a>') + '</td></tr>';
-  });
-  h += '<tr class="total"><td>合計</td>' + cols.map(([k]) => '<td class="n">' + fmt(tot[k]) + '</td>').join('') + '<td></td></tr></tbody></table></div>';
-  const ads = CH.filter(c => c.ads);
-  h += '<div class="tbl-wrap"><table><thead><tr><th>広告媒体</th><th class="n">広告費</th><th class="n">インプレッション</th><th class="n">クリック</th><th class="n">CTR</th><th class="n">CPC</th><th class="n">CPM</th><th class="n">成果数</th><th class="n">CPA</th></tr></thead><tbody>' +
+  let chs = CH;
+  if (hide) {
+    chs = CH.filter(c => { const r = rec(c.k, m); return r && cols.some(([k]) => isNum(r[k])); });
+    cols = cols.filter(([k]) => isNum(tot[k]));
+  }
+  let h = '';
+  if (chs.length && cols.length) {
+    h += '<div class="tbl-wrap"><table><thead><tr><th>媒体</th>' + cols.map(c => '<th class="n">' + c[1] + '</th>').join('') + (hide ? '' : '<th>データ</th>') + '</tr></thead><tbody>';
+    chs.forEach(c => {
+      const r = rec(c.k, m);
+      h += '<tr><td><b>' + c.l + '</b><span class="sub">' + c.sub + '</span></td>' + cols.map(([k]) => c.fields.includes(k) ? '<td class="n">' + (r && isNum(r[k]) ? fmt(r[k]) : (hide ? '—' : '<span class="sub">未入力</span>')) + '</td>' : '<td class="n dim">' + (hide ? '—' : '対象外') + '</td>').join('') + (hide ? '' : '<td>' + (r ? '<span class="chip good">入力済</span>' : '<a class="chip" href="#csv" data-act="csvFor" data-ch="' + c.k + '">CSVで入力</a>') + '</td>') + '</tr>';
+    });
+    h += '<tr class="total"><td>合計</td>' + cols.map(([k]) => '<td class="n">' + fmt(tot[k]) + '</td>').join('') + (hide ? '' : '<td></td>') + '</tr></tbody></table></div>';
+  }
+  const ads = CH.filter(c => c.ads && (!hide || isNum((rec(c.k, m) || {}).spend) || isNum((rec(c.k, m) || {}).results)));
+  if (ads.length) h += '<div class="tbl-wrap"><table><thead><tr><th>広告媒体</th><th class="n">広告費</th><th class="n">インプレッション</th><th class="n">クリック</th><th class="n">CTR</th><th class="n">CPC</th><th class="n">CPM</th><th class="n">成果数</th><th class="n">CPA</th></tr></thead><tbody>' +
     ads.map(c => { const r = rec(c.k, m) || {}; const ok = isNum(r.spend); return '<tr><td><b>' + c.l + '</b></td><td class="n">' + yen(r.spend) + '</td><td class="n">' + fmt(r.impressions) + '</td><td class="n">' + fmt(r.clicks) + '</td><td class="n">' + fmtPct(rate(r.clicks, r.impressions)) + '</td><td class="n">' + (ok && r.clicks ? yen(r.spend / r.clicks) : '—') + '</td><td class="n">' + (ok && r.impressions ? yen(r.spend / r.impressions * 1000) : '—') + '</td><td class="n">' + fmt(r.results) + '</td><td class="n">' + (ok && r.results ? yen(r.spend / r.results) : '—') + '</td></tr>'; }).join('') + '</tbody></table></div>';
   return h;
 }
 function storiesSection(m) {
-  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {};
+  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {}, hide = ui.inReport;
   const ms = monthsOf().filter(x => x <= m).slice(-6);
   const rs = ms.map(x => rec('instagram', x) || {});
   const ser = [{ name: '閲覧数', values: rs.map(x => x.storyViews), kind: 'bar', c: 0 }, { name: '完了率', values: rs.map(x => x.storyCompletion), kind: 'line', axis: 'R', c: 1 }];
   const ch = chart({ labels: ms.map(mShort), series: ser });
+  if (hide && !isNum(r.storyViews) && !isNum(r.storyCompletion) && !ch) return '';
+  const t1 = isNum(r.storyViews) ? '<div class="tile"><span class="lbl">' + I.eye + '当月のストーリーズ閲覧数</span><span class="val">' + fmt(r.storyViews) + '<small>回</small></span>' + delta(r.storyViews, p.storyViews, '回', true) + '</div>' : (hide ? '' : '<div class="tile"><span class="lbl">' + I.eye + '当月のストーリーズ閲覧数</span><span class="val empty">未入力</span><span class="sub">月次データ入力で追加できます</span></div>');
+  const t2 = isNum(r.storyCompletion) ? '<div class="tile"><span class="lbl">' + I.pct + '当月の閲覧完了率</span><span class="val">' + fmtPct(r.storyCompletion) + '</span>' + delta(r.storyCompletion, p.storyCompletion, 'pt') + '</div>' : (hide ? '' : '<div class="tile"><span class="lbl">' + I.pct + '当月の閲覧完了率</span><span class="val empty">未入力</span><span class="sub">月次データ入力で追加できます</span></div>');
   return '<section class="sec-head"><div><div class="eyebrow">STORIES ENGAGEMENT</div><h2>ストーリーズの閲覧状況</h2><p>閲覧数と閲覧完了率から、最後まで見られているかを確認します。</p></div><span class="chip">' + mLabel(m) + '</span></section>' +
-    '<div class="tiles t3"><div class="tile"><span class="lbl">' + I.eye + '当月のストーリーズ閲覧数</span>' + (isNum(r.storyViews) ? '<span class="val">' + fmt(r.storyViews) + '<small>回</small></span>' + delta(r.storyViews, p.storyViews, '回', true) : '<span class="val empty">未入力</span><span class="sub">月次データ入力で追加できます</span>') + '</div>' +
-    '<div class="tile"><span class="lbl">' + I.pct + '当月の閲覧完了率</span>' + (isNum(r.storyCompletion) ? '<span class="val">' + fmtPct(r.storyCompletion) + '</span>' + delta(r.storyCompletion, p.storyCompletion, 'pt') : '<span class="val empty">未入力</span><span class="sub">月次データ入力で追加できます</span>') + '</div></div>' +
-    '<div class="panel"><div class="panel-h"><div class="eyebrow">MONTHLY TREND</div><h3 class="bar-title">閲覧数と閲覧完了率の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('ストーリーズのデータがありません', '月次データ入力かCSVで追加してください', I.eye)) + '</div></div>';
+    (t1 || t2 ? '<div class="tiles t3">' + t1 + t2 + '</div>' : '') +
+    (ch || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">MONTHLY TREND</div><h3 class="bar-title">閲覧数と閲覧完了率の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('ストーリーズのデータがありません', '月次データ入力かCSVで追加してください', I.eye)) + '</div></div>' : '');
 }
+function attrLines(text) { return String(text || '').split('\n').map(l => l.trim().match(/^(.+?)[\s,:：]+([\d.]+)%?$/)).filter(Boolean).map(x => ({ l: x[1], v: Number(x[2]) })); }
 function followerSection(m, opts = {}) {
-  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {}, d = demoFor(m);
+  const r = rec('instagram', m) || {}, p = rec('instagram', addMonth(m, -1)) || {}, d = demoFor(m), hide = ui.inReport;
   const ms = monthsOf().filter(x => x <= m).slice(-12);
   const growth = isNum(r.followerGrowth) ? r.followerGrowth : (isNum(r.followers) && isNum(p.followers) ? r.followers - p.followers : null);
   const hasG = d && (isNum(d.female) || isNum(d.male)), ages = d ? AGES.filter(a => isNum((d.ages || {})[a])) : [];
-  const locs = d ? String(d.locations || '').split('\n').map(l => l.trim().match(/^(.+?)[\s,:：]+([\d.]+)%?$/)).filter(Boolean).map(x => ({ l: x[1], v: Number(x[2]) })) : [];
+  const locs = d ? attrLines(d.locations) : [], cities = d ? attrLines(d.cities) : [], countries = d ? attrLines(d.countries) : [];
   const ser = [{ name: 'Instagram', values: ms.map(x => (rec('instagram', x) || {}).followers), kind: 'line', c: 0, area: true }];
   if (opts.allChannels) { ser.push({ name: 'TikTok', values: ms.map(x => (rec('tiktok', x) || {}).followers), kind: 'line', c: 1 }); ser.push({ name: 'YouTube', values: ms.map(x => (rec('youtube', x) || {}).followers), kind: 'line', c: 3 }); }
   const ch = chart({ labels: ms.map(mShort), series: ser, minL: opts.allChannels ? null : 'auto' });
   const none = emptyBox('フォロワー属性は未入力', '月次データ入力かCSV（フォロワー属性）で追加できます');
+  const panel = (eb, title, body, has, always) => (has || (always && !hide)) ? '<div class="panel"><div class="panel-h"><div class="eyebrow">' + eb + '</div><h3 class="bar-title">' + title + '</h3></div>' + (has ? body : none) + '</div>' : '';
+  const panels = panel('GENDER RATIO', '男女比', hasG ? hbars([{ l: '女性', v: d.female }, { l: '男性', v: d.male }].concat(isNum(d.other) ? [{ l: 'その他・不明', v: d.other }] : [])) : '', hasG, true) +
+    panel('AGE PROFILE', '年齢層', ages.length ? hbars(AGES.filter(a => !hide || isNum(d.ages[a])).map(a => ({ l: a + '歳', v: d.ages[a] }))) : '', ages.length, true) +
+    panel('PREFECTURE', 'フォロワー居住地（都道府県）', hbars(locs.slice(0, 8)), locs.length, true) +
+    panel('CITY', '市区町村（上位）', hbars(cities.slice(0, 8)), cities.length, false) +
+    panel('COUNTRY', '国', hbars(countries.slice(0, 6)), countries.length, false);
+  const t1 = isNum(r.followers) || !hide ? '<div class="tile"><span class="lbl">' + I.users + 'フォロワー数（Instagram）</span><span class="val">' + fmt(r.followers) + '<small>人</small></span>' + delta(r.followers, p.followers, '人', true) + '</div>' : '';
+  const t2 = isNum(growth) || !hide ? '<div class="tile"><span class="lbl">' + I.trend + 'フォロワー増加数（純増）</span><span class="val">' + (isNum(growth) ? (growth > 0 ? '+' : '') + fmt(growth) : '—') + '<small>人</small></span><span class="sub">' + (isNum(r.followerGrowth) ? '入力値' : '前月との差から計算') + '</span></div>' : '';
+  if (hide && !t1 && !t2 && !panels && !ch) return '';
   return '<section class="sec-head"><div><div class="eyebrow">FOLLOWERS INTELLIGENCE</div><h2>フォロワーの、その輪郭。</h2></div><span class="chip">' + mLabel(m) + '</span></section>' +
-    '<div class="tiles t3"><div class="tile"><span class="lbl">' + I.users + 'フォロワー数（Instagram）</span><span class="val">' + fmt(r.followers) + '<small>人</small></span>' + delta(r.followers, p.followers, '人', true) + '</div>' +
-    '<div class="tile"><span class="lbl">' + I.trend + 'フォロワー増加数（純増）</span><span class="val">' + (isNum(growth) ? (growth > 0 ? '+' : '') + fmt(growth) : '—') + '<small>人</small></span><span class="sub">' + (isNum(r.followerGrowth) ? '入力値' : '前月との差から計算') + '</span></div></div>' +
-    '<div class="grid3"><div class="panel"><div class="panel-h"><div class="eyebrow">GENDER RATIO</div><h3 class="bar-title">男女比</h3></div>' + (hasG ? hbars([{ l: '女性', v: d.female }, { l: '男性', v: d.male }, { l: 'その他・不明', v: d.other }]) : none) + '</div>' +
-    '<div class="panel"><div class="panel-h"><div class="eyebrow">AGE PROFILE</div><h3 class="bar-title">年齢層</h3></div>' + (ages.length ? hbars(AGES.map(a => ({ l: a + '歳', v: d.ages[a] }))) : none) + '</div>' +
-    '<div class="panel"><div class="panel-h"><div class="eyebrow">AUDIENCE LOCATION</div><h3 class="bar-title">フォロワー居住地</h3></div>' + (locs.length ? hbars(locs.slice(0, 7)) : none) + '</div></div>' +
-    (d && d.month !== m ? '<p class="hint">属性は' + mLabel(d.month) + 'に入力した値を表示しています。</p>' : '') +
-    '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER GROWTH</div><h3 class="bar-title">フォロワー数の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('フォロワー数が未入力です', '月次データに入れると推移が表示されます')) + '</div></div>';
+    (t1 || t2 ? '<div class="tiles t3">' + t1 + t2 + '</div>' : '') +
+    (panels ? '<div class="grid3">' + panels + '</div>' : '') +
+    (d && d.month !== m && panels ? '<p class="hint">属性は' + mLabel(d.month) + 'の値を表示しています。</p>' : '') +
+    (ch || !hide ? '<div class="panel"><div class="panel-h"><div class="eyebrow">FOLLOWER GROWTH</div><h3 class="bar-title">フォロワー数の月次推移</h3><div class="right">' + legend(ser) + '</div></div><div class="chart">' + (ch || emptyBox('フォロワー数が未入力です', '月次データに入れると推移が表示されます')) + '</div></div>' : '');
 }
 function suggestions(m) {
   const st = steps(m), out = [];
@@ -855,8 +876,8 @@ function suggestions(m) {
   const r = rec('instagram', m) || {};
   if (isNum(r.storyCompletion) && r.storyCompletion < 60) out.push({ t: 'ストーリーズを短く', d: '完了率 ' + fmtPct(r.storyCompletion) + '。枚数を絞り、1枚目で結論を見せる。' });
   const empty = CH.filter(c => !rec(c.k, m)).map(c => c.l);
-  if (empty.length) out.push({ t: '未入力の媒体を埋める', d: empty.join('・') + 'のCSVを取り込むと、媒体横断の比較ができます。' });
-  if (!out.length) out.push({ t: '全ステップが、基準をクリア。', d: '目標を一段上げるか、成果の出ている投稿の型を横展開しましょう。' });
+  if (empty.length && !ui.inReport) out.push({ t: '未入力の媒体を埋める', d: empty.join('・') + 'のCSVを取り込むと、媒体横断の比較ができます。' });
+  if (!out.length && st.some(x => isNum(x.rate))) out.push({ t: '全ステップが、基準をクリア。', d: '目標を一段上げるか、成果の出ている投稿の型を横展開しましょう。' });
   return out;
 }
 
@@ -1035,6 +1056,14 @@ R.csv = () => {
       const agg = aggregate(f);
       if (!agg.error) total += agg.groups ? agg.groups.length : 1;
       h += '<div class="panel"><div class="panel-h"><h3 class="bar-title" style="overflow-wrap:anywhere">' + esc(f.name) + '</h3><span class="right">' + (agg.error ? '<span class="chip bad">読み取れませんでした</span>' : '<span class="chip good">読み取り完了</span>') + '</span><button class="btn sm ghost" data-act="csvDropFile" data-i="' + i + '">外す</button></div>';
+      if (f.kind === 'attr') {
+        const lab = { age: '年齢・男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr];
+        h += '<div class="grid3" style="margin-bottom:12px"><div class="field"><span>フォロワー属性</span><b style="padding-top:8px">' + lab + '</b></div><label class="field"><span>何月の属性？</span><input type="month" data-fm="' + i + '" value="' + f.month + '"></label></div>';
+        if (agg.error) h += '<p class="hint">' + esc(agg.error) + '</p>';
+        else if (f.attr === 'age') h += '<div class="grid2"><div><b style="font-size:12px">男女比</b>' + hbars([{ l: '女性', v: agg.attr.female }, { l: '男性', v: agg.attr.male }]) + '</div><div><b style="font-size:12px">年齢層</b>' + hbars(AGES.filter(a => isNum(agg.attr.ages[a])).map(a => ({ l: a + '歳', v: agg.attr.ages[a] }))) + '</div></div>';
+        else h += hbars(agg.attr.items.slice(0, 8)) + (agg.attr.items.length > 8 ? '<p class="hint" style="margin-top:6px">ほか ' + (agg.attr.items.length - 8) + '件（「不明」は除いています）</p>' : '<p class="hint" style="margin-top:6px">「不明」は除いています</p>');
+        h += '</div>'; return;
+      }
       if (f.kind === 'posts') {
         if (!agg.error) {
           const cnt = t => agg.posts.filter(p => p.type === t).length, ms = [...new Set(agg.posts.map(p => p.month))].sort();
@@ -1336,23 +1365,36 @@ R.tasks = () => {
 /* ---- report ---- */
 R.report = () => {
   const c = client(); if (!c) return noClient('成果を、伝えよう。');
-  const m = curMonth(), b = S.brand, v = VER[S.ver], r = rec('instagram', m) || {}, n = note(m), t = tgt();
-  let h = head('PERFORMANCE REPORT', '成果を、伝えよう。', cLead(), monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<a class="btn" href="#input">コメントを編集</a>');
+  const m = curMonth(), b = S.brand, v = VER[S.ver], r = rec('instagram', m) || {}, n = note(m);
+  let h = head('PERFORMANCE REPORT', '成果を、伝えよう。', cLead() + '　データのない項目は表示しません。', monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<a class="btn" href="#input">コメントを編集</a>');
   h += sampleBar();
-  if (!monthsOf().length) return h + '<div class="panel">' + emptyBox('レポートにできる数字がありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.report) + '</div>';
-  const st = steps(m);
-  h += '<article class="doc"><div class="doc-head"><div><div class="eyebrow">' + esc(b.company || b.appName) + ' / MONTHLY REPORT</div><h2>' + esc(c.name) + '</h2><p class="hint">' + mLabel(m) + '度　' + v.name + 'レポート</p></div>' + (b.logo ? '<img src="' + esc(b.logo) + '" alt="">' : burst(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FF6600').replace('width="28" height="28"', 'width="44" height="44"')) + '</div>' +
-    '<div class="hero-num"><span class="eyebrow">' + mLabel(m) + ' / プロフィール流入</span><span class="v">' + fmt(r.profileViews) + '</span><span style="font-size:12px">リーチ ' + fmt(r.reach) + ' → プロフィール ' + fmt(r.profileViews) + ' → LINE ' + fmt(r.line) + ' → ' + v.entry + ' ' + fmt(r.entry) + ' → ' + v.hire + ' ' + fmt(r.hire) + '</span></div>' +
-    '<div class="comment"><b>今月の総評</b><p>' + esc(n.summary || 'リーチ ' + fmt(r.reach) + '、プロフィール流入 ' + fmt(r.profileViews) + '、LINE登録 ' + fmt(r.line) + '、' + v.entry + ' ' + fmt(r.entry) + '、' + v.hire + ' ' + fmt(r.hire) + '件でした。') + '</p></div>' +
-    '<div class="comment"><b>今後の展望</b><p>' + esc(n.outlook || suggestions(m).map(s => s.t).join('／')) + '</p></div>' +
-    '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">MONTHLY COMMITMENT</div><h2>約束した数字に、どこまで届いたか。</h2></div></div>' + commitSummary(m) + commitTiles(m) + commitHistory(m, 6) + '</section>' +
-    '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">KPI FUNNEL</div><h2>集客から' + v.hire + 'までの、流れ。</h2></div></div><div class="tbl-wrap"><table><thead><tr><th>段階</th><th class="n">実績</th><th class="n">目標</th><th>状態</th></tr></thead><tbody>' + st.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td>' + (!isNum(s.rate) ? '<span class="chip">未入力</span>' : s.rate >= s.target ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>').join('') + '<tr class="total"><td>' + v.goal + '（月目標 ' + fmt(goalsFor(m).hire) + '件）</td><td class="n">' + fmt(r.hire) + '件</td><td class="n">' + fmtPct(rate(r.hire, goalsFor(m).hire)) + '</td><td></td></tr></tbody></table></div></section>' +
-    '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><span class="chip">' + mLabel(m) + '</span></div>' + crossTiles(m) + crossTable(m) + '</section>' +
-    '<section style="display:grid;gap:14px">' + storiesSection(m) + '</section>' +
-    '<section style="display:grid;gap:14px">' + followerSection(m) + '</section>' +
-    postsTop(m) +
-    '<section class="next"><div><div class="eyebrow" style="color:var(--side-muted)">NEXT ACTIONS</div><div class="big">WHAT\'S<br>NEXT<span>?</span></div></div><div><p style="margin:0 0 12px;font-size:12px;color:var(--side-muted)">次の成果につながる提案</p><ul>' + suggestions(m).map(s => '<li>' + I.check + '<div><b>' + esc(s.t) + '</b><span>' + esc(s.d) + '</span></div></li>').join('') + '</ul></div></section>' +
-    '<p class="hint" style="text-align:center">' + esc(b.company || b.appName) + '　/　' + esc(c.name) + '　' + mLabel(m) + '</p></article>';
+  if (!monthsOf().length && !demoFor(m) && !postsOf().some(x => x.month === m)) return h + '<div class="panel">' + emptyBox('レポートにできる数字がありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.report) + '</div>';
+  ui.inReport = true;
+  try {
+    const st = steps(m).filter(s => isNum(s.rate));
+    const flow = [['リーチ', r.reach], ['プロフィール', r.profileViews], ['LINE', r.line], [v.entry, r.entry], [v.interview, r.interview], [v.hire, r.hire]].filter(x => isNum(x[1]));
+    const heroK = isNum(r.profileViews) ? ['プロフィール流入', r.profileViews] : isNum(r.reach) ? ['リーチ', r.reach] : flow[0] || null;
+    const facts = flow.map(x => x[0] + ' ' + fmt(x[1])).join('、');
+    const summary = n.summary || (facts ? facts + 'でした。' : '');
+    const cm = commit(m), hasCommit = cm.count > 0;
+    const goalHire = goalsFor(m).hire;
+    const cross = crossTiles(m) + crossTable(m), sugg = suggestions(m);
+    h += '<article class="doc"><div class="doc-head"><div><div class="eyebrow">' + esc(b.company || b.appName) + ' / MONTHLY REPORT</div><h2>' + esc(c.name) + '</h2><p class="hint">' + mLabel(m) + '度　' + v.name + 'レポート</p></div>' + (b.logo ? '<img src="' + esc(b.logo) + '" alt="">' : burst(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FF6600').replace('width="28" height="28"', 'width="44" height="44"')) + '</div>' +
+      (heroK ? '<div class="hero-num"><span class="eyebrow">' + mLabel(m) + ' / ' + heroK[0] + '</span><span class="v">' + fmt(heroK[1]) + '</span>' + (flow.length > 1 ? '<span style="font-size:12px">' + flow.map(x => x[0] + ' ' + fmt(x[1])).join(' → ') + '</span>' : '') + '</div>' : '') +
+      (summary ? '<div class="comment"><b>今月の総評</b><p>' + esc(summary) + '</p></div>' : '') +
+      ((n.outlook || sugg.length) ? '<div class="comment"><b>今後の展望</b><p>' + esc(n.outlook || sugg.map(s => s.t).join('／')) + '</p></div>' : '') +
+      (hasCommit ? '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">MONTHLY COMMITMENT</div><h2>約束した数字に、どこまで届いたか。</h2></div></div>' + commitSummary(m) + commitTiles(m) + commitHistory(m, 6) + '</section>' : '') +
+      (st.length || isNum(r.hire) ? '<section style="display:grid;gap:12px"><div class="sec-head"><div><div class="eyebrow">KPI FUNNEL</div><h2>集客から' + v.hire + 'までの、流れ。</h2></div></div><div class="tbl-wrap"><table><thead><tr><th>段階</th><th class="n">実績</th><th class="n">目標</th><th>状態</th></tr></thead><tbody>' +
+        st.map(s => '<tr><td>' + esc(s.from) + ' → ' + esc(s.to) + '</td><td class="n"><b>' + fmtPct(s.rate) + '</b></td><td class="n">' + fmtPct(s.target) + '</td><td>' + (s.rate >= s.target ? '<span class="chip good">達成</span>' : '<span class="chip bad">未達</span>') + '</td></tr>').join('') +
+        (isNum(r.hire) ? '<tr class="total"><td>' + v.goal + (isNum(goalHire) ? '（月目標 ' + fmt(goalHire) + '件）' : '') + '</td><td class="n">' + fmt(r.hire) + '件</td><td class="n">' + (isNum(goalHire) ? fmtPct(rate(r.hire, goalHire)) : '') + '</td><td></td></tr>' : '') + '</tbody></table></div></section>' : '') +
+      (cross ? '<section style="display:grid;gap:14px"><div class="sec-head"><div><div class="eyebrow">CROSS-CHANNEL PERFORMANCE</div><h2>媒体を横断して、成果を見る。</h2></div><span class="chip">' + mLabel(m) + '</span></div>' + cross + '</section>' : '');
+    const stories = storiesSection(m), followers = followerSection(m);
+    h += (stories ? '<section style="display:grid;gap:14px">' + stories + '</section>' : '') +
+      (followers ? '<section style="display:grid;gap:14px">' + followers + '</section>' : '') +
+      postsTop(m) +
+      (sugg.length ? '<section class="next"><div><div class="eyebrow" style="color:var(--side-muted)">NEXT ACTIONS</div><div class="big">WHAT\'S<br>NEXT<span>?</span></div></div><div><p style="margin:0 0 12px;font-size:12px;color:var(--side-muted)">次の成果につながる提案</p><ul>' + sugg.map(s => '<li>' + I.check + '<div><b>' + esc(s.t) + '</b><span>' + esc(s.d) + '</span></div></li>').join('') + '</ul></div></section>' : '') +
+      '<p class="hint" style="text-align:center">' + esc(b.company || b.appName) + '　/　' + esc(c.name) + '　' + mLabel(m) + '</p></article>';
+  } finally { ui.inReport = false; }
   return h;
 };
 
@@ -1509,6 +1551,7 @@ function toCh(v) {
 function toNum(v) { const s = String(v == null ? '' : v).replace(/[,\s%件人回円¥￥]/g, ''); if (s === '' || s === '-' || s === '—') return null; const n = Number(s); return isNaN(n) ? null : n; }
 function aggregate(f) {
   const { rows, map, kind } = f;
+  if (kind === 'attr') { const a = parseAttr(f); return a.error ? a : { attr: a }; }
   if (kind === 'posts') { const posts = parsePosts(f); return posts.length ? { posts } : { error: '投稿日のある行が見つかりませんでした。' }; }
   if (kind === 'demo') {
     const g = [], a = [], l = [];
@@ -1551,7 +1594,7 @@ function findHeader(rows) {
   rows.slice(0, 12).forEach((r, i) => { const n = Object.keys(autoMap(r)).length; if (n > score && r.filter(x => String(x).trim()).length >= 2) { score = n; best = i; } });
   return best;
 }
-function monthFromText(t) { const m = toMonth(String(t || '').replace(/[_\s]/g, '-')); return m && m >= '2000-01' && m <= '2099-12' ? m : null; }
+function monthFromText(t) { const ymd = String(t || '').match(/(20\d{2})(0[1-9]|1[0-2])([0-3]\d)/); if (ymd) return ymd[1] + '-' + ymd[2]; const m = toMonth(String(t || '').replace(/[_\s]/g, '-')); return m && m >= '2000-01' && m <= '2099-12' ? m : null; }
 function guessChannel(name, text) {
   const n = String(name).toLowerCase().replace(/\.(csv|tsv|txt)$/, ''), h = String(text).toLowerCase();
   const byName = toCh(n); if (byName) return byName;
@@ -1561,6 +1604,44 @@ function guessChannel(name, text) {
   if (/video views|動画視聴数|動画の視聴|profile views|プロフィール表示/.test(h) && !/ストーリー|story/.test(h)) return 'tiktok';
   return ui.csvCh && ui.csvCh !== 'auto' ? ui.csvCh : 'instagram';
 }
+function detectAttr(headers) {
+  const n = headers.map(h => String(h).trim());
+  const has = re => n.some(h => re.test(h));
+  if (has(/^年齢/) && has(/女性|男性|female|male/i)) return 'age';
+  if (!has(/フォロワー|%|割合|follower/i)) return null;
+  if (has(/市区町村|^city$/i)) return 'city';
+  if (has(/^(国|国名|country)$/i)) return 'country';
+  if (has(/^都道府県$|^地域$|^region$/i)) return 'pref';
+  return null;
+}
+function countPct(v) {
+  const m = String(v || '').match(/([\d,.]+)\s*[（(]\s*([\d.]+)\s*%?\s*[)）]/);
+  if (m) return { n: Number(m[1].replace(/,/g, '')), p: Number(m[2]) };
+  const x = toNum(v); return x === null ? null : { n: x, p: null };
+}
+function parseAttr(f) {
+  const H = f.headers.map(h => String(h).trim()), col = re => H.findIndex(h => re.test(h));
+  if (f.attr === 'age') {
+    const ai = col(/^年齢/), fi = col(/女性.*人|女性\(人\)/), mi = col(/男性.*人|男性\(人\)/), fp = col(/女性.*%/), mp = col(/男性.*%/);
+    const rows = f.rows.map(r => {
+      const raw = String(r[ai] || '').replace(/歳/g, '').replace(/以上/, '+').replace(/[〜~ー–]/g, '-').trim();
+      const k = AGES.find(a => raw.startsWith(a.replace('+', ''))) || null;
+      const fv = toNum(r[fi >= 0 ? fi : fp]) || 0, mv = toNum(r[mi >= 0 ? mi : mp]) || 0;
+      return k ? { k, f: fv, m: mv } : null;
+    }).filter(Boolean);
+    const tot = rows.reduce((a, x) => a + x.f + x.m, 0);
+    if (!rows.length || !tot) return { error: '年齢の行が見つかりませんでした。' };
+    const ft = rows.reduce((a, x) => a + x.f, 0), mt = rows.reduce((a, x) => a + x.m, 0), r1 = v => Math.round(v * 10) / 10;
+    return { ages: Object.fromEntries(rows.map(x => [x.k, r1((x.f + x.m) / tot * 100)])), female: r1(ft / tot * 100), male: r1(mt / tot * 100) };
+  }
+  const vi = col(/フォロワー|follower|%|割合/i);
+  const li = f.attr === 'city' ? col(/市区町村|^city$/i) : f.attr === 'country' ? col(/^(国|国名|country)$/i) : col(/^都道府県$|^地域$|^region$/i);
+  const pi = f.attr === 'city' ? col(/^都道府県$/) : -1;
+  const raw = f.rows.map(r => ({ l: String(r[li] || '').trim(), pref: pi >= 0 ? String(r[pi] || '').trim() : '', c: countPct(r[vi]) })).filter(x => x.l && x.c && !/^(不明|unknown|その他)$/i.test(x.l));
+  const total = f.rows.reduce((a, r) => a + ((countPct(r[vi]) || {}).n || 0), 0);
+  const items = raw.map(x => ({ l: f.attr === 'city' && x.pref && x.pref !== x.l ? x.l + '（' + x.pref.replace(/[都道府県]$/, '') + '）' : x.l, v: isNum(x.c.p) ? x.c.p : (total ? Math.round(x.c.n / total * 1000) / 10 : x.c.n) }));
+  return items.length ? { items } : { error: 'フォロワーの行が見つかりませんでした。' };
+}
 function loadFile(name, text) {
   const all = parseCSV(text);
   if (all.length < 2) { toast('「' + name + '」は表として読み取れませんでした'); return; }
@@ -1568,6 +1649,12 @@ function loadFile(name, text) {
   const rows = all.slice(hi + 1).map(r => headers.map((_, i) => r[i] == null ? '' : String(r[i]).trim())).filter(r => r.some(x => x));
   const pre = all.slice(0, hi).map(r => r.join(' ')).join(' ');
   const isDemo = headers.some(h => /区分/.test(h)) && headers.some(h => /割合|%|比率/.test(h));
+  const attr = detectAttr(headers);
+  if (attr) {
+    ui.files = ui.files || [];
+    ui.files.push({ name, headers, rows, kind: 'attr', attr, map: {}, month: monthFromText(name) || monthFromText(pre) || csvT().m });
+    render(); return;
+  }
   const pmap = postMap(headers), pk = Object.values(pmap);
   if (!isDemo && (pk.includes('id') || pk.includes('permalink') || pk.includes('type')) && pk.includes('date') && pk.some(k => ['views', 'reach', 'likes'].includes(k))) {
     ui.files = ui.files || [];
@@ -1718,6 +1805,14 @@ A.csvImport = () => {
       postsOnly = postsOnly && true; ui.postMonth = lastM; return;
     }
     postsOnly = false;
+    if (f.kind === 'attr') {
+      const d = demoEdit(f.month), a = agg.attr, lines = a.items ? a.items.map(x => x.l + ' ' + x.v).join('\n') : '';
+      if (f.attr === 'age') { d.ages = a.ages; d.female = a.female; d.male = a.male; delete d.other; }
+      else if (f.attr === 'pref') d.locations = lines;
+      else if (f.attr === 'city') d.cities = lines;
+      else d.countries = lines;
+      n++; if (!lastM || f.month > lastM) lastM = f.month; return;
+    }
     if (f.kind === 'demo') {
       const d = demoEdit(f.month);
       agg.demo.g.forEach(x => { if (/女/.test(x.l) || /female/i.test(x.l)) d.female = x.v; else if (/男/.test(x.l) || /^male/i.test(x.l)) d.male = x.v; else d.other = x.v; });
