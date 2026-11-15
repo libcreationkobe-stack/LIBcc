@@ -377,6 +377,15 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .aud-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .aud-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
 .aud-legend b { color: var(--ink); }
+.sheet th, .sheet td { border-right: 1px solid var(--line); padding: 8px 7px; }
+.sheet td input.cell { width: 80px; padding: 4px 5px; }
+.sheet td.rate { min-width: 52px; }
+.sheet thead th { background: var(--accent-soft); color: var(--ink); font-weight: 700; font-size: 12px; }
+.sheet thead th.rate { font-weight: 500; color: var(--muted); }
+.sheet tbody th { background: var(--surface); font-weight: 500; font-size: 12.5px; color: var(--ink); white-space: nowrap; }
+.sheet td.rate { color: var(--muted); font-size: 12px; background: var(--field); }
+.sheet td .sub { display: block; font-size: 10px; color: var(--muted); }
+.sheet-title { font-weight: 700; font-size: 14px; margin-bottom: 12px; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--side); color: var(--side-ink); padding: 10px 18px; border-radius: var(--radius); font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -594,6 +603,7 @@ function seed() {
         P('story', '26', '先輩の一言', { views: 790, reach: 650, completions: 230, replies: 0, shares: 0, linkClicks: 1 })
       ];
     })() } },
+    sims: { aurora: { recruit: { start: '2026-05', count: 6, vals: { top: [200000, 150000, 150000, 200000, 300000, 400000], profileViews: [3000, 2000, 2000, 2800, 3500, 7800], line: [15, 20, 20, 25, 28, 30], entry: [2, 3, 3, 4, 5, 6], hire: [1, 1, 1, 1, 2, 2] }, notes: '※同業または、類似業種の実績に基づいたシミュレーションになります。\n※上記指標はシミュレーションであり確約するものではありません。', comment: '' } } },
     editors: [{ id: 'owner', name: 'アプリ所有者', email: '', role: 'owner', clients: [] }],
     brand: defaultBrand()
   };
@@ -606,7 +616,7 @@ const store = {
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
-['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims'].forEach(k => S[k] = S[k] || {});
 function save(msg) { const ok = store.set(S); if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます'); }
 
 /* ================= helpers ================= */
@@ -972,7 +982,7 @@ function suggestions(m) {
 }
 
 /* ================= views ================= */
-let ui = { folCh: 'all', postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
+let ui = { simTab: 'plan', simTop: 'impressions', simTsv: '', simActN: 6, simVsPlan: true, folCh: 'all', postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
 
 const VIEWS = {
   dashboard: { label: 'ダッシュボード', group: 'WORKSPACE', icon: 'dash' },
@@ -985,6 +995,7 @@ const VIEWS = {
   posts: { label: 'コンテンツ分析', group: 'ANALYTICS', icon: 'image' },
   channels: { label: '媒体横断分析', group: 'ANALYTICS', icon: 'layers' },
   compare: { label: '期間比較', group: 'ANALYTICS', icon: 'compare' },
+  sim: { label: '運用シミュレーション', group: 'ANALYTICS', icon: 'trend' },
   report: { label: '成果レポート', group: 'ANALYTICS', icon: 'report' },
   tasks: { label: '制作管理', group: 'PRODUCTION', icon: 'tasks' },
   targets: { label: '目標設定', group: 'SETTINGS', icon: 'target' },
@@ -1356,6 +1367,76 @@ function readThumb(file, id) {
   img.onerror = () => toast('画像を読み込めませんでした');
   img.src = url;
 }
+
+/* ---- simple simulation sheet (plan) and the same layout for actuals ---- */
+function simRows() {
+  const v = VER[S.ver];
+  return [['top', ui.simTop === 'reach' ? 'リーチ数' : '再生数'], ['profileViews', 'プロフ流入数'], ['line', 'LINE追加数'], ['entry', v.entry === 'エントリー' ? '応募数' : v.entry + '数'], ['hire', v.name === '採用' ? '採用数' : v.hire + '数']];
+}
+function simOf() {
+  const c = S.current, v = S.ver; S.sims[c] = S.sims[c] || {};
+  if (!S.sims[c][v]) S.sims[c][v] = { start: addMonth(thisMonth(), 1), count: 6, vals: {}, notes: '※同業または、類似業種の実績に基づいたシミュレーションになります。\n※上記指標はシミュレーションであり確約するものではありません。', comment: '' };
+  const s = S.sims[c][v]; s.vals = s.vals || {}; return s;
+}
+function actualOf(m, k) {
+  const r = rec('instagram', m) || {};
+  if (k === 'top') return ui.simTop === 'reach' ? (isNum(r.reach) ? r.reach : null) : (isNum(r.impressions) ? r.impressions : null);
+  return isNum(r[k]) ? r[k] : null;
+}
+function simTable(cols, getVal, getPlan) {
+  const rows = simRows();
+  let h = '<div class="tbl-wrap"><table class="sheet"><thead><tr><th>項目</th>' + cols.map(c => '<th class="n">' + esc(c.label) + '</th><th class="n rate">遷移率</th>').join('') + '</tr></thead><tbody>';
+  rows.forEach(([k, l], ri) => {
+    h += '<tr><th scope="row">' + l + '</th>' + cols.map((c, ci) => {
+      const v = getVal(c, k), prev = ri ? getVal(c, rows[ri - 1][0]) : null;
+      const rt = ri && isNum(v) && isNum(prev) && prev > 0 ? v / prev * 100 : null;
+      const plan = getPlan ? getPlan(c, k) : undefined;
+      return '<td class="n">' + (c.edit ? '<input class="cell" type="number" min="0" step="any" data-sim="' + k + '" data-si="' + ci + '" value="' + (isNum(v) ? v : '') + '" aria-label="' + esc(c.label + ' ' + l) + '">' : fmt(v)) +
+        (plan !== undefined ? '<span class="sub">計画 ' + fmt(plan) + (isNum(plan) && isNum(v) && plan > 0 ? '（' + Math.round(v / plan * 100) + '%）' : '') + '</span>' : '') + '</td>' +
+        '<td class="n rate">' + (ri ? (isNum(rt) ? (Math.round(rt * 10) / 10).toFixed(1) + '%' : '') : '') + '</td>';
+    }).join('') + '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+function simTSV(cols, getVal, title) {
+  const rows = simRows(), out = [[title], ['項目', ...cols.flatMap(c => [c.label, '遷移率'])]];
+  rows.forEach(([k, l], ri) => out.push([l, ...cols.flatMap(c => { const v = getVal(c, k), p = ri ? getVal(c, rows[ri - 1][0]) : null; return [isNum(v) ? v : '', ri && isNum(v) && isNum(p) && p > 0 ? (Math.round(v / p * 1000) / 10).toFixed(1) + '%' : '']; })]));
+  return out.map(r => r.join('\t')).join('\n');
+}
+R.sim = () => {
+  const c = client(); if (!c) return noClient('先の数字を、描く。');
+  const tab = ui.simTab;
+  let h = head('SIMULATION', '先の数字を、描く。', cLead() + '　スプレッドシートと同じ形の、シンプルな表です。',
+    '<div class="seg">' + [['plan', 'シミュレーション（計画）'], ['actual', '実績']].map(([k, l]) => '<button data-act="simTab" data-k="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>');
+  const top = '<label class="row" style="font-size:12px;color:var(--muted)">一番上の項目 <select class="input" style="width:auto" id="simTop"><option value="impressions"' + (ui.simTop !== 'reach' ? ' selected' : '') + '>再生数（閲覧数）</option><option value="reach"' + (ui.simTop === 'reach' ? ' selected' : '') + '>リーチ数</option></select></label>';
+  if (tab === 'plan') {
+    const sm = simOf(), cols = Array.from({ length: sm.count }, (_, i) => ({ i, label: (i + 1) + 'ヶ月目', edit: true }));
+    const get = (col, k) => { const a = sm.vals[k] || []; return isNum(a[col.i]) ? a[col.i] : null; };
+    h += '<div class="panel sheet-doc"><div class="sheet-title">' + esc(c.name) + '様　運用シミュレーション</div>' + simTable(cols, get) +
+      '<label class="field" style="margin-top:12px"><span>注意書き</span><textarea data-simf="notes" rows="2">' + esc(sm.notes || '') + '</textarea></label>' +
+      '<label class="field" style="margin-top:12px"><span>担当者コメント</span><textarea data-simf="comment" rows="4" placeholder="例：御社業種の場合、3ヶ月目までは認知を広げる投稿を中心に…">' + esc(sm.comment || '') + '</textarea></label></div>';
+    h += '<div class="panel"><div class="row">' + top +
+      '<label class="row" style="font-size:12px;color:var(--muted)">期間 <select class="input" style="width:auto" id="simCount">' + [3, 6, 9, 12].map(n => '<option' + (n === sm.count ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>ヶ月</label>' +
+      '<label class="row" style="font-size:12px;color:var(--muted)">1ヶ月目 <input type="month" class="input" style="width:auto" id="simStart" value="' + sm.start + '"></label></div>' +
+      '<div class="row" style="margin-top:12px"><button class="btn" data-act="simCopy">' + I.copy + 'スプレッドシート用にコピー</button><button class="btn dark" data-act="simToGoals">' + I.target + 'この計画を月目標に反映</button><button class="btn ghost" data-act="simClear">数字をすべて消す</button></div>' +
+      '<p class="hint" style="margin-top:8px">遷移率は、1つ上の項目に対する割合を自動で計算します。「月目標に反映」は、1ヶ月目を ' + mLabel(sm.start) + ' として、プロフ流入・LINE・' + VER[S.ver].entry + '・' + VER[S.ver].hire + 'の目標（目標設定の「月ごとの目標」）に入れます。</p>' +
+      (ui.simTsv ? '<textarea class="input mono" id="simTsvBox" readonly rows="4" style="margin-top:10px">' + esc(ui.simTsv) + '</textarea>' : '') + '</div>';
+    return h;
+  }
+  // actuals in the same layout
+  const ms = monthsOf().filter(x => x <= curMonth()).slice(-(ui.simActN || 6));
+  if (!ms.length) return h + '<div class="panel">' + emptyBox('実績がまだありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.input) + '</div>';
+  const sm = (((S.sims[S.current] || {})[S.ver]) || null);
+  const cols = ms.map(m => ({ m, label: mLabel(m) }));
+  const planOf = sm && ui.simVsPlan ? (col, k) => { const i = (+col.m.slice(0, 4) - +sm.start.slice(0, 4)) * 12 + (+col.m.slice(5) - +sm.start.slice(5)); const a = sm.vals[k] || []; return i >= 0 && i < sm.count && isNum(a[i]) ? a[i] : null; } : null;
+  h += '<div class="panel sheet-doc"><div class="sheet-title">' + esc(c.name) + '様　運用実績</div>' + simTable(cols, (col, k) => actualOf(col.m, k), planOf) + '</div>';
+  h += '<div class="panel"><div class="row">' + top + '<label class="row" style="font-size:12px;color:var(--muted)">表示 <select class="input" style="width:auto" id="simActN">' + [3, 6, 12].map(n => '<option value="' + n + '"' + (n === (ui.simActN || 6) ? ' selected' : '') + '>直近' + n + 'ヶ月</option>').join('') + '</select></label>' +
+    (sm ? '<label class="check"><input type="checkbox" id="simVsPlan"' + (ui.simVsPlan ? ' checked' : '') + '>シミュレーションと比べる</label>' : '') + '</div>' +
+    '<div class="row" style="margin-top:12px"><button class="btn" data-act="simCopyActual">' + I.copy + 'スプレッドシート用にコピー</button></div>' +
+    (ui.simTsv ? '<textarea class="input mono" id="simTsvBox" readonly rows="4" style="margin-top:10px">' + esc(ui.simTsv) + '</textarea>' : '') +
+    '<p class="hint" style="margin-top:8px">数字は「月次データ入力」のInstagramの欄です（LINE追加以降は全媒体の合計）。' + (sm ? 'シミュレーションと比べると、各数字の下に計画値と達成率が出ます。' : '') + '</p></div>';
+  return h;
+};
 
 /* ---- cross channel ---- */
 R.channels = () => {
@@ -1884,13 +1965,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -1980,6 +2061,11 @@ A.cmpRange = el => { const n = +el.dataset.n, all = monthsOf(), end = all.length
 A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
+A.simTab = el => { ui.simTab = el.dataset.k; ui.simTsv = ''; render(); };
+A.simCopy = () => { const sm = simOf(), cols = Array.from({ length: sm.count }, (_, i) => ({ i, label: (i + 1) + 'ヶ月目' })); ui.simTsv = simTSV(cols, (c, k) => (sm.vals[k] || [])[c.i], client().name + '様　運用シミュレーション') + '\n' + (sm.notes || '') + (sm.comment ? '\n\n担当者コメント\n' + sm.comment : ''); render(); copyText(ui.simTsv, $('#simTsvBox')); };
+A.simCopyActual = () => { const ms = monthsOf().filter(x => x <= curMonth()).slice(-(ui.simActN || 6)); ui.simTsv = simTSV(ms.map(m => ({ m, label: mLabel(m) })), (c, k) => actualOf(c.m, k), client().name + '様　運用実績'); render(); copyText(ui.simTsv, $('#simTsvBox')); };
+A.simToGoals = () => { const sm = simOf(); let n = 0; for (let i = 0; i < sm.count; i++) { const m = addMonth(sm.start, i), g = goalEdit(m); ['profileViews', 'line', 'entry', 'hire'].forEach(k => { const v = (sm.vals[k] || [])[i]; if (isNum(v)) { g[k] = v; n++; } }); } save(n ? mLabel(sm.start) + 'から' + sm.count + 'ヶ月分の月目標に反映しました' : '反映できる数字がありません'); };
+A.simClear = el => arm(el, () => { simOf().vals = {}; save('消しました'); render(); });
 A.folCh = el => { ui.folCh = el.dataset.k; render(); };
 A.postType = el => { ui.postType = el.dataset.k; render(); };
 A.postView = el => { ui.postView = el.dataset.k; render(); };
@@ -2055,6 +2141,8 @@ document.addEventListener('input', e => {
   else if (d.demo) { demoEdit(m, FOLCH_OF[ui.inputCh])[d.demo] = d.demo === 'locations' ? t.value : toNum(t.value); saveSoon(); }
   else if (d.age) { demoEdit(m, FOLCH_OF[ui.inputCh]).ages[d.age] = toNum(t.value); saveSoon(); }
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
+  else if (d.sim) { const sm = simOf(); sm.vals[d.sim] = sm.vals[d.sim] || []; sm.vals[d.sim][+d.si] = toNum(t.value); saveSoon(); }
+  else if (d.simf) { simOf()[d.simf] = t.value; saveSoon(); }
   else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
   else if (d.cf) { const c = client(); c[d.cf] = t.value; saveSoon(); if (d.cf === 'name') { $('#clientSel').selectedOptions[0].textContent = t.value; } }
   else if (d.hear) { const c = client(); c.hearing = c.hearing || {}; c.hearing[d.hear] = t.value; saveSoon(); }
@@ -2087,6 +2175,12 @@ document.addEventListener('change', e => {
   else if (d.goal && route() === 'targets') { render(); }
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
+  else if (d.sim) render();
+  else if (t.id === 'simTop') { ui.simTop = t.value; render(); }
+  else if (t.id === 'simCount') { simOf().count = +t.value; save(false); render(); }
+  else if (t.id === 'simStart') { if (t.value) { simOf().start = t.value; save(false); render(); } }
+  else if (t.id === 'simActN') { ui.simActN = +t.value; render(); }
+  else if (t.id === 'simVsPlan') { ui.simVsPlan = t.checked; render(); }
   else if (t.id === 'postMonth') { ui.postMonth = t.value; render(); }
   else if (t.id === 'postSort') { ui.postSort[ui.postType] = t.value; ui.postDir[ui.postType] = -1; render(); }
   else if (d.thumb && t.files && t.files[0]) readThumb(t.files[0], d.thumb);
