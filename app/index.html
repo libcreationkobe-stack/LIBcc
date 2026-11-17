@@ -411,7 +411,7 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .kpis.kc3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpis.kc4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .kpi { border: 1px solid #DCE3EE; border-radius: 4px; padding: 10px 12px; display: grid; gap: 2px; }
 .kpi span { font-size: 10.5px; color: var(--muted); } .kpi b { font: 700 22px var(--num); text-align: right; } .kpi small { font-size: 10.5px; color: var(--muted); text-align: right; }
-.s3 { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; align-items: end; }
+.s3 { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 18px; align-items: start; }
 .st-tab td, .st-tab th { padding: 6px 8px; font-size: 11.5px; }
 .st-th { width: 28px; height: 46px; object-fit: cover; border-radius: 2px; display: block; }
 .st-th.ph { background: var(--field); font-size: 8px; color: var(--muted); padding: 3px; overflow: hidden; }
@@ -466,6 +466,28 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
 .slides.tool .cv-bar { box-shadow: none; height: 6px; margin: 0; }
 .slides.tool .big-txt { font-weight: 700; }
 .slides.tool .img-slot { border-color: var(--line); color: var(--muted); }
+.ovs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ov { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px 8px; display: grid; gap: 2px; min-width: 0; background: var(--surface); }
+.ov-h b { font-size: 12.5px; display: block; } .ov-h span { font-size: 10.5px; color: var(--muted); }
+.ov-v { font: 700 26px var(--num); font-variant-numeric: tabular-nums; margin-top: 4px; }
+.ov-d { font-size: 11.5px; font-weight: 700; color: var(--muted); } .ov-d.up { color: var(--good); } .ov-d.down { color: var(--bad); }
+.spk { width: 100%; height: 34px; display: block; }
+.s7 { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: center; }
+.s7.rev { grid-template-columns: minmax(0, 1fr) 260px; }
+.cap { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.dlg { display: grid; gap: 4px; margin-top: 8px; font-size: 12px; } .dlg span { display: grid; grid-template-columns: 12px 1fr auto; gap: 6px; align-items: center; } .dlg i { width: 10px; height: 10px; border-radius: 2px; display: block; }
+.dseg.s0 { stroke: var(--s0); } .dseg.s1 { stroke: var(--s1); } .dseg.s2 { stroke: var(--s2); } .dseg.s3 { stroke: var(--s3); } .dseg.s4 { stroke: var(--s4); }
+.top3 { display: grid; gap: 8px; align-content: start; }
+.t3r { display: grid; grid-template-columns: 22px 28px 1fr; gap: 8px; align-items: center; } .t3r b { font-size: 16px; display: block; } .t3r span { font-size: 10.5px; color: var(--muted); }
+.rk { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font: 700 12px/22px var(--num); text-align: center; }
+.rank { display: grid; gap: 8px; }
+.rk-row { display: grid; grid-template-columns: 22px minmax(0, 1.2fr) minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
+.rk-l b { font-size: 12.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rk-l span { font-size: 10.5px; color: var(--muted); }
+.rk-bar { height: 14px; background: var(--field); border-radius: 3px; overflow: hidden; } .rk-bar i { display: block; height: 100%; background: var(--accent); }
+.rk-row > b { text-align: right; font-size: 14px; }
+.ptab td.pb { width: 30%; } .ptab td.pb i { display: block; height: 10px; background: var(--accent); border-radius: 2px; opacity: .85; }
+.slides.classic .ptab td.pb i, .slides.classic .rk-bar i { background: #F28C28; }
+@media (max-width: 900px) { .ovs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .s7, .s7.rev { grid-template-columns: minmax(0, 1fr); } }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -1546,11 +1568,32 @@ function bDonut(f, mval) {
     '<text x="80" y="76" text-anchor="middle" class="dn-t">男女比</text><text x="80" y="96" text-anchor="middle" class="dn-v">' + Math.round(fr * 1000) / 10 + ' : ' + Math.round((1 - fr) * 1000) / 10 + '</text></svg>' +
     '<div class="aud-legend" style="justify-content:center"><span><i class="dnf"></i>女性 ' + fmtPct(fr * 100) + '</span><span><i class="dnm"></i>男性 ' + fmtPct((1 - fr) * 100) + '</span></div>';
 }
+function spark(vals) {
+  const pts = vals.map((v, i) => [i, v]).filter(x => isNum(x[1])); if (pts.length < 2) return '<div class="spk"></div>';
+  const W = 160, H = 34, lo = Math.min(...pts.map(x => x[1])), hi = Math.max(...pts.map(x => x[1])), n = vals.length - 1 || 1;
+  const xy = pts.map(([i, v]) => [4 + i / n * (W - 8), H - 4 - (hi === lo ? .5 : (v - lo) / (hi - lo)) * (H - 8)]);
+  const d = xy.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(''), last = xy[xy.length - 1];
+  return '<svg class="spk" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true"><path d="' + d + 'L' + last[0] + ' ' + H + 'L' + xy[0][0] + ' ' + H + 'Z" class="a s0"/><path d="' + d + '" class="l s0"/><circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" class="d s0"/></svg>';
+}
+function donutN(items, center, centerV) {
+  const t = items.reduce((a, x) => a + x.v, 0); if (!t) return '';
+  // one arc per part, clockwise from 12 o'clock
+  const R = 54, pt = ang => [80 + R * Math.sin(ang), 80 - R * Math.cos(ang)]; let a0 = 0;
+  const segs = items.filter(x => x.v > 0).map(x => {
+    const frac = x.v / t, a1 = a0 + frac * 2 * Math.PI, p0 = pt(a0), p1 = pt(a1);
+    const sg = frac >= .9999 ? '<circle cx="80" cy="80" r="' + R + '" fill="none" stroke-width="26" class="dseg s' + x.c + '"/>'
+      : '<path d="M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + 'A' + R + ' ' + R + ' 0 ' + (frac > .5 ? 1 : 0) + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2) + '" fill="none" stroke-width="26" class="dseg s' + x.c + '"/>';
+    a0 = a1; return sg;
+  }).join('');
+  return '<svg viewBox="0 0 160 160" class="donut" role="img" aria-label="' + esc(items.map(x => x.l + ' ' + Math.round(x.v / t * 100) + '%').join('、')) + '">' + segs + '<text x="80" y="76" text-anchor="middle" class="dn-t">' + esc(center) + '</text><text x="80" y="96" text-anchor="middle" class="dn-v">' + esc(centerV) + '</text></svg>' +
+    '<div class="dlg">' + items.map(x => '<span><i class="k' + x.c + '"></i>' + esc(x.l) + '<b class="num">' + fmtPct(x.v / t * 100) + '</b></span>').join('') + '</div>';
+}
 function prefTable(d, label) {
   if (!d) return '<div class="ptab"><div class="ptab-m">' + label + '</div>' + emptyBox('地域のデータがありません', '都道府県のCSVを取り込むと表示されます') + '</div>';
   const pct = attrLines(d.locations), cnt = Object.fromEntries(attrLines(d.locationsN).map(x => [x.l, x.v]));
-  return '<div class="ptab"><div class="ptab-m">' + label + '</div><table><thead><tr><th>都道府県</th><th class="n">フォロワー数</th></tr></thead><tbody>' +
-    pct.slice(0, 8).map((x, i) => '<tr><td>' + esc(x.l) + '</td><td class="n"><span class="' + (i === 0 ? 'hl' : '') + '">' + (isNum(cnt[x.l]) ? fmt(cnt[x.l]) + '（' + x.v + '%）' : x.v + '%') + '</span></td></tr>').join('') + '</tbody></table></div>';
+  const mx = Math.max(1, ...pct.slice(0, 8).map(x => x.v));
+  return '<div class="ptab"><div class="ptab-m">' + label + '</div><table><thead><tr><th>都道府県</th><th></th><th class="n">フォロワー数</th></tr></thead><tbody>' +
+    pct.slice(0, 8).map((x, i) => '<tr><td>' + esc(x.l) + '</td><td class="pb"><i style="width:' + (x.v / mx * 100).toFixed(1) + '%"></i></td><td class="n"><span class="' + (i === 0 ? 'hl' : '') + '">' + (isNum(cnt[x.l]) ? fmt(cnt[x.l]) + '（' + x.v + '%）' : x.v + '%') + '</span></td></tr>').join('') + '</tbody></table></div>';
 }
 R.brief = () => {
   const c = client(); if (!c) return noClient('簡易レポート');
@@ -1588,19 +1631,56 @@ R.brief = () => {
     bBanner('今後の施策', '', 'NEXT ACTIONS') + bTxt(m, 'actions', acts, 'big-txt', '来月以降の施策・目標') + '</div>' +
     '<div class="s2-img">' + (sumImg ? '<img src="' + esc(sumImg) + '" alt="">' : '<label for="briefImg" class="img-slot">' + I.image + '<span>画像を入れる（Googleマップの口コミ画面など）</span></label>') + '<input type="file" id="briefImg" accept="image/*" hidden>' + (sumImg ? '<button class="btn sm ghost no-print" data-act="briefImgClear">画像を外す</button>' : '') + '</div></div>' +
     '<div class="cm-h">担当コメント</div>' + bTxt(m, 'comment', '', 'note-y', '担当コメントを入力') + '</section>';
-  // 3. stories
+  // 3. overview: big numbers with arrows and a half-year sparkline
+  {
+    const ms6 = monthsOf().filter(x => x <= m).slice(-6);
+    const defs = [['reach', 'リーチ', '見てくれた人の数'], ['impressions', '閲覧数', '表示された回数'], ['profileViews', 'プロフィールビュー', 'プロフィールを見た回数'], ['linkTaps', 'リンククリック', 'リンクを押した回数'],
+      ['followers', 'フォロワー数', '今のフォロワー'], ['followerGrowth', 'フォロワー増加', 'この月に増えた人数'], ['interactions', '反応の数', 'いいね・保存・コメントなど'], ['line', 'LINE登録', 'LINEに登録した人'], ['entry', v.entry, '申し込みの数']];
+    const cards = defs.filter(([k]) => isNum(r[k])).slice(0, 8).map(([k, l, sub]) => {
+      const cur = Number(r[k]), prev = isNum(p[k]) ? Number(p[k]) : null, dp = prev ? (cur - prev) / prev * 100 : null;
+      const up = dp !== null && dp > 0.05, down = dp !== null && dp < -0.05;
+      return '<div class="ov"><div class="ov-h"><b>' + l + '</b><span>' + sub + '</span></div><div class="ov-v">' + fmt(cur) + '</div>' +
+        '<div class="ov-d ' + (up ? 'up' : down ? 'down' : '') + '">' + (dp === null ? '前月データなし' : (up ? '▲ ' : down ? '▼ ' : '→ ') + (dp > 0 ? '+' : '') + Math.round(dp * 10) / 10 + '%　前月比') + '</div>' + spark(ms6.map(x => (rec('instagram', x) || {})[k])) + '</div>';
+    });
+    if (cards.length) h += '<section class="slide">' + bBanner('SUMMARY', '今月のまとめ') + '<div class="ovs">' + cards.join('') + '</div><p class="hint">▲は前月より増えた、▼は減った数字です。小さな線は直近' + ms6.length + 'か月の動きです。</p></section>';
+  }
+  // 4. who we reached: followers vs non-followers
+  {
+    const a = audParts(r, 'reach') || audParts(r, 'impressions');
+    if (a) {
+      const base = audParts(r, 'reach') ? 'reach' : 'impressions', bl = base === 'reach' ? 'リーチ' : '閲覧数';
+      const ms6 = monthsOf().filter(x => x <= m).slice(-6);
+      const ach = chart({ labels: ms6.map(mShort), series: [{ name: 'フォロワー', values: ms6.map(x => (rec('instagram', x) || {})[base + 'F']), kind: 'bar', c: 1 }, { name: 'フォロワー以外（新しい人）', values: ms6.map(x => (rec('instagram', x) || {})[base + 'N']), kind: 'bar', c: 0 }], h: 230 });
+      h += '<section class="slide">' + bBanner('AUDIENCE', '届いた相手') + '<div class="s7"><div>' + donutN([{ l: 'フォロワー以外（新しい人）', v: a.n || 0, c: 0 }, { l: 'フォロワー', v: a.f || 0, c: 1 }], bl, fmtPct(a.nr)) + '</div>' +
+        '<div><div class="cap">' + bl + 'の内訳の推移</div>' + legend([{ name: 'フォロワー', kind: 'bar', c: 1 }, { name: 'フォロワー以外（新しい人）', kind: 'bar', c: 0 }]) + '<div class="chart">' + ach + '</div></div></div>' +
+        bTxt(m, 'noteAud', bl + 'の' + fmtPct(a.nr) + 'がフォロワー以外の人でした。新しい人に届いている割合です。', 'note-y', '届いた相手についての一言') + '</section>';
+    }
+  }
+  // 5. stories: one bar per story + top 3
   if (stories.length || isNum(r.storyViews)) {
     const sv = sum(stories.map(x => x.views)), sr = sum(stories.map(x => x.reach)), n = stories.length;
     const vr = x => isNum(x.views) && isNum(fs.followers) && fs.followers ? x.views / fs.followers * 100 : null;
     const maxVr = Math.max(...stories.map(vr).filter(isNum), 0);
+    const chron = stories.slice().sort((a2, b2) => a2.date < b2.date ? -1 : 1);
+    const sch = chron.length ? chart({ labels: chron.map(x => Number(x.date.slice(8)) + '日'), series: [{ name: '閲覧数', values: chron.map(x => x.views), kind: 'bar', c: 0 }].concat(chron.some(x => isNum(vr(x))) ? [{ name: '閲覧率（閲覧数÷フォロワー）', values: chron.map(vr), kind: 'line', axis: 'R', c: 1 }] : []), h: 210 }) : '';
+    const top3 = stories.slice().sort((a2, b2) => (b2.views || 0) - (a2.views || 0)).slice(0, 3);
     h += '<section class="slide">' + bBanner('STORIES', 'ストーリーズ') + '<div class="kpis kc3">' +
       '<div class="kpi"><span>ストーリーズ投稿数</span><b>' + fmt(n || null) + '</b></div>' +
-      '<div class="kpi"><span>閲覧数</span><b>' + fmt(sv !== null ? sv : r.storyViews) + '</b><small>平均 ' + (n && isNum(sv) ? fmt(Math.round(sv / n * 100) / 100) : '—') + '</small></div>' +
-      '<div class="kpi"><span>リーチ数</span><b>' + fmt(sr) + '</b><small>平均 ' + (n && isNum(sr) ? fmt(Math.round(sr / n * 100) / 100) : '—') + '</small></div></div>' +
-      '<div class="s3"><div class="tbl-wrap"><table class="st-tab"><thead><tr><th></th><th>投稿日時</th><th class="n">閲覧数</th><th class="n">リーチ</th><th class="n">返信</th><th class="n">リンク</th><th class="n">閲覧率</th></tr></thead><tbody>' +
-      stories.slice(0, 5).map(x => '<tr><td>' + (x.thumb ? '<img src="' + esc(x.thumb) + '" alt="" class="st-th">' : '<span class="st-th ph">' + esc((x.caption || '').slice(0, 10)) + '</span>') + '</td><td class="num">' + esc(x.date.replace(/-/g, '/')) + '</td><td class="n">' + fmt(x.views) + '</td><td class="n">' + fmt(x.reach) + '</td><td class="n">' + fmt(x.replies) + '</td><td class="n">' + fmt(x.linkClicks) + '</td><td class="n">' + fmtPct(vr(x)) + '</td></tr>').join('') +
-      '</tbody></table></div>' + bTxt(m, 'noteStories', maxVr ? '閲覧率MAX' + Math.round(maxVr * 10) / 10 + '%\n目標20%以上' : '', 'note-y nside', '一言メモ') + '</div>' +
-      (stories.length > 5 ? '<p class="hint">ほか ' + (stories.length - 5) + '件。閲覧率＝閲覧数÷フォロワー数。</p>' : '<p class="hint">閲覧率＝閲覧数÷フォロワー数。</p>') + '</section>';
+      '<div class="kpi"><span>閲覧数</span><b>' + fmt(sv !== null ? sv : r.storyViews) + '</b><small>平均 ' + (n && isNum(sv) ? fmt(Math.round(sv / n * 10) / 10) : '—') + '</small></div>' +
+      '<div class="kpi"><span>リーチ数</span><b>' + fmt(sr) + '</b><small>平均 ' + (n && isNum(sr) ? fmt(Math.round(sr / n * 10) / 10) : '—') + '</small></div></div>' +
+      '<div class="s3"><div><div class="cap">1本ごとの閲覧数</div>' + (sch ? legend([{ name: '閲覧数', kind: 'bar', c: 0 }].concat(chron.some(x => isNum(vr(x))) ? [{ name: '閲覧率', kind: 'line', c: 1 }] : [])) + '<div class="chart">' + sch + '</div>' : '') + '</div>' +
+      '<div class="top3"><div class="cap">よく見られたTOP3</div>' + top3.map((x, i) => '<div class="t3r"><span class="rk">' + (i + 1) + '</span>' + (x.thumb ? '<img src="' + esc(x.thumb) + '" alt="" class="st-th">' : '<span class="st-th ph"></span>') + '<div><b class="num">' + fmt(x.views) + '</b><span>' + esc(x.date.slice(5).replace('-', '/')) + (isNum(vr(x)) ? '　閲覧率 ' + fmtPct(vr(x)) : '') + '</span></div></div>').join('') +
+      bTxt(m, 'noteStories', maxVr ? '閲覧率MAX' + Math.round(maxVr * 10) / 10 + '%\n目標20%以上' : '', 'note-y nside', '一言メモ') + '</div></div></section>';
+  }
+  // 6. posts: ranking and what kind of reactions
+  if (feed.length) {
+    const top = feed.slice().sort((a2, b2) => (pval(b2, 'views') || 0) - (pval(a2, 'views') || 0)).slice(0, 6);
+    const mx = Math.max(1, ...top.map(x => pval(x, 'views') || 0));
+    const rx = [['likes', 'いいね', 0], ['saves', '保存', 1], ['comments', 'コメント', 3], ['shares', 'シェア', 4]].map(([k, l, c2]) => ({ l, v: sum(feed.map(x => x[k])) || 0, c: c2 })).filter(x => x.v > 0);
+    h += '<section class="slide">' + bBanner('POSTS', '投稿ランキング') + '<div class="s7 rev"><div><div class="cap">閲覧数が多かった投稿</div><div class="rank">' +
+      top.map((x, i) => '<div class="rk-row"><span class="rk">' + (i + 1) + '</span><div class="rk-l"><b>' + esc((x.caption || PTYPES[x.type]).slice(0, 22)) + '</b><span>' + esc(x.date.slice(5).replace('-', '/')) + '　' + PTYPES[x.type] + '　ENG率 ' + fmtPct(pval(x, 'engRate')) + '</span></div><div class="rk-bar"><i style="width:' + ((pval(x, 'views') || 0) / mx * 100).toFixed(1) + '%"></i></div><b class="num">' + fmt(pval(x, 'views')) + '</b></div>').join('') + '</div></div>' +
+      '<div>' + (rx.length ? donutN(rx, '反応の内訳', fmt(rx.reduce((a2, x) => a2 + x.v, 0))) : '') + '</div></div>' +
+      bTxt(m, 'notePosts', top[0] ? '一番見られたのは「' + (top[0].caption || PTYPES[top[0].type]).slice(0, 20) + '」（' + fmt(pval(top[0], 'views')) + '回）でした。' : '', 'note-y', '投稿についての一言') + '</section>';
   }
   // 4. followers by prefecture, last month vs this month
   if (d || pd) {
@@ -1626,14 +1706,15 @@ R.brief = () => {
     const hist = monthsOf().filter(x => x <= m).slice(-12);
     const list = (k, unit) => hist.map(x => { const val = (rec('instagram', x) || {})[k]; return isNum(val) ? '<div><span>' + Number(x.slice(5)) + '月</span><b>' + fmt(val) + unit + '</b></div>' : ''; }).join('');
     const pv = hist.map(x => (rec('instagram', x) || {}).profileViews);
-    const ech = chart({ labels: hist.map(mShort), series: [{ name: 'プロフィールビュー', values: pv, kind: 'bar', c: 3 }], h: 190 });
+    const eser = [{ name: 'プロフィールビュー', values: pv, kind: 'bar', c: 0 }, { name: 'リンククリック', values: hist.map(x => (rec('instagram', x) || {}).linkTaps), kind: 'line', axis: 'R', c: 1 }].filter(x => x.values.some(isNum));
+    const ech = chart({ labels: hist.map(mShort), series: eser, h: 180, fmtR: compact });
     const ps = k => sum(feed.map(x => x[k])), eng = sum(feed.map(x => pval(x, 'eng'))), preach = sum(feed.map(x => x.reach));
     const card = (l, val, sub) => '<div class="kpi"><span>' + l + '</span><b>' + val + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
     const perDay = val => isNum(val) ? '1日平均 ' + fmt(Math.round(val / days * 100) / 100) : '';
     h += '<section class="slide">' + bBanner('Engagement', 'エンゲージメント') + '<div class="s6"><div class="hist">' +
       '<div class="hist-h">月別の推移</div><div class="hist-g"><div><div class="hist-t">■プロフィールビュー■</div>' + list('profileViews', '回') + '</div><div><div class="hist-t">■ウェブサイトタップ■</div>' + list('linkTaps', '回') + '</div>' +
       '<div><div class="hist-t">■インプ（閲覧数）■</div>' + list('impressions', '回') + '</div><div><div class="hist-t">■リーチ■</div>' + list('reach', '人') + '</div></div></div>' +
-      '<div><div class="chart">' + (ech || '') + '</div><div class="kpis kc4">' + card('インプレッション数', fmt(r.impressions), perDay(r.impressions)) + card('リーチ数', fmt(r.reach), perDay(r.reach)) + card('プロフィールビュー', fmt(r.profileViews), perDay(r.profileViews)) + card('ウェブサイトタップ', fmt(r.linkTaps), perDay(r.linkTaps)) +
+      '<div>' + (ech ? legend(eser) + '<div class="chart">' + ech + '</div>' : '') + '<div class="kpis kc4">' + card('インプレッション数', fmt(r.impressions), perDay(r.impressions)) + card('リーチ数', fmt(r.reach), perDay(r.reach)) + card('プロフィールビュー', fmt(r.profileViews), perDay(r.profileViews)) + card('ウェブサイトタップ', fmt(r.linkTaps), perDay(r.linkTaps)) +
       (feed.length ? card('いいね数', fmt(ps('likes')), '1投稿平均 ' + fmt(Math.round((ps('likes') || 0) / feed.length * 10) / 10)) + card('保存数', fmt(ps('saves')), '') + card('コメント数', fmt(ps('comments')), '') + card('エンゲージメント率', fmtPct(rate(eng, preach)), 'ENG数 ÷ リーチ（投稿）') : '') + '</div></div></div>' +
       bTxt(m, 'noteEng', '', 'note-y', 'エンゲージメントについての一言（任意）') + '</section>';
   }
