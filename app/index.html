@@ -444,6 +444,33 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
 .cv-bar { height: 14px; background: var(--accent); box-shadow: 0 8px 0 #111; margin: 0 calc(-1 * clamp(18px, 3vw, 36px)); }
 @media (max-width: 900px) { .s2, .s3, .s4, .s5, .s5b, .s6 { grid-template-columns: minmax(0, 1fr); } .kpis.kc4, .kpis.kc3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media print { .slide { break-after: page; box-shadow: none; aspect-ratio: auto; } .ed:empty, .note-y:empty { display: none; } .ed { outline: none !important; } .img-slot { display: none; } }
+/* brief: the two looks share one structure */
+.slides.classic .bt { display: none; }
+.slides.tool .bn { display: none; }
+.bt { display: grid; gap: 4px; } .bt h2 { margin: 0; font-size: 18px; font-weight: 900; }
+.slides.tool .slide { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none; --ink: inherit; --muted: inherit; --line: inherit; --field: inherit; --surface: inherit; }
+.slides.tool .note-y { background: var(--accent-soft); border-left: 3px solid var(--accent); font-weight: 500; border-radius: 0 var(--radius) var(--radius) 0; }
+.slides.tool .note-y.nside { font-weight: 700; }
+.slides.tool .kpi { border-color: var(--line); background: var(--surface); border-radius: var(--radius); }
+.slides.tool .grow { background: var(--accent); color: var(--accent-ink); border-radius: var(--radius); overflow: hidden; }
+.slides.tool .grow-tag { background: transparent; color: inherit; clip-path: none; letter-spacing: .14em; font-size: 10px; opacity: .85; }
+.slides.tool .hist { background: var(--field); border-radius: var(--radius); overflow: hidden; }
+.slides.tool .hist-h { background: var(--side); color: var(--side-ink); }
+.slides.tool .ptab-m { font-size: 20px; }
+.slides.tool .ptab .hl { background: linear-gradient(transparent 70%, var(--accent) 70%, var(--accent) 90%, transparent 90%); }
+.slides.tool .dn-f, .slides.tool i.dnf { stroke: var(--s0); background: var(--s0); }
+.slides.tool .dn-m, .slides.tool i.dnm { stroke: var(--s1); background: var(--s1); }
+.slides.tool .dn-v, .slides.tool .dn-t { fill: var(--ink); }
+.slides.tool .cover-s { background: var(--side); color: var(--side-ink); border: 0; }
+.slides.tool .cv-sub { color: var(--side-muted); }
+.slides.tool .cv-bar { box-shadow: none; height: 6px; margin: 0; }
+.slides.tool .big-txt { font-weight: 700; }
+.slides.tool .img-slot { border-color: var(--line); color: var(--muted); }
+.auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
+.auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
+.auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.auto-res .ok span { color: var(--good); font-weight: 700; } .auto-res .ng span { color: var(--bad); font-weight: 700; }
+.auto-res > button { justify-self: start; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--side); color: var(--side-ink); padding: 10px 18px; border-radius: var(--radius); font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -699,6 +726,7 @@ function client() { return S.clients.find(c => c.id === S.current) || S.clients[
 function bucket(cid, ver) { cid = cid || S.current; ver = ver || S.ver; S.records[cid] = S.records[cid] || {}; S.records[cid][ver] = S.records[cid][ver] || {}; return S.records[cid][ver]; }
 function chRecs(ch, cid, ver) { const b = (S.records[cid || S.current] || {})[ver || S.ver] || {}; return (b[ch] || []).slice().sort((a, b) => a.month < b.month ? -1 : 1); }
 function rec(ch, m, cid, ver) { return chRecs(ch, cid, ver).find(r => r.month === m) || null; }
+function ensureRecFor(cid, ver, ch, m) { const b = bucket(cid, ver); b[ch] = b[ch] || []; let r = b[ch].find(x => x.month === m); if (!r) { r = { month: m }; b[ch].push(r); } return r; }
 function ensureRec(ch, m) { const b = bucket(); b[ch] = b[ch] || []; let r = b[ch].find(x => x.month === m); if (!r) { r = { month: m }; b[ch].push(r); } return r; }
 function monthsOf(cid, ver) { const b = (S.records[cid || S.current] || {})[ver || S.ver] || {}; const set = new Set(); Object.values(b).forEach(a => a.forEach(r => set.add(r.month))); return [...set].sort(); }
 function curMonth() { if (S.month && /^\d{4}-\d{2}$/.test(S.month)) return S.month; const ms = monthsOf(); return ms.length ? ms[ms.length - 1] : thisMonth(); }
@@ -1038,7 +1066,7 @@ function suggestions(m) {
   if (isNum(r.storyCompletion) && r.storyCompletion < 60) out.push({ t: 'ストーリーズを短く', d: '完了率 ' + fmtPct(r.storyCompletion) + '。枚数を絞り、1枚目で結論を見せる。' });
   const empty = CH.filter(c => !rec(c.k, m)).map(c => c.l);
   if (empty.length && !ui.inReport) out.push({ t: '未入力の媒体を埋める', d: empty.join('・') + 'のCSVを取り込むと、媒体横断の比較ができます。' });
-  if (!out.length && st.some(x => isNum(x.rate))) out.push({ t: '全ステップが、基準をクリア。', d: '目標を一段上げるか、成果の出ている投稿の型を横展開しましょう。' });
+  if (!out.length && st.filter(x => isNum(x.rate)).length >= 3) out.push({ t: '全ステップが、基準をクリア。', d: '目標を一段上げるか、成果の出ている投稿の型を横展開しましょう。' });
   return out;
 }
 
@@ -1507,7 +1535,10 @@ function bTxt(m, key, def, cls, ph) {
   const val = b[key] !== undefined ? b[key] : def;
   return '<div class="ed ' + (cls || '') + '" contenteditable="plaintext-only" spellcheck="false" data-brief="' + key + '" data-ph="' + esc(ph || 'クリックして入力') + '">' + esc(val || '') + '</div>';
 }
-function bBanner(en, jp) { return '<div class="bn"><span class="bn-en">' + esc(en) + '</span>' + (jp ? '<span class="bn-jp">' + esc(jp) + '</span>' : '') + '</div>'; }
+function bBanner(en, jp, eb) {
+  return '<div class="bn"><span class="bn-en">' + esc(en) + '</span>' + (jp ? '<span class="bn-jp">' + esc(jp) + '</span>' : '') + '</div>' +
+    '<div class="bt"><div class="eyebrow">' + esc(jp ? en.toUpperCase() : (eb || '')) + '</div><h2 class="bar-title">' + esc(jp || en) + '</h2></div>';
+}
 function bDonut(f, mval) {
   const t = (f || 0) + (mval || 0); if (!t) return '';
   const fr = f / t, R = 54, C = 2 * Math.PI * R;
@@ -1536,19 +1567,25 @@ R.brief = () => {
   const aud = audParts(r, 'reach'); if (aud && isNum(aud.nr)) res.push('フォロワー以外へのリーチ ' + fmtPct(aud.nr) + '（新しい人に届いた割合）');
   if (isNum(r.entry)) res.push(v.entry + ' ' + fmt(r.entry) + '件' + (isNum(r.hire) ? '／' + v.hire + ' ' + fmt(r.hire) + '件' : ''));
   const loc0 = d ? attrLines(d.locations)[0] : null; if (loc0) res.push('フォロワーの地域は' + loc0.l + 'が最多（' + loc0.v + '%）');
-  const goalTxt = [['entry', v.entry], ['line', 'LINE登録'], ['hire', v.hire]].filter(([k]) => isNum(g[k])).map(([k, l]) => l + fmt(g[k]) + '件').join('／');
+  const explicitGoals = !!((S.targets[S.current] || {})[S.ver]) || Object.keys(goalOverride(m)).length > 0;
+  const goalTxt = [['entry', v.entry], ['line', 'LINE登録'], ['hire', v.hire]].filter(([k]) => explicitGoals && isNum(g[k])).map(([k, l]) => l + fmt(g[k]) + '件').join('／');
   const acts = (goalTxt ? '★毎月の目標➡' + goalTxt + '\n' : '') + (() => { const o = ui.inReport; ui.inReport = true; const x = suggestions(m); ui.inReport = o; return x; })().slice(0, 2).map(s => '・' + s.t).join('\n');
   const sumImg = ((((S.briefs[S.current] || {})[S.ver] || {})[m]) || {}).img;
   let h = head('BRIEF REPORT', '簡易レポート', cLead() + '　文字はスライド上で直接クリックして書き換えられます。数字は取り込んだデータから自動で入ります。',
-    monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<button class="btn ghost" data-act="briefReset">文章を自動の下書きに戻す</button>');
+    monthSelect() + '<div class="seg">' + [['tool', 'ツールのデザイン'], ['classic', 'いつものデザイン']].map(([k, l]) => '<button data-act="briefStyle" data-k="' + k + '" class="' + ((S.brand.briefStyle === 'classic' ? 'classic' : 'tool') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<button class="btn ghost" data-act="briefReset">文章を自動の下書きに戻す</button>');
   h += sampleBar();
-  h += '<div class="slides">';
+  const au = ui.auto;
+  h += '<div class="panel no-print"><label class="drop" id="briefDrop" for="briefFile" style="padding:20px"><div class="inner">' + I.upload + '<b>CSVをここにドロップすると、そのままレポートに反映します</b><span>Instagram・TikTok・YouTube・Meta広告の書き出し、フォロワー属性、コンテンツのCSV（何枚でもOK）</span></div></label><input type="file" id="briefFile" accept=".csv,.tsv,.txt,text/csv" multiple hidden>' +
+    (au && au.pending > 0 ? '<p class="hint" style="margin-top:10px">読み取り中…（残り ' + au.pending + ' ファイル）</p>' : '') +
+    (au && !au.results && au.pending <= 0 && (ui.files || []).some(f => f.ai === 'running') ? '<p class="hint" style="margin-top:10px">Claudeが列の意味を確認しています…</p>' : '') +
+    (au && au.results ? '<div class="auto-res"><b>' + (au.n ? au.n + '件をレポートに反映しました' : '反映できるデータがありませんでした') + '</b>' + au.results.map(r => '<div class="' + (r.ok ? 'ok' : 'ng') + '"><span>' + (r.ok ? '✓' : '×') + '</span><div><b>' + esc(r.name) + '</b>' + esc(r.text) + (r.ok ? '' : '　<a href="#csv">CSV取込で確認する</a>') + '</div></div>').join('') + '<button class="btn sm ghost" data-act="autoClose">閉じる</button></div>' : '') + '</div>';
+  h += '<div class="slides ' + (S.brand.briefStyle === 'classic' ? 'classic' : 'tool') + '">';
   // 1. cover
   h += '<section class="slide cover-s"><div class="cv-top">' + (b.logo ? '<img src="' + esc(b.logo) + '" alt="" class="cv-logo">' : burst(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FF6600')) + '<span>' + esc(b.company || b.appName) + '</span></div>' +
     '<div class="cv-mid"><div class="cv-en">MONTHLY REPORT</div><div class="cv-name">' + esc(c.name) + '　様</div><div class="cv-sub">' + mLabel(m) + '　Instagram運用レポート</div></div><div class="cv-bar"></div></section>';
   // 2. results & next actions
-  h += '<section class="slide"><div class="s2"><div>' + bBanner(mo + '月の結果') + bTxt(m, 'results', res.join('\n'), 'big-txt', '今月の結果を箇条書きで') +
-    bBanner('今後の施策') + bTxt(m, 'actions', acts, 'big-txt', '来月以降の施策・目標') + '</div>' +
+  h += '<section class="slide"><div class="s2"><div>' + bBanner(mo + '月の結果', '', 'RESULTS · ' + m.replace('-', '.')) + bTxt(m, 'results', res.join('\n'), 'big-txt', '今月の結果を箇条書きで') +
+    bBanner('今後の施策', '', 'NEXT ACTIONS') + bTxt(m, 'actions', acts, 'big-txt', '来月以降の施策・目標') + '</div>' +
     '<div class="s2-img">' + (sumImg ? '<img src="' + esc(sumImg) + '" alt="">' : '<label for="briefImg" class="img-slot">' + I.image + '<span>画像を入れる（Googleマップの口コミ画面など）</span></label>') + '<input type="file" id="briefImg" accept="image/*" hidden>' + (sumImg ? '<button class="btn sm ghost no-print" data-act="briefImgClear">画像を外す</button>' : '') + '</div></div>' +
     '<div class="cm-h">担当コメント</div>' + bTxt(m, 'comment', '', 'note-y', '担当コメントを入力') + '</section>';
   // 3. stories
@@ -1574,7 +1611,7 @@ R.brief = () => {
   // 5. followers: growth, gender, age
   {
     const ms = monthsOf().filter(x => x <= m).slice(-12), ser = [{ name: 'フォロワー数', values: ms.map(x => folVal('instagram', x, 'followers')), kind: 'line', c: 3, area: false }];
-    const fch = chart({ labels: ms.map(mShort), series: ser, minL: 'auto', h: 200 });
+    const fch = chart({ labels: ms.map(mShort), series: ser, minL: 'auto', h: 170 });
     const hasAgeSplit = d && d.agesF && Object.values(d.agesF).some(isNum);
     const ages = d ? AGES.filter(a => isNum((d.ages || {})[a]) || (hasAgeSplit && isNum(d.agesF[a]))) : [];
     const maxA = Math.max(1, ...ages.map(a => hasAgeSplit ? (d.agesF[a] || 0) + ((d.agesM || {})[a] || 0) : d.ages[a]));
@@ -1993,7 +2030,7 @@ function parseAttr(f) {
   const raw = f.rows.map(r => ({ l: String(r[li] || '').trim(), pref: pi >= 0 ? String(r[pi] || '').trim() : '', c: countPct(r[vi]) })).filter(x => x.l && x.c && !/^(不明|unknown|その他)$/i.test(x.l));
   const total = f.rows.reduce((a, r) => a + ((countPct(r[vi]) || {}).n || 0), 0);
   const items = raw.map(x => ({ l: f.attr === 'city' && x.pref && x.pref !== x.l ? x.l + '（' + x.pref.replace(/[都道府県]$/, '') + '）' : x.l, n: x.c.n, v: isNum(x.c.p) ? x.c.p : (total ? Math.round(x.c.n / total * 1000) / 10 : x.c.n) }));
-  return items.length ? { items } : { error: 'フォロワーの行が見つかりませんでした。' };
+  return items.length ? { items, total: raw.every(x => isNum(x.c.n)) ? total : null } : { error: 'フォロワーの行が見つかりませんでした。' };
 }
 function loadFile(name, text) {
   const all = parseCSV(text);
@@ -2115,6 +2152,7 @@ async function aiRead(f) {
     else if (e && e.code === 'rate_limited') toast('Claudeが混み合っています。少し待ってから「もう一度読ませる」を押してください');
   }
   render();
+  if (ui.auto && ui.auto.pending <= 0 && !ui.auto.results) autoTick(false);
 }
 
 function csvT() {
@@ -2161,7 +2199,8 @@ A.tpl = el => {
 };
 A.copyTpl = () => copyText(ui.tplText, $('#tplBox'));
 A.tplTry = () => loadFile('ひな形_' + TEMPLATES[ui.tplKey].name, ui.tplText);
-A.csvImport = () => {
+A.csvImport = () => importFiles(false);
+function importFiles(stay) {
   const T = csvT(), cid = T.c, ver = T.v;
   const cl = S.clients.find(c => c.id === cid);
   if (cl && !(cl.versions || []).includes(ver)) cl.versions = (cl.versions || []).concat(ver);
@@ -2179,6 +2218,10 @@ A.csvImport = () => {
     if (f.kind === 'attr') {
       const d = demoEdit(f.month, f.fch), a = agg.attr, lines = a.items ? a.items.map(x => x.l + ' ' + x.v).join('\n') : '';
       const linesN = a.items && a.items.every(x => isNum(x.n)) ? a.items.map(x => x.l + ' ' + x.n).join('\n') : '';
+      if (isNum(a.total) && a.total > 0 && f.attr !== 'age') {
+        const ch = f.fch === 'youtube' ? 'youtube' : f.fch, tr = ensureRecFor(cid, ver, ch, f.month);
+        if (!isNum(tr.followers)) tr.followers = a.total;
+      }
       if (f.attr === 'age') { d.ages = a.ages; d.agesF = a.agesF; d.agesM = a.agesM; d.female = a.female; d.male = a.male; delete d.other; }
       else if (f.attr === 'pref') { d.locations = lines; if (linesN) d.locationsN = linesN; }
       else if (f.attr === 'city') d.cities = lines;
@@ -2196,7 +2239,9 @@ A.csvImport = () => {
     agg.groups.forEach(g => { Object.assign(ensureRec(g.ch, g.month), g.v); n++; if (!lastM || g.month > lastM) lastM = g.month; });
   });
   if (!n) { toast('反映できる数字がありません'); return; }
-  S.month = lastM; ui.files = []; ui.csvT = null; save(n + '件を反映しました'); location.hash = postsOnly ? 'posts' : demoOnly ? 'followers' : 'dashboard'; render();
+  S.month = lastM; ui.files = []; ui.csvT = null; save(n + '件を反映しました');
+  if (stay) { render(); return n; }
+  location.hash = postsOnly ? 'posts' : demoOnly ? 'followers' : 'dashboard'; render();
 };
 A.csvExport = () => {
   const c = client(); if (!c) return;
@@ -2229,6 +2274,8 @@ A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
 A.briefReset = el => arm(el, () => { const b = briefOf(curMonth()); ['results', 'actions', 'noteStories', 'notePref'].forEach(k => delete b[k]); save('自動の下書きに戻しました'); render(); });
+A.briefStyle = el => { S.brand.briefStyle = el.dataset.k; save(false); render(); };
+A.autoClose = () => { ui.auto = null; render(); };
 A.briefImgClear = () => { delete briefOf(curMonth()).img; save('画像を外しました'); render(); };
 A.simTab = el => { ui.simTab = el.dataset.k; ui.simTsv = ''; render(); };
 A.simCopy = () => { const sm = simOf(), cols = Array.from({ length: sm.count }, (_, i) => ({ i, label: (i + 1) + 'ヶ月目' })); ui.simTsv = simTSV(cols, (c, k) => (sm.vals[k] || [])[c.i], client().name + '様　運用シミュレーション') + '\n' + (sm.notes || '') + (sm.comment ? '\n\n担当者コメント\n' + sm.comment : ''); render(); copyText(ui.simTsv, $('#simTsvBox')); };
@@ -2346,6 +2393,7 @@ document.addEventListener('change', e => {
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
   else if (d.sim) render();
+  else if (t.id === 'briefFile' && t.files.length) { startAuto([...t.files]); t.value = ''; }
   else if (t.id === 'briefImg' && t.files[0]) {
     const file = t.files[0], url = URL.createObjectURL(file), img = new Image();
     img.onload = () => { const w = Math.min(640, img.width), cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(img.height * w / img.width); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); briefOf(curMonth()).img = cv.toDataURL('image/jpeg', .8); URL.revokeObjectURL(url); save('画像を入れました'); render(); };
@@ -2367,15 +2415,38 @@ document.addEventListener('change', e => {
   else if (d.taskst) { const tk = (S.tasks[S.current] || []).find(x => x.id === d.taskst); if (tk) { tk.status = t.value; save('状態を更新しました'); render(); } }
   else if (t.id === 'taskSt') { ui.taskSt = t.value; render(); }
 });
-function readCsvFile(file) { const fr = new FileReader(); fr.onload = () => loadFile(file.name, decode(fr.result)); fr.readAsArrayBuffer(file); }
+function readCsvFile(file) { const fr = new FileReader(); fr.onload = () => { loadFile(file.name, decode(fr.result)); autoTick(true); }; fr.readAsArrayBuffer(file); }
+function startAuto(files) {
+  ui.files = []; ui.csvT = { c: S.current, v: S.ver, m: curMonth() };
+  ui.auto = { pending: files.length, results: null }; render();
+  files.forEach(readCsvFile);
+}
+function fileSummary(f) {
+  const agg = aggregate(f);
+  if (agg.error) return { name: f.name, ok: false, text: agg.error };
+  if (f.kind === 'posts') return { name: f.name, ok: true, text: '投稿 ' + agg.posts.length + '件（' + [...new Set(agg.posts.map(x => mLabel(x.month)))].join('・') + '）' };
+  if (f.kind === 'attr') return { name: f.name, ok: true, text: FOL_CH.find(x => x[0] === f.fch)[1] + 'のフォロワー属性（' + { age: '年齢・男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr] + '）' + mLabel(f.month) };
+  if (f.kind === 'demo') return { name: f.name, ok: true, text: 'フォロワー属性 ' + mLabel(f.month) };
+  return { name: f.name, ok: true, text: agg.groups.map(g => CHM[g.ch].l + ' ' + mLabel(g.month) + '：' + Object.keys(g.v).map(fl).join('・')).join(' ／ ') };
+}
+function autoTick(dec) {
+  const a = ui.auto; if (!a) return;
+  if (dec) a.pending--;
+  if (a.pending > 0 || (ui.files || []).some(f => f.ai === 'running')) { render(); return; }
+  const results = (ui.files || []).map(fileSummary);
+  const n = results.some(r => r.ok) ? importFiles(true) : 0;
+  ui.files = []; ui.auto = { pending: 0, results, n };
+  location.hash = 'brief'; render();
+}
 function readLogo(file) {
   if (!/^image\//.test(file.type)) { toast('画像ファイルを選んでください'); return; }
   if (file.size > 500 * 1024) { toast('ロゴは500KBまでにしてください（現在 ' + Math.round(file.size / 1024) + 'KB）'); return; }
   const fr = new FileReader(); fr.onload = () => { S.brand.logo = fr.result; applyTheme(); save('ロゴを登録しました'); render(); }; fr.readAsDataURL(file);
 }
 ['dragover', 'dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => {
-  const z = e.target.closest && e.target.closest('#csvDrop, #logoDrop'); if (!z) return;
+  const z = e.target.closest && e.target.closest('#csvDrop, #logoDrop, #briefDrop'); if (!z) return;
   e.preventDefault(); z.classList.toggle('over', ev === 'dragover');
+  if (ev === 'drop' && e.dataTransfer.files.length && z.id === 'briefDrop') { startAuto([...e.dataTransfer.files]); return; }
   if (ev === 'drop' && e.dataTransfer.files.length) { if (z.id === 'csvDrop') [...e.dataTransfer.files].forEach(readCsvFile); else readLogo(e.dataTransfer.files[0]); }
 }));
 document.addEventListener('submit', e => {
