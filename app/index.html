@@ -386,6 +386,64 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .sheet td.rate { color: var(--muted); font-size: 12px; background: var(--field); }
 .sheet td .sub { display: block; font-size: 10px; color: var(--muted); }
 .sheet-title { font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+/* brief report slides */
+.slides { display: grid; gap: 22px; }
+.slide { background: #fff; color: #1C1B1A; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06); padding: clamp(18px, 3vw, 36px); display: grid; gap: 16px; align-content: start; min-width: 0; --ink: #1C1B1A; --muted: #6F6A64; --line: #E6E2DC; --field: #F4F2EE; --surface: #fff; }
+@media (min-width: 900px) { .slide { aspect-ratio: 16 / 9; overflow: hidden; } }
+.bn { position: relative; display: inline-flex; align-items: baseline; gap: 8px; align-self: start; justify-self: start; padding: 6px 46px 6px 18px; margin-left: calc(-1 * clamp(18px, 3vw, 36px)); background: var(--accent); color: #111; clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%); filter: drop-shadow(10px 6px 0 #111); }
+.bn-en { font-family: var(--display); font-size: 30px; line-height: 1.05; letter-spacing: .01em; }
+.bn-jp { font-size: 12px; font-weight: 900; }
+.bn:not(:has(.bn-jp)) .bn-en { font-family: var(--body); font-weight: 900; font-size: 20px; }
+.ed { white-space: pre-wrap; outline: 1px dashed transparent; border-radius: 4px; padding: 2px 4px; min-height: 1.6em; cursor: text; }
+.ed:hover { outline-color: var(--line); } .ed:focus { outline: 2px solid var(--accent); }
+.ed:empty::before { content: attr(data-ph); color: #B3ADA6; }
+.big-txt { font-size: clamp(14px, 1.6vw, 18px); font-weight: 900; line-height: 1.55; margin: 4px 0 18px; }
+.note-y { background: #FFF6CC; padding: 12px 16px; font-weight: 700; font-size: 13px; }
+.note-y.center { justify-self: center; text-align: center; min-width: 50%; }
+.note-y.nside { align-self: end; text-align: center; font-size: 15px; }
+.cm-h { font-size: 12px; font-weight: 900; margin-bottom: -10px; }
+.s2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: end; }
+.s2-img { display: grid; gap: 6px; justify-items: end; }
+.s2-img img { max-width: 100%; max-height: 220px; border-radius: 4px; }
+.img-slot { display: grid; place-items: center; gap: 6px; width: 100%; min-height: 150px; border: 1px dashed #CFC9C2; border-radius: 6px; color: #8A847D; font-size: 12px; cursor: pointer; text-align: center; padding: 10px; }
+.img-slot svg { width: 22px; height: 22px; }
+.kpis { display: grid; gap: 10px; }
+.kpis.kc3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpis.kc4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kpi { border: 1px solid #DCE3EE; border-radius: 4px; padding: 10px 12px; display: grid; gap: 2px; }
+.kpi span { font-size: 10.5px; color: var(--muted); } .kpi b { font: 700 22px var(--num); text-align: right; } .kpi small { font-size: 10.5px; color: var(--muted); text-align: right; }
+.s3 { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 14px; align-items: end; }
+.st-tab td, .st-tab th { padding: 6px 8px; font-size: 11.5px; }
+.st-th { width: 28px; height: 46px; object-fit: cover; border-radius: 2px; display: block; }
+.st-th.ph { background: var(--field); font-size: 8px; color: var(--muted); padding: 3px; overflow: hidden; }
+.s4 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.ptab-m { text-align: center; font-size: 26px; font-weight: 900; margin-bottom: 8px; }
+.ptab table { font-size: 12px; } .ptab th { font-size: 11px; }
+.ptab .hl { background: linear-gradient(transparent 70%, #F2554C 70%, #F2554C 90%, transparent 90%); padding: 0 2px; }
+.s5 { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+.grow { background: #FFF6CC; padding: 0 0 16px; text-align: center; display: grid; gap: 4px; }
+.grow-tag { background: #4A4744; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 10px; text-align: left; clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%); }
+.grow-v { font-size: 30px; font-weight: 900; margin-top: 8px; } .grow-s { font-size: 11px; font-weight: 700; }
+.s5b { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: center; }
+.donut { width: 100%; max-width: 180px; display: block; margin: 0 auto; }
+.dn-f { stroke: #F07083; } .dn-m { stroke: #4F7FDB; }
+.dn-t { font-size: 11px; fill: #8A847D; } .dn-v { font: 700 13px var(--num); fill: #1C1B1A; }
+i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
+.agebars { display: grid; gap: 7px; }
+.ab { display: grid; grid-template-columns: 70px minmax(0, 1fr) 48px; gap: 8px; align-items: center; font-size: 11.5px; }
+.ab-tr { display: flex; height: 14px; background: var(--field); } .ab-tr i { display: block; height: 100%; }
+.ab b { font: 600 11px var(--num); text-align: right; color: var(--muted); }
+.s6 { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+.hist { background: #FFF6CC; } .hist-h { background: #4A4744; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 10px; }
+.hist-g { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; padding: 10px 12px; }
+.hist-t { font-size: 10.5px; font-weight: 900; margin-bottom: 2px; }
+.hist-g div div { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; } .hist-g b { font-family: var(--num); }
+.cover-s { background: #fff; align-content: space-between; }
+.cv-top { display: flex; gap: 10px; align-items: center; font-weight: 700; font-size: 13px; } .cv-logo { max-height: 36px; max-width: 140px; }
+.cv-en { font-family: var(--display); font-size: clamp(40px, 7vw, 76px); line-height: .95; color: var(--accent); }
+.cv-name { font-size: clamp(20px, 3vw, 30px); font-weight: 900; margin-top: 10px; } .cv-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+.cv-bar { height: 14px; background: var(--accent); box-shadow: 0 8px 0 #111; margin: 0 calc(-1 * clamp(18px, 3vw, 36px)); }
+@media (max-width: 900px) { .s2, .s3, .s4, .s5, .s5b, .s6 { grid-template-columns: minmax(0, 1fr); } .kpis.kc4, .kpis.kc3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media print { .slide { break-after: page; box-shadow: none; aspect-ratio: auto; } .ed:empty, .note-y:empty { display: none; } .ed { outline: none !important; } .img-slot { display: none; } }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%) translateY(20px); background: var(--side); color: var(--side-ink); padding: 10px 18px; border-radius: var(--radius); font-size: 12.5px; opacity: 0; pointer-events: none; transition: .2s; z-index: 50; max-width: calc(100% - 32px); }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 
@@ -506,7 +564,7 @@ const VER = {
   attract: { name: '集客', en: 'ATTRACT', entry: '問い合わせ', interview: '来店・商談', hire: '成約', goal: '成約数', funnelName: '集客ファネル' }
 };
 const CH = [
-  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth', 'reachF', 'reachN', 'impressionsF', 'impressionsN', 'interactionsF', 'interactionsN'] },
+  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth', 'reachF', 'reachN', 'impressionsF', 'impressionsN', 'interactionsF', 'interactionsN', 'unfollows'] },
   { k: 'meta', l: 'Meta広告', sub: 'Facebook・Instagram広告', src: 'Meta広告マネージャ', ads: true, fields: ['impressions', 'reach', 'clicks', 'linkTaps', 'spend', 'results'] },
   { k: 'tiktok', l: 'TikTok', sub: 'オーガニック投稿', src: 'TikTok Studio（アナリティクス）', fields: ['views', 'reach', 'profileViews', 'linkTaps', 'followers', 'followerGrowth'] },
   { k: 'tiktokPromote', l: 'TikTokプロモート', sub: '広告配信', src: 'TikTokプロモート / 広告マネージャー', ads: true, fields: ['impressions', 'reach', 'views', 'clicks', 'spend', 'results'] },
@@ -519,7 +577,7 @@ const FIELD = {
   entry: { l: 'エントリー', u: '件' }, interview: { l: '面接', u: '件' }, hire: { l: '採用数', u: '件' },
   impressions: { l: 'インプレッション（閲覧数）' }, views: { l: '再生数', u: '回' }, storyViews: { l: 'ストーリーズ閲覧数', u: '回' },
   storyCompletion: { l: 'ストーリーズ閲覧完了率', u: '%' }, linkTaps: { l: 'リンクタップ' }, followers: { l: 'フォロワー数', u: '人' },
-  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, reachF: { l: 'リーチ（フォロワー）' }, reachN: { l: 'リーチ（フォロワー以外）' }, impressionsF: { l: '閲覧数（フォロワー）' }, impressionsN: { l: '閲覧数（フォロワー以外）' }, interactionsF: { l: 'インタラクション（フォロワー）' }, interactionsN: { l: 'インタラクション（フォロワー以外）' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
+  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, unfollows: { l: 'フォロー解除数', u: '人' }, reachF: { l: 'リーチ（フォロワー）' }, reachN: { l: 'リーチ（フォロワー以外）' }, impressionsF: { l: '閲覧数（フォロワー）' }, impressionsN: { l: '閲覧数（フォロワー以外）' }, interactionsF: { l: 'インタラクション（フォロワー）' }, interactionsN: { l: 'インタラクション（フォロワー以外）' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
 };
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
@@ -559,7 +617,7 @@ function seed() {
             impressions: [148000, 166000, 181000, 204000, 226000, 245000], storyViews: [7800, 8400, 8100, 9600, 10300, 11800],
             storyCompletion: [62, 58, 64, 61, 66, 68], linkTaps: [140, 160, 171, 196, 214, 238], followers: [10920, 11240, 11610, 12050, 12430, 12840],
             followerGrowth: [280, 320, 370, 440, 380, 410],
-            reachF: [null, null, null, 41000, 43800, 45900], reachN: [null, null, null, 90000, 102200, 114100],
+            unfollows: [null, null, null, null, 6, 8], reachF: [null, null, null, 41000, 43800, 45900], reachN: [null, null, null, 90000, 102200, 114100],
             impressionsF: [null, null, null, 88000, 94000, 97000], impressionsN: [null, null, null, 116000, 132000, 148000]
           }),
           meta: ser({ impressions: [null, null, 52000, 61000, 70500, 78200], reach: [null, null, 31000, 36400, 41000, 45200], clicks: [null, null, 610, 720, 840, 905], linkTaps: [null, null, 520, 600, 702, 760], spend: [null, null, 60000, 70000, 80000, 80000], results: [null, null, 8, 10, 12, 14] }),
@@ -574,7 +632,10 @@ function seed() {
       northstar: { recruit: { instagram: [{ month: '2026-08', reach: 42000, profileViews: 900, line: 8, entry: 2, interview: 1, hire: 0, followers: 3100 }, { month: '2026-09', reach: 51000, profileViews: 1150, line: 12, entry: 3, interview: 2, hire: 1, followers: 3420 }, { month: '2026-10', reach: 58000, profileViews: 1320, line: 15, entry: 4, interview: 2, hire: 1, followers: 3760 }] } },
       lumen: { recruit: { instagram: [{ month: '2026-09', reach: 73000, profileViews: 2100, line: 18, entry: 5, interview: 3, hire: 1, followers: 8800 }, { month: '2026-10', reach: 81000, profileViews: 2380, line: 22, entry: 6, interview: 3, hire: 2, followers: 9350 }] } }
     },
-    demo: { aurora: { recruit: { '2026-10': { female: 64, male: 35, other: 1, ages: { '13-17': 2, '18-24': 22, '25-34': 39, '35-44': 21, '45-54': 10, '55-64': 4, '65+': 2 }, locations: '大阪府 38\n兵庫県 27\n京都府 12\n東京都 8\n奈良県 5' } } } },
+    demo: { aurora: { recruit: {
+      '2026-09': { female: 63, male: 36, other: 1, ages: { '13-17': 2, '18-24': 23, '25-34': 38, '35-44': 21, '45-54': 10, '55-64': 4, '65+': 2 }, locations: '大阪府 37.2\n兵庫県 27.5\n京都府 12.3\n東京都 8.1\n奈良県 5.2\n和歌山県 2.4\n滋賀県 1.9\n愛知県 1.1', locationsN: '大阪府 4624\n兵庫県 3418\n京都府 1529\n東京都 1007\n奈良県 646\n和歌山県 298\n滋賀県 236\n愛知県 137' },
+      '2026-10': { female: 64, male: 36, ages: { '13-17': 2, '18-24': 22, '25-34': 39, '35-44': 21, '45-54': 10, '55-64': 4, '65+': 2 }, agesF: { '13-17': 1, '18-24': 14, '25-34': 25, '35-44': 13, '45-54': 7, '55-64': 3, '65+': 1 }, agesM: { '13-17': 1, '18-24': 8, '25-34': 14, '35-44': 8, '45-54': 3, '55-64': 1, '65+': 1 }, locations: '大阪府 38\n兵庫県 27\n京都府 12\n東京都 8\n奈良県 5\n和歌山県 2.3\n滋賀県 1.9\n愛知県 1.2', locationsN: '大阪府 4879\n兵庫県 3467\n京都府 1541\n東京都 1027\n奈良県 642\n和歌山県 295\n滋賀県 244\n愛知県 154' }
+    } } },
     notes: { aurora: { recruit: { '2026-10': { summary: 'リーチ16万・プロフィール流入4,000と過去最高。LINE登録40、エントリー4、採用1。', outlook: 'プロフィール→LINEの移行率を上げるため、ハイライトに「社員の1日」を追加し、LINE特典を見直す。' } } } },
     targets: { aurora: { recruit: { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 1, gReach: 150000, gProfile: 3500, gLine: 35, gEntry: 5, gInterview: 3 } } },
     goals: { aurora: { recruit: { '2026-05': { entry: 3, line: 20, reach: 90000, profileViews: 2000, interview: 1, hire: 0 }, '2026-06': { entry: 3, line: 25, reach: 100000, profileViews: 2400, interview: 2, hire: 1 }, '2026-07': { entry: 4, line: 28, reach: 115000, profileViews: 2800, interview: 2, hire: 1 }, '2026-08': { entry: 4, line: 30, reach: 125000, profileViews: 3200, interview: 2, hire: 1 }, '2026-09': { entry: 5, line: 35, reach: 140000, profileViews: 3500, interview: 3, hire: 1 } } } },
@@ -616,7 +677,7 @@ const store = {
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
-['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => S[k] = S[k] || {});
 function save(msg) { const ok = store.set(S); if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます'); }
 
 /* ================= helpers ================= */
@@ -997,6 +1058,7 @@ const VIEWS = {
   compare: { label: '期間比較', group: 'ANALYTICS', icon: 'compare' },
   sim: { label: '運用シミュレーション', group: 'ANALYTICS', icon: 'trend' },
   report: { label: '成果レポート', group: 'ANALYTICS', icon: 'report' },
+  brief: { label: '簡易レポート', group: 'ANALYTICS', icon: 'report' },
   tasks: { label: '制作管理', group: 'PRODUCTION', icon: 'tasks' },
   targets: { label: '目標設定', group: 'SETTINGS', icon: 'target' },
   editors: { label: '編集者管理', group: 'SETTINGS', icon: 'editors' },
@@ -1438,6 +1500,110 @@ R.sim = () => {
   return h;
 };
 
+/* ---- brief report: slide-style monthly summary ---- */
+function briefOf(m) { const c = S.current, v = S.ver; S.briefs[c] = S.briefs[c] || {}; S.briefs[c][v] = S.briefs[c][v] || {}; return S.briefs[c][v][m] = S.briefs[c][v][m] || {}; }
+function bTxt(m, key, def, cls, ph) {
+  const b = (((S.briefs[S.current] || {})[S.ver] || {})[m]) || {};
+  const val = b[key] !== undefined ? b[key] : def;
+  return '<div class="ed ' + (cls || '') + '" contenteditable="plaintext-only" spellcheck="false" data-brief="' + key + '" data-ph="' + esc(ph || 'クリックして入力') + '">' + esc(val || '') + '</div>';
+}
+function bBanner(en, jp) { return '<div class="bn"><span class="bn-en">' + esc(en) + '</span>' + (jp ? '<span class="bn-jp">' + esc(jp) + '</span>' : '') + '</div>'; }
+function bDonut(f, mval) {
+  const t = (f || 0) + (mval || 0); if (!t) return '';
+  const fr = f / t, R = 54, C = 2 * Math.PI * R;
+  return '<svg viewBox="0 0 160 160" class="donut" role="img" aria-label="女性 ' + Math.round(fr * 100) + '% 男性 ' + Math.round((1 - fr) * 100) + '%"><circle cx="80" cy="80" r="' + R + '" fill="none" stroke-width="26" class="dn-m"/><circle cx="80" cy="80" r="' + R + '" fill="none" stroke-width="26" class="dn-f" stroke-dasharray="' + (C * fr).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 80 80)"/>' +
+    '<text x="80" y="76" text-anchor="middle" class="dn-t">男女比</text><text x="80" y="96" text-anchor="middle" class="dn-v">' + Math.round(fr * 1000) / 10 + ' : ' + Math.round((1 - fr) * 1000) / 10 + '</text></svg>' +
+    '<div class="aud-legend" style="justify-content:center"><span><i class="dnf"></i>女性 ' + fmtPct(fr * 100) + '</span><span><i class="dnm"></i>男性 ' + fmtPct((1 - fr) * 100) + '</span></div>';
+}
+function prefTable(d, label) {
+  if (!d) return '<div class="ptab"><div class="ptab-m">' + label + '</div>' + emptyBox('地域のデータがありません', '都道府県のCSVを取り込むと表示されます') + '</div>';
+  const pct = attrLines(d.locations), cnt = Object.fromEntries(attrLines(d.locationsN).map(x => [x.l, x.v]));
+  return '<div class="ptab"><div class="ptab-m">' + label + '</div><table><thead><tr><th>都道府県</th><th class="n">フォロワー数</th></tr></thead><tbody>' +
+    pct.slice(0, 8).map((x, i) => '<tr><td>' + esc(x.l) + '</td><td class="n"><span class="' + (i === 0 ? 'hl' : '') + '">' + (isNum(cnt[x.l]) ? fmt(cnt[x.l]) + '（' + x.v + '%）' : x.v + '%') + '</span></td></tr>').join('') + '</tbody></table></div>';
+}
+R.brief = () => {
+  const c = client(); if (!c) return noClient('簡易レポート');
+  const m = curMonth(), pm = addMonth(m, -1), v = VER[S.ver], b = S.brand;
+  const r = rec('instagram', m) || {}, p = rec('instagram', pm) || {}, mo = Number(m.slice(5)), pmo = Number(pm.slice(5));
+  const days = new Date(+m.slice(0, 4), mo, 0).getDate();
+  const posts = postsOf().filter(x => x.month === m), stories = posts.filter(x => x.type === 'story').sort((a, b2) => a.date < b2.date ? 1 : -1), feed = posts.filter(x => x.type !== 'story');
+  const fs = folStats('instagram', m), d = demoForCh(m, 'instagram'), pd = demoForCh(pm, 'instagram');
+  const g = goalsFor(m);
+  // automatic first drafts for the text blocks (the person edits them on the slide)
+  const res = [];
+  if (isNum(fs.growth)) res.push('フォロワー ' + (fs.growth >= 0 ? '+' : '') + fmt(fs.growth) + '人（' + fmt(fs.followers) + '人）');
+  if (isNum(r.reach)) res.push('リーチ ' + fmt(r.reach) + (isNum(p.reach) && p.reach ? '（前月比 ' + (r.reach >= p.reach ? '+' : '') + Math.round((r.reach - p.reach) / p.reach * 1000) / 10 + '%）' : ''));
+  const aud = audParts(r, 'reach'); if (aud && isNum(aud.nr)) res.push('フォロワー以外へのリーチ ' + fmtPct(aud.nr) + '（新しい人に届いた割合）');
+  if (isNum(r.entry)) res.push(v.entry + ' ' + fmt(r.entry) + '件' + (isNum(r.hire) ? '／' + v.hire + ' ' + fmt(r.hire) + '件' : ''));
+  const loc0 = d ? attrLines(d.locations)[0] : null; if (loc0) res.push('フォロワーの地域は' + loc0.l + 'が最多（' + loc0.v + '%）');
+  const goalTxt = [['entry', v.entry], ['line', 'LINE登録'], ['hire', v.hire]].filter(([k]) => isNum(g[k])).map(([k, l]) => l + fmt(g[k]) + '件').join('／');
+  const acts = (goalTxt ? '★毎月の目標➡' + goalTxt + '\n' : '') + (() => { const o = ui.inReport; ui.inReport = true; const x = suggestions(m); ui.inReport = o; return x; })().slice(0, 2).map(s => '・' + s.t).join('\n');
+  const sumImg = ((((S.briefs[S.current] || {})[S.ver] || {})[m]) || {}).img;
+  let h = head('BRIEF REPORT', '簡易レポート', cLead() + '　文字はスライド上で直接クリックして書き換えられます。数字は取り込んだデータから自動で入ります。',
+    monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<button class="btn ghost" data-act="briefReset">文章を自動の下書きに戻す</button>');
+  h += sampleBar();
+  h += '<div class="slides">';
+  // 1. cover
+  h += '<section class="slide cover-s"><div class="cv-top">' + (b.logo ? '<img src="' + esc(b.logo) + '" alt="" class="cv-logo">' : burst(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FF6600')) + '<span>' + esc(b.company || b.appName) + '</span></div>' +
+    '<div class="cv-mid"><div class="cv-en">MONTHLY REPORT</div><div class="cv-name">' + esc(c.name) + '　様</div><div class="cv-sub">' + mLabel(m) + '　Instagram運用レポート</div></div><div class="cv-bar"></div></section>';
+  // 2. results & next actions
+  h += '<section class="slide"><div class="s2"><div>' + bBanner(mo + '月の結果') + bTxt(m, 'results', res.join('\n'), 'big-txt', '今月の結果を箇条書きで') +
+    bBanner('今後の施策') + bTxt(m, 'actions', acts, 'big-txt', '来月以降の施策・目標') + '</div>' +
+    '<div class="s2-img">' + (sumImg ? '<img src="' + esc(sumImg) + '" alt="">' : '<label for="briefImg" class="img-slot">' + I.image + '<span>画像を入れる（Googleマップの口コミ画面など）</span></label>') + '<input type="file" id="briefImg" accept="image/*" hidden>' + (sumImg ? '<button class="btn sm ghost no-print" data-act="briefImgClear">画像を外す</button>' : '') + '</div></div>' +
+    '<div class="cm-h">担当コメント</div>' + bTxt(m, 'comment', '', 'note-y', '担当コメントを入力') + '</section>';
+  // 3. stories
+  if (stories.length || isNum(r.storyViews)) {
+    const sv = sum(stories.map(x => x.views)), sr = sum(stories.map(x => x.reach)), n = stories.length;
+    const vr = x => isNum(x.views) && isNum(fs.followers) && fs.followers ? x.views / fs.followers * 100 : null;
+    const maxVr = Math.max(...stories.map(vr).filter(isNum), 0);
+    h += '<section class="slide">' + bBanner('STORIES', 'ストーリーズ') + '<div class="kpis kc3">' +
+      '<div class="kpi"><span>ストーリーズ投稿数</span><b>' + fmt(n || null) + '</b></div>' +
+      '<div class="kpi"><span>閲覧数</span><b>' + fmt(sv !== null ? sv : r.storyViews) + '</b><small>平均 ' + (n && isNum(sv) ? fmt(Math.round(sv / n * 100) / 100) : '—') + '</small></div>' +
+      '<div class="kpi"><span>リーチ数</span><b>' + fmt(sr) + '</b><small>平均 ' + (n && isNum(sr) ? fmt(Math.round(sr / n * 100) / 100) : '—') + '</small></div></div>' +
+      '<div class="s3"><div class="tbl-wrap"><table class="st-tab"><thead><tr><th></th><th>投稿日時</th><th class="n">閲覧数</th><th class="n">リーチ</th><th class="n">返信</th><th class="n">リンク</th><th class="n">閲覧率</th></tr></thead><tbody>' +
+      stories.slice(0, 5).map(x => '<tr><td>' + (x.thumb ? '<img src="' + esc(x.thumb) + '" alt="" class="st-th">' : '<span class="st-th ph">' + esc((x.caption || '').slice(0, 10)) + '</span>') + '</td><td class="num">' + esc(x.date.replace(/-/g, '/')) + '</td><td class="n">' + fmt(x.views) + '</td><td class="n">' + fmt(x.reach) + '</td><td class="n">' + fmt(x.replies) + '</td><td class="n">' + fmt(x.linkClicks) + '</td><td class="n">' + fmtPct(vr(x)) + '</td></tr>').join('') +
+      '</tbody></table></div>' + bTxt(m, 'noteStories', maxVr ? '閲覧率MAX' + Math.round(maxVr * 10) / 10 + '%\n目標20%以上' : '', 'note-y nside', '一言メモ') + '</div>' +
+      (stories.length > 5 ? '<p class="hint">ほか ' + (stories.length - 5) + '件。閲覧率＝閲覧数÷フォロワー数。</p>' : '<p class="hint">閲覧率＝閲覧数÷フォロワー数。</p>') + '</section>';
+  }
+  // 4. followers by prefecture, last month vs this month
+  if (d || pd) {
+    const top = d ? attrLines(d.locations)[0] : null;
+    h += '<section class="slide">' + bBanner('Follower', 'フォロワー') + '<div class="s4">' + prefTable(pd && pd.month === pm ? pd : null, pmo + '月') + prefTable(d && d.month === m ? d : d, mo + '月') + '</div>' +
+      bTxt(m, 'notePref', top ? 'フォロワーの主な地域は' + top.l + '（' + top.v + '%）です。' : '', 'note-y center', '地域についての一言') + '</section>';
+  }
+  // 5. followers: growth, gender, age
+  {
+    const ms = monthsOf().filter(x => x <= m).slice(-12), ser = [{ name: 'フォロワー数', values: ms.map(x => folVal('instagram', x, 'followers')), kind: 'line', c: 3, area: false }];
+    const fch = chart({ labels: ms.map(mShort), series: ser, minL: 'auto', h: 200 });
+    const hasAgeSplit = d && d.agesF && Object.values(d.agesF).some(isNum);
+    const ages = d ? AGES.filter(a => isNum((d.ages || {})[a]) || (hasAgeSplit && isNum(d.agesF[a]))) : [];
+    const maxA = Math.max(1, ...ages.map(a => hasAgeSplit ? (d.agesF[a] || 0) + ((d.agesM || {})[a] || 0) : d.ages[a]));
+    h += '<section class="slide">' + bBanner('Follower', 'フォロワー') + '<div class="s5"><div class="grow"><div class="grow-tag">フォロワー増減</div><div class="grow-v">' + (isNum(fs.growth) ? (fs.growth >= 0 ? fmt(fs.growth) + '増加' : fmt(-fs.growth) + '減少') : '—') + '</div>' + (isNum(r.unfollows) ? '<div class="grow-s">※解除' + fmt(r.unfollows) + '人</div>' : '') + '<div class="grow-s">フォロワー ' + fmt(fs.followers) + '人</div></div>' +
+      '<div class="chart">' + (fch || emptyBox('フォロワー数の推移がありません', '月次データにフォロワー数を入れると表示されます')) + '</div></div>' +
+      '<div class="s5b"><div>' + (d && (isNum(d.female) || isNum(d.male)) ? bDonut(d.female, d.male) : emptyBox('男女比のデータがありません', '年齢・男女のCSVを取り込むと表示されます')) + '</div><div class="agebars">' +
+      (ages.length ? ages.map(a => { const f = hasAgeSplit ? (d.agesF[a] || 0) : null, mm = hasAgeSplit ? ((d.agesM || {})[a] || 0) : null, t = hasAgeSplit ? f + mm : d.ages[a]; return '<div class="ab"><span>' + a.replace('+', '歳以上').replace(/^(\d+-\d+)$/, '$1歳') + '</span><div class="ab-tr">' + (hasAgeSplit ? '<i class="dnf" style="width:' + (f / maxA * 100).toFixed(1) + '%"></i><i class="dnm" style="width:' + (mm / maxA * 100).toFixed(1) + '%"></i>' : '<i class="dnm" style="width:' + (t / maxA * 100).toFixed(1) + '%"></i>') + '</div><b>' + fmtPct(t) + '</b></div>'; }).join('') + (hasAgeSplit ? '<div class="aud-legend"><span><i class="dnf"></i>女性</span><span><i class="dnm"></i>男性</span></div>' : '') : emptyBox('年齢層のデータがありません', '年齢・男女のCSVを取り込むと表示されます')) + '</div></div>' +
+      bTxt(m, 'noteFollower', '', 'note-y', 'フォロワーについての一言（任意）') + '</section>';
+  }
+  // 6. engagement
+  {
+    const hist = monthsOf().filter(x => x <= m).slice(-12);
+    const list = (k, unit) => hist.map(x => { const val = (rec('instagram', x) || {})[k]; return isNum(val) ? '<div><span>' + Number(x.slice(5)) + '月</span><b>' + fmt(val) + unit + '</b></div>' : ''; }).join('');
+    const pv = hist.map(x => (rec('instagram', x) || {}).profileViews);
+    const ech = chart({ labels: hist.map(mShort), series: [{ name: 'プロフィールビュー', values: pv, kind: 'bar', c: 3 }], h: 190 });
+    const ps = k => sum(feed.map(x => x[k])), eng = sum(feed.map(x => pval(x, 'eng'))), preach = sum(feed.map(x => x.reach));
+    const card = (l, val, sub) => '<div class="kpi"><span>' + l + '</span><b>' + val + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
+    const perDay = val => isNum(val) ? '1日平均 ' + fmt(Math.round(val / days * 100) / 100) : '';
+    h += '<section class="slide">' + bBanner('Engagement', 'エンゲージメント') + '<div class="s6"><div class="hist">' +
+      '<div class="hist-h">月別の推移</div><div class="hist-g"><div><div class="hist-t">■プロフィールビュー■</div>' + list('profileViews', '回') + '</div><div><div class="hist-t">■ウェブサイトタップ■</div>' + list('linkTaps', '回') + '</div>' +
+      '<div><div class="hist-t">■インプ（閲覧数）■</div>' + list('impressions', '回') + '</div><div><div class="hist-t">■リーチ■</div>' + list('reach', '人') + '</div></div></div>' +
+      '<div><div class="chart">' + (ech || '') + '</div><div class="kpis kc4">' + card('インプレッション数', fmt(r.impressions), perDay(r.impressions)) + card('リーチ数', fmt(r.reach), perDay(r.reach)) + card('プロフィールビュー', fmt(r.profileViews), perDay(r.profileViews)) + card('ウェブサイトタップ', fmt(r.linkTaps), perDay(r.linkTaps)) +
+      (feed.length ? card('いいね数', fmt(ps('likes')), '1投稿平均 ' + fmt(Math.round((ps('likes') || 0) / feed.length * 10) / 10)) + card('保存数', fmt(ps('saves')), '') + card('コメント数', fmt(ps('comments')), '') + card('エンゲージメント率', fmtPct(rate(eng, preach)), 'ENG数 ÷ リーチ（投稿）') : '') + '</div></div></div>' +
+      bTxt(m, 'noteEng', '', 'note-y', 'エンゲージメントについての一言（任意）') + '</section>';
+  }
+  h += '</div>';
+  return h;
+};
+
 /* ---- cross channel ---- */
 R.channels = () => {
   if (!client()) return noClient('媒体を越えて、見える。');
@@ -1686,7 +1852,7 @@ function parseCSV(text) {
   return rows.filter(r => r.some(c => String(c).trim() !== ''));
 }
 const DETECT = [
-  ['storyCompletion', ['完了率', 'completion']], ['storyViews', ['ストーリー', 'story']],
+  ['unfollows', ['フォロー解除', 'unfollow']], ['storyCompletion', ['完了率', 'completion']], ['storyViews', ['ストーリー', 'story']],
   ['watchTime', ['総再生時間', '再生時間', '視聴時間', 'watch time']], ['interactions', ['インタラクション', 'interaction', 'エンゲージメント', 'engagement']],
   ['followerGrowth', ['フォロワー増', '純増', '増加', 'followers gained', 'subscribers gained', 'new followers', '登録者増', '登録者の増', 'チャンネル登録者', 'subscribers', 'フォロー数', 'follows', '新しいフォロワー', 'でのフォロー', 'フォロー']],
   ['followers', ['フォロワー', 'follower', '登録者', 'subscriber']], ['profileViews', ['プロフィール', 'profile']],
@@ -1819,14 +1985,14 @@ function parseAttr(f) {
     const tot = rows.reduce((a, x) => a + x.f + x.m, 0);
     if (!rows.length || !tot) return { error: '年齢の行が見つかりませんでした。' };
     const ft = rows.reduce((a, x) => a + x.f, 0), mt = rows.reduce((a, x) => a + x.m, 0), r1 = v => Math.round(v * 10) / 10;
-    return { ages: Object.fromEntries(rows.map(x => [x.k, r1((x.f + x.m) / tot * 100)])), female: r1(ft / tot * 100), male: r1(mt / tot * 100) };
+    return { ages: Object.fromEntries(rows.map(x => [x.k, r1((x.f + x.m) / tot * 100)])), agesF: Object.fromEntries(rows.map(x => [x.k, r1(x.f / tot * 100)])), agesM: Object.fromEntries(rows.map(x => [x.k, r1(x.m / tot * 100)])), female: r1(ft / tot * 100), male: r1(mt / tot * 100) };
   }
   const vi = col(/フォロワー|follower|%|割合/i);
   const li = f.attr === 'city' ? col(/市区町村|^city$/i) : f.attr === 'country' ? col(/^(国|国名|country)$/i) : col(/^都道府県$|^地域$|^region$/i);
   const pi = f.attr === 'city' ? col(/^都道府県$/) : -1;
   const raw = f.rows.map(r => ({ l: String(r[li] || '').trim(), pref: pi >= 0 ? String(r[pi] || '').trim() : '', c: countPct(r[vi]) })).filter(x => x.l && x.c && !/^(不明|unknown|その他)$/i.test(x.l));
   const total = f.rows.reduce((a, r) => a + ((countPct(r[vi]) || {}).n || 0), 0);
-  const items = raw.map(x => ({ l: f.attr === 'city' && x.pref && x.pref !== x.l ? x.l + '（' + x.pref.replace(/[都道府県]$/, '') + '）' : x.l, v: isNum(x.c.p) ? x.c.p : (total ? Math.round(x.c.n / total * 1000) / 10 : x.c.n) }));
+  const items = raw.map(x => ({ l: f.attr === 'city' && x.pref && x.pref !== x.l ? x.l + '（' + x.pref.replace(/[都道府県]$/, '') + '）' : x.l, n: x.c.n, v: isNum(x.c.p) ? x.c.p : (total ? Math.round(x.c.n / total * 1000) / 10 : x.c.n) }));
   return items.length ? { items } : { error: 'フォロワーの行が見つかりませんでした。' };
 }
 function loadFile(name, text) {
@@ -1965,13 +2131,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -2012,8 +2178,9 @@ A.csvImport = () => {
     postsOnly = false;
     if (f.kind === 'attr') {
       const d = demoEdit(f.month, f.fch), a = agg.attr, lines = a.items ? a.items.map(x => x.l + ' ' + x.v).join('\n') : '';
-      if (f.attr === 'age') { d.ages = a.ages; d.female = a.female; d.male = a.male; delete d.other; }
-      else if (f.attr === 'pref') d.locations = lines;
+      const linesN = a.items && a.items.every(x => isNum(x.n)) ? a.items.map(x => x.l + ' ' + x.n).join('\n') : '';
+      if (f.attr === 'age') { d.ages = a.ages; d.agesF = a.agesF; d.agesM = a.agesM; d.female = a.female; d.male = a.male; delete d.other; }
+      else if (f.attr === 'pref') { d.locations = lines; if (linesN) d.locationsN = linesN; }
       else if (f.attr === 'city') d.cities = lines;
       else d.countries = lines;
       n++; if (!lastM || f.month > lastM) lastM = f.month; return;
@@ -2061,6 +2228,8 @@ A.cmpRange = el => { const n = +el.dataset.n, all = monthsOf(), end = all.length
 A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
+A.briefReset = el => arm(el, () => { const b = briefOf(curMonth()); ['results', 'actions', 'noteStories', 'notePref'].forEach(k => delete b[k]); save('自動の下書きに戻しました'); render(); });
+A.briefImgClear = () => { delete briefOf(curMonth()).img; save('画像を外しました'); render(); };
 A.simTab = el => { ui.simTab = el.dataset.k; ui.simTsv = ''; render(); };
 A.simCopy = () => { const sm = simOf(), cols = Array.from({ length: sm.count }, (_, i) => ({ i, label: (i + 1) + 'ヶ月目' })); ui.simTsv = simTSV(cols, (c, k) => (sm.vals[k] || [])[c.i], client().name + '様　運用シミュレーション') + '\n' + (sm.notes || '') + (sm.comment ? '\n\n担当者コメント\n' + sm.comment : ''); render(); copyText(ui.simTsv, $('#simTsvBox')); };
 A.simCopyActual = () => { const ms = monthsOf().filter(x => x <= curMonth()).slice(-(ui.simActN || 6)); ui.simTsv = simTSV(ms.map(m => ({ m, label: mLabel(m) })), (c, k) => actualOf(c.m, k), client().name + '様　運用実績'); render(); copyText(ui.simTsv, $('#simTsvBox')); };
@@ -2143,6 +2312,7 @@ document.addEventListener('input', e => {
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
   else if (d.sim) { const sm = simOf(); sm.vals[d.sim] = sm.vals[d.sim] || []; sm.vals[d.sim][+d.si] = toNum(t.value); saveSoon(); }
   else if (d.simf) { simOf()[d.simf] = t.value; saveSoon(); }
+  else if (d.brief) { briefOf(m)[d.brief] = t.innerText.replace(/\n$/, ''); saveSoon(); }
   else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
   else if (d.cf) { const c = client(); c[d.cf] = t.value; saveSoon(); if (d.cf === 'name') { $('#clientSel').selectedOptions[0].textContent = t.value; } }
   else if (d.hear) { const c = client(); c.hearing = c.hearing || {}; c.hearing[d.hear] = t.value; saveSoon(); }
@@ -2176,6 +2346,11 @@ document.addEventListener('change', e => {
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
   else if (d.sim) render();
+  else if (t.id === 'briefImg' && t.files[0]) {
+    const file = t.files[0], url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const w = Math.min(640, img.width), cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(img.height * w / img.width); cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); briefOf(curMonth()).img = cv.toDataURL('image/jpeg', .8); URL.revokeObjectURL(url); save('画像を入れました'); render(); };
+    img.onerror = () => toast('画像を読み込めませんでした'); img.src = url;
+  }
   else if (t.id === 'simTop') { ui.simTop = t.value; render(); }
   else if (t.id === 'simCount') { simOf().count = +t.value; save(false); render(); }
   else if (t.id === 'simStart') { if (t.value) { simOf().start = t.value; save(false); render(); } }
