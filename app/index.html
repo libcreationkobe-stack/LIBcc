@@ -488,6 +488,13 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
 .ptab td.pb { width: 30%; } .ptab td.pb i { display: block; height: 10px; background: var(--accent); border-radius: 2px; opacity: .85; }
 .slides.classic .ptab td.pb i, .slides.classic .rk-bar i { background: #F28C28; }
 @media (max-width: 900px) { .ovs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .s7, .s7.rev { grid-template-columns: minmax(0, 1fr); } }
+.cloud { font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; flex: none; }
+.cloud.ok { color: var(--good); border-color: transparent; background: var(--good-soft); }
+.cloud.saving { color: var(--muted); }
+.cloud.error, .cloud.offline { color: var(--bad); border-color: transparent; background: var(--bad-soft); }
+.cloud.ro { color: var(--ink); background: var(--field); }
+.drive-tree pre { background: var(--field); border-radius: var(--radius); padding: 10px 12px; font: 12px/1.6 var(--num); margin: 6px 0; overflow-x: auto; }
+.drive-mini { margin-top: 10px; }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -544,6 +551,7 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 4h12M2 8h12M2 12h12"/></svg>
       </button>
       <div class="crumb" id="crumb"></div>
+      <span class="cloud" id="cloudStat" hidden></span>
       <div class="ver" role="group" aria-label="バージョン切り替え" id="verSwitch"></div>
     </header>
     <main id="main"></main>
@@ -727,7 +735,138 @@ let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
 ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => S[k] = S[k] || {});
-function save(msg) { const ok = store.set(S); if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます'); }
+S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] }, S.drive || {});
+(() => { try { const pf = JSON.parse(localStorage.getItem('orange-insight-prefs')) || {}; if (pf.current) S.current = pf.current; if (pf.ver) S.ver = pf.ver; if (pf.month !== undefined) S.month = pf.month; } catch (e) { /* no saved preferences */ } })();
+/* ================= shared storage (artifact db) =================
+   Outside claude.ai (the file opened directly) everything stays in this browser's localStorage.
+   Inside claude.ai the team shares one database:
+     app/meta            clients, editors, brand
+     app/drive           Google Drive import settings and history
+     clients/<id>        everything per client except posts
+     posts/<id>~<ver>~<YYYY-MM>   posts of one month
+     blobs/<hash>        images (logo, thumbnails) kept out of the other documents
+   Each viewer's own choices (client on screen, month, ...) stay in their browser. */
+const PREF_KEY = 'orange-insight-prefs';
+const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs'];
+const cloud = { db: null, user: null, canWrite: true, last: {}, timer: null, inflight: 0, applyPending: false, renderPending: false, remote: { meta: null, clients: {}, posts: {}, blobs: {}, drive: null }, status: '', myBlobs: new Set(), loaded: false };
+function defaultDrive() { return { folder: 'ATTRIA取り込み', imported: {}, log: [] }; }
+function prefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } }
+function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ current: S.current, ver: S.ver, month: S.month, driveAuto: !!ui.driveAuto })); } catch (e) { /* private window: preferences are per visit */ } }
+function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + s.length.toString(36); }
+const clone = o => o === undefined ? undefined : JSON.parse(JSON.stringify(o));
+function serialize() {
+  const docs = {}, blobs = {};
+  const ext = v => {
+    if (typeof v === 'string') { if (v.startsWith('data:') && v.length > 1500) { const k = 'b' + hashStr(v); blobs[k] = v; return '@blob:' + k; } return v; }
+    if (Array.isArray(v)) return v.map(ext);
+    if (v && typeof v === 'object') { const o = {}; for (const k in v) if (v[k] !== undefined) o[k] = ext(v[k]); return o; }
+    return v;
+  };
+  docs['app/meta'] = { clients: ext(S.clients), editors: ext(S.editors), brand: ext(S.brand) };
+  docs['app/drive'] = ext(S.drive || defaultDrive());
+  S.clients.forEach(c => { const b = {}; CLIENT_KEYS.forEach(k => { if (S[k][c.id] !== undefined) b[k] = ext(S[k][c.id]); }); docs['clients/' + c.id] = b; });
+  Object.entries(S.posts || {}).forEach(([cid, byVer]) => {
+    if (!S.clients.find(c => c.id === cid)) return;
+    Object.entries(byVer || {}).forEach(([ver, list]) => {
+      const byM = {}; (list || []).forEach(p => (byM[p.month] = byM[p.month] || []).push(p));
+      Object.entries(byM).forEach(([m, l]) => { docs['posts/' + cid + '~' + ver + '~' + m] = { list: ext(l) }; });
+    });
+  });
+  Object.entries(blobs).forEach(([k, v]) => { docs['blobs/' + k] = { data: v }; });
+  return docs;
+}
+function resolveBlobs(v) {
+  if (typeof v === 'string') return v.startsWith('@blob:') && cloud.remote.blobs[v.slice(6)] ? cloud.remote.blobs[v.slice(6)] : v;
+  if (Array.isArray(v)) return v.map(resolveBlobs);
+  if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = resolveBlobs(v[k]); return o; }
+  return v;
+}
+function editingNow() { const a = document.activeElement; return !!a && !!a.closest && !!a.closest('#main') && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable); }
+function applyRemote() {
+  if (cloud.timer || cloud.inflight > 0) { cloud.applyPending = true; return; }
+  const R = cloud.remote; if (!R.meta) return;
+  const meta = resolveBlobs(clone(R.meta));
+  S.clients = meta.clients || []; S.editors = meta.editors || S.editors || [];
+  S.brand = Object.assign(defaultBrand(), meta.brand || {});
+  CLIENT_KEYS.forEach(k => { S[k] = {}; });
+  Object.entries(R.clients).forEach(([cid, body]) => { const b = resolveBlobs(clone(body)); CLIENT_KEYS.forEach(k => { if (b[k] !== undefined) S[k][cid] = b[k]; }); });
+  S.posts = {};
+  Object.keys(R.posts).sort().forEach(id => { const [cid, ver] = id.split('~'); S.posts[cid] = S.posts[cid] || {}; S.posts[cid][ver] = (S.posts[cid][ver] || []).concat(resolveBlobs(clone(R.posts[id])).list || []); });
+  S.drive = Object.assign(defaultDrive(), R.drive ? clone(R.drive) : {});
+  if (!S.clients.find(c => c.id === S.current)) S.current = S.clients[0] ? S.clients[0].id : null;
+  // what the store holds now is what we last "wrote", so nothing is echoed back
+  cloud.last = {};
+  Object.entries(serialize()).forEach(([p, b]) => { cloud.last[p] = JSON.stringify(b); });
+  applyTheme();
+  if (editingNow()) cloud.renderPending = true; else render();
+}
+function setCloud(st) { cloud.status = st; const el = document.getElementById('cloudStat'); if (!el) return; const t = { ok: ['共有中', 'チームで同じデータを見ています'], saving: ['保存中…', ''], error: ['保存できません', '保存に失敗しました。下の案内を見てください'], ro: ['閲覧のみ', '編集するには、共有設定で「Contributor」以上にしてもらってください'], offline: ['つながりません', '共有データにつながりません。このブラウザのデータを表示しています'], local: ['', ''] }[st] || ['', '']; el.textContent = t[0]; el.title = t[1]; el.className = 'cloud ' + st; el.hidden = !t[0]; }
+async function flush() {
+  cloud.timer = null;
+  if (!cloud.db || !cloud.canWrite) return;
+  const docs = serialize(), ops = [];
+  for (const [p, b] of Object.entries(docs)) { const j = JSON.stringify(b); if (cloud.last[p] !== j) ops.push([p, b, j]); }
+  for (const p of Object.keys(cloud.last)) if (!(p in docs) && (!p.startsWith('blobs/') || cloud.myBlobs.has(p))) ops.push([p, null, null]);
+  if (!ops.length) return;
+  ops.sort((a, b) => (a[0].startsWith('blobs/') ? 0 : 1) - (b[0].startsWith('blobs/') ? 0 : 1)); // images first, so others never see a missing one
+  cloud.inflight++; setCloud('saving');
+  try {
+    for (const [p, b, j] of ops) {
+      const ref = cloud.db.doc(p);
+      if (b === null) { await ref.delete(); delete cloud.last[p]; }
+      else { await ref.set(b); cloud.last[p] = j; if (p.startsWith('blobs/')) cloud.myBlobs.add(p); }
+    }
+    setCloud('ok');
+  } catch (e) {
+    const code = e && e.code;
+    if (code === 'quota_exceeded') toast('共有データの容量がいっぱいです。使わないクライアントや画像を削除してください');
+    else if (code === 'invalid_argument') toast('保存できませんでした。データが大きすぎるか、編集の権限がありません');
+    else if (code === 'unavailable' || code === 'resource_exhausted') { setTimeout(() => { if (!cloud.timer) cloud.timer = setTimeout(flush, 200); }, 2000 + Math.random() * 2000); }
+    else if (code === 'revoked') { cloud.canWrite = false; setCloud('ro'); }
+    if (code !== 'unavailable' && code !== 'resource_exhausted') setCloud('error');
+  } finally {
+    cloud.inflight--;
+    if (cloud.applyPending && !cloud.timer && !cloud.inflight) { cloud.applyPending = false; applyRemote(); }
+  }
+}
+function save(msg) {
+  savePrefs();
+  if (cloud.db) {
+    if (!cloud.canWrite) { if (msg !== false) toast('閲覧のみのため、変更は保存されません'); return; }
+    clearTimeout(cloud.timer); cloud.timer = setTimeout(flush, 500);
+    if (msg !== false) toast(msg || '保存しました');
+    return;
+  }
+  const ok = store.set(S);
+  if (msg !== false) toast(ok ? (msg || '保存しました') : 'このブラウザでは保存できませんでした。画面を閉じると内容が消えます');
+}
+window.addEventListener('pagehide', () => { if (cloud.timer) { clearTimeout(cloud.timer); flush(); } });
+document.addEventListener('focusout', () => setTimeout(() => { if (cloud.renderPending && !editingNow()) { cloud.renderPending = false; render(); } }, 0));
+async function cloudInit() {
+  if (!window.claude || typeof window.claude.use !== 'function') return;
+  const db = await Promise.resolve(window.claude.use('db')).catch(() => null);
+  if (!db) return;
+  const user = await Promise.resolve(window.claude.use('user')).catch(() => null);
+  cloud.user = user;
+  try { const w = user && typeof user.can === 'function' ? await user.can('data.write') : null; if (w === false) cloud.canWrite = false; } catch (e) { /* unknown: keep inputs, a refused write decides */ }
+  const timer = setTimeout(() => { if (!cloud.loaded) setCloud('offline'); }, 10000);
+  let meta;
+  try { meta = await db.doc('app/meta').get(); } catch (e) { clearTimeout(timer); setCloud('offline'); return; }
+  cloud.db = db;
+  if (!meta.exists) {
+    // first time on the shared store: the owner brings what is in their browser
+    const owner = user && typeof user.isOwner === 'function' ? await Promise.resolve(user.isOwner()).catch(() => false) : false;
+    if (owner && cloud.canWrite) { cloud.last = {}; await flush(); toast('データをチームで共有できるようにしました'); }
+    else { clearTimeout(timer); cloud.db = null; setCloud('local'); toast('まだ共有データがありません。オーナーが一度開くと共有が始まります'); return; }
+  }
+  const sub = (refOrQuery, apply) => refOrQuery.onSnapshot(apply, () => setCloud('offline'));
+  sub(db.doc('app/meta'), snap => { if (snap.exists) { cloud.remote.meta = snap.data(); if (!snap.metadata.fromCache) { cloud.loaded = true; clearTimeout(timer); setCloud(cloud.canWrite ? 'ok' : 'ro'); } applyRemote(); } });
+  sub(db.doc('app/drive'), snap => { cloud.remote.drive = snap.exists ? snap.data() : null; applyRemote(); });
+  sub(db.collection('clients'), qs => { cloud.remote.clients = Object.fromEntries(qs.docs.map(d => [d.id, d.data()])); applyRemote(); });
+  sub(db.collection('posts'), qs => { cloud.remote.posts = Object.fromEntries(qs.docs.map(d => [d.id, d.data()])); applyRemote(); });
+  sub(db.collection('blobs'), qs => { cloud.remote.blobs = Object.fromEntries(qs.docs.map(d => [d.id, d.data().data])); applyRemote(); });
+  if (ui.driveAuto) setTimeout(() => driveCheck(false), 1500);
+}
 
 /* ================= helpers ================= */
 const $ = s => document.querySelector(s);
@@ -1094,6 +1233,7 @@ function suggestions(m) {
 
 /* ================= views ================= */
 let ui = { simTab: 'plan', simTop: 'impressions', simTsv: '', simActN: 6, simVsPlan: true, folCh: 'all', postType: 'reel', postSort: {}, postDir: {}, postView: 'card', postMonth: null, designTab: 'brand', clientTab: 'detail', inputCh: 'instagram', csv: null, csvCh: 'instagram', csvText: '', taskTab: 'list', compareTab: 'period', cmp: null, chartTab: 'followers', crossMetric: 'profileViews', filters: { q: '', status: '', ver: '', assignee: '', industry: '' }, sort: 'new', taskQ: '', taskSt: '' };
+ui.driveAuto = !!prefs().driveAuto;
 
 const VIEWS = {
   dashboard: { label: 'ダッシュボード', group: 'WORKSPACE', icon: 'dash' },
@@ -1260,7 +1400,7 @@ const TEMPLATES = {
 R.csv = () => {
   const c = client(); if (!c) return noClient('データを、つなごう。');
   const T = csvT(), files = ui.files || [];
-  let h = head('CSV IMPORT', 'CSVを、入れるだけ。', '各媒体から書き出したCSVをそのまま入れてください。媒体・月・項目はこちらで自動で読み取ります。', files.length ? '<button class="btn ghost" data-act="csvReset">やり直す</button>' : '');
+  let h = drivePanel(false) + head('CSV IMPORT', 'CSVを、入れるだけ。', '各媒体から書き出したCSVをそのまま入れてください。媒体・月・項目はこちらで自動で読み取ります。', files.length ? '<button class="btn ghost" data-act="csvReset">やり直す</button>' : '');
   h += '<div class="panel"><div class="grid2">' +
     '<label class="field"><span>どのクライアントの数字？</span><select id="csvClient">' + S.clients.map(x => '<option value="' + x.id + '"' + (x.id === T.c ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select></label>' +
     '<label class="field"><span>採用・集客のどちら？</span><select id="csvVer">' + Object.entries(VER).map(([k, v]) => '<option value="' + k + '"' + (k === T.v ? ' selected' : '') + '>' + v.name + '</option>').join('') + '</select></label></div>' +
@@ -1619,6 +1759,7 @@ R.brief = () => {
   h += sampleBar();
   const au = ui.auto;
   h += '<div class="panel no-print"><label class="drop" id="briefDrop" for="briefFile" style="padding:20px"><div class="inner">' + I.upload + '<b>CSVをここにドロップすると、そのままレポートに反映します</b><span>Instagram・TikTok・YouTube・Meta広告の書き出し、フォロワー属性、コンテンツのCSV（何枚でもOK）</span></div></label><input type="file" id="briefFile" accept=".csv,.tsv,.txt,text/csv" multiple hidden>' +
+    drivePanel(true) +
     (au && au.pending > 0 ? '<p class="hint" style="margin-top:10px">読み取り中…（残り ' + au.pending + ' ファイル）</p>' : '') +
     (au && !au.results && au.pending <= 0 && (ui.files || []).some(f => f.ai === 'running') ? '<p class="hint" style="margin-top:10px">Claudeが列の意味を確認しています…</p>' : '') +
     (au && au.results ? '<div class="auto-res"><b>' + (au.n ? au.n + '件をレポートに反映しました' : '反映できるデータがありませんでした') + '</b>' + au.results.map(r => '<div class="' + (r.ok ? 'ok' : 'ng') + '"><span>' + (r.ok ? '✓' : '×') + '</span><div><b>' + esc(r.name) + '</b>' + esc(r.text) + (r.ok ? '' : '　<a href="#csv">CSV取込で確認する</a>') + '</div></div>').join('') + '<button class="btn sm ghost" data-act="autoClose">閉じる</button></div>' : '') + '</div>';
@@ -1910,7 +2051,7 @@ R.design = () => {
       '<label class="field"><span>レポートに表示する会社名</span><input data-brand="company" value="' + esc(b.company) + '" placeholder="株式会社〇〇（未入力ならアプリ名）"></label>' +
       '<label class="drop" for="logoFile" id="logoDrop"><div class="inner">' + (b.logo ? '<img src="' + esc(b.logo) + '" alt="現在のロゴ">' : I.image) + '<span>ここに画像をドロップ、またはクリックして選択</span></div></label><input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>' +
       '<div class="row"><label class="btn dark" for="logoFile">' + I.image + '自社ロゴを登録</label>' + (b.logo ? '<button class="btn ghost" data-act="clearLogo">ロゴを外す</button>' : '') + '</div>' +
-      '<p class="hint">PNG・JPEG・SVG・WebP、500KBまで。登録したロゴはサイドバーとレポートに表示されます。</p>';
+      '<p class="hint">PNG・JPEG・SVG・WebP。自動で小さくして保存します。登録したロゴはサイドバーとレポートに表示されます。</p>';
   } else if (ui.designTab === 'color') {
     const cr = (k, l) => '<div class="color-row"><input type="color" data-color="' + k + '" value="' + v[k] + '" aria-label="' + l + '"><label class="field"><span>' + l + '</span><input data-color-text="' + k + '" value="' + v[k] + '"></label></div>';
     body = '<h3>色を、ひとつずつ。</h3>' + cr('accent', 'アクセントカラー') + cr('side', 'サイドバー') + cr('bg', '背景') + cr('surface', 'カード') + cr('ink', '文字') + '<p class="hint">アクセントの上の文字色は、明るさに合わせて白か黒が自動で選ばれます。</p>';
@@ -2245,6 +2386,144 @@ function csvT() {
   return T;
 }
 
+/* ================= Google Drive: pick up new CSVs from a folder =================
+   ATTRIA取り込み/            (the name is a setting)
+     株式会社オーロラ/        one folder per client (add 集客 or 採用 to the name to choose the version)
+       リーチ.csv ...
+   Files already imported (same file, same modified time) are skipped; the list is shared by the team. */
+let mcpP = null, driveBusy = false;
+function getMcp() {
+  if (!mcpP) mcpP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('mcp')).catch(() => null) : Promise.resolve(null);
+  return mcpP;
+}
+getMcp().then(m => { ui.mcpReady = !!m; if (m && (route() === 'csv' || route() === 'brief')) render(); });
+async function gd(tool, input) {
+  const mcp = await getMcp();
+  const res = await mcp.callTool('Google Drive', tool, input, { cache: false });
+  return res;
+}
+// the connector's download answer shape is not pinned down here, so accept base64 or text wherever it sits
+function longestString(o, depth) {
+  if (typeof o === 'string') return o;
+  if (!o || typeof o !== 'object' || depth > 5) return null;
+  for (const k of ['content', 'base64Content', 'base64', 'data', 'fileContent', 'blob', 'bytes', 'text', 'body']) if (typeof o[k] === 'string' && o[k].length) return o[k];
+  let best = null;
+  for (const v of Object.values(o)) { const s = longestString(v, depth + 1); if (s && (!best || s.length > best.length)) best = s; }
+  return best;
+}
+function bytesOf(res) {
+  let s = longestString(res && res.payload, 0);
+  if (!s) for (const b of (res && res.content) || []) { s = b.type === 'resource' && b.resource ? (b.resource.blob || b.resource.text) : b.type === 'text' ? b.text : null; if (s) break; }
+  if (!s) throw { code: 'empty', message: 'ファイルの中身を受け取れませんでした' };
+  const t = s.replace(/\s+/g, '');
+  if (t.length >= 8 && t.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(t)) {
+    try { const bin = atob(t), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; } catch (e) { /* not base64 after all */ }
+  }
+  return new TextEncoder().encode(s);
+}
+const qv = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+const normName = s => String(s || '').replace(/株式会社|有限会社|合同会社|医療法人|（.*?）|\(.*?\)|採用|集客|ver|バージョン|[\s_\-・]/gi, '').toLowerCase();
+function matchClient(title) {
+  const t = normName(title); if (!t) return null;
+  let best = null;
+  S.clients.forEach(c => { const n = normName(c.name); if (n && (t === n || t.includes(n) || n.includes(t)) && (!best || n.length > normName(best.name).length)) best = c; });
+  return best;
+}
+const verFromName = s => /集客/.test(s) ? 'attract' : /採用/.test(s) ? 'recruit' : null;
+async function waitFor(cond, ms) { const t0 = Date.now(); while (!cond() && Date.now() - t0 < ms) await new Promise(r => setTimeout(r, 300)); }
+// read a batch of CSV texts into one client/version, the same way a drop does
+async function importTexts(cid, ver, texts) {
+  const keep = { c: S.current, v: S.ver, m: S.month };
+  ui.files = []; ui.csvT = { c: cid, v: ver, m: curMonth() };
+  texts.forEach(t => loadFile(t.name, t.text));
+  await waitFor(() => !(ui.files || []).some(f => f.ai === 'running'), 120000);
+  const results = (ui.files || []).map(fileSummary);
+  const n = results.some(r => r.ok) ? importFiles(true) : 0;
+  ui.files = []; ui.csvT = null;
+  S.current = keep.c; S.ver = keep.v; S.month = keep.m;
+  return { n, results };
+}
+async function driveCheck(manual) {
+  if (driveBusy) return;
+  const mcp = await getMcp();
+  if (!mcp) { if (manual) toast('Googleドライブの取り込みは、claude.ai 上でアプリを開いたときに使えます'); return; }
+  if (cloud.db && !cloud.canWrite) { if (manual) toast('閲覧のみのため、取り込みはできません'); return; }
+  driveBusy = true; ui.drive = { state: 'checking' }; render();
+  S.drive = Object.assign(defaultDrive(), S.drive || {});
+  try {
+    const folder = (S.drive.folder || 'ATTRIA取り込み').trim();
+    const found = (await gd('search_files', { query: "title = '" + qv(folder) + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", pageSize: 5, excludeContentSnippets: true })).payload || {};
+    const root = (found.files || [])[0];
+    if (!root) { ui.drive = { state: 'nofolder', folder }; return; }
+    const subs = ((await gd('search_files', { query: "parentId = '" + qv(root.id) + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", pageSize: 100, excludeContentSnippets: true })).payload || {}).files || [];
+    const byFolder = {};
+    subs.forEach(sf => { const c = matchClient(sf.title); byFolder[sf.id] = c ? { c: c.id, v: verFromName(sf.title), name: sf.title } : { none: true, name: sf.title }; });
+    let files = [], token;
+    for (let i = 0; i < 5; i++) {
+      const p = (await gd('search_files', Object.assign({ query: "'" + qv(root.id) + "' in ancestors and mimeType != 'application/vnd.google-apps.folder' and trashed = false", pageSize: 100, excludeContentSnippets: true, orderBy: 'modifiedTime desc' }, token ? { pageToken: token } : {}))).payload || {};
+      files = files.concat(p.files || []); token = p.nextPageToken; if (!token) break;
+    }
+    files = files.filter(x => /\.(csv|tsv|txt)$/i.test(x.title || '') || /csv|tab-separated|ms-excel/.test(x.mimeType || ''));
+    const fresh = files.filter(x => S.drive.imported[x.id] !== x.modifiedTime);
+    const groups = {}, unmatched = [], results = [];
+    fresh.forEach(x => {
+      let t = byFolder[x.parentId];
+      if (!t || t.none) { const c = matchClient(x.title); t = c ? { c: c.id, v: verFromName(x.title) } : t; }
+      if (!t || t.none) { unmatched.push({ name: x.title, folder: t && t.name }); return; }
+      const cl = S.clients.find(c => c.id === t.c), v = t.v && (cl.versions || []).includes(t.v) ? t.v : t.v || (cl.versions || ['recruit'])[0];
+      (groups[t.c + '|' + v] = groups[t.c + '|' + v] || []).push(x);
+    });
+    let total = 0;
+    for (const key of Object.keys(groups)) {
+      const [cid, ver] = key.split('|'), cname = (S.clients.find(c => c.id === cid) || {}).name, texts = [];
+      for (const x of groups[key]) {
+        try { texts.push({ name: x.title, text: decode(bytesOf(await gd('download_file_content', { fileId: x.id })).buffer) }); }
+        catch (e) { results.push({ name: x.title, ok: false, text: e && e.code === 'tool_error' ? 'ダウンロードできませんでした（' + (e.message || '') + '）' : 'ダウンロードできませんでした', client: cname }); }
+      }
+      if (texts.length) { const r = await importTexts(cid, ver, texts); total += r.n; r.results.forEach(x => results.push(Object.assign(x, { client: cname + '（' + VER[ver].name + '）' }))); }
+      groups[key].forEach(x => { S.drive.imported[x.id] = x.modifiedTime; });
+    }
+    // keep the shared list of imported files from growing without end
+    const ids = Object.keys(S.drive.imported); if (ids.length > 800) ids.slice(0, ids.length - 800).forEach(id => delete S.drive.imported[id]);
+    S.drive.lastCheck = new Date().toISOString();
+    if (results.length) { S.drive.log = [{ at: S.drive.lastCheck, n: total, files: results.length, clients: [...new Set(results.map(r => r.client).filter(Boolean))] }].concat(S.drive.log || []).slice(0, 20); }
+    if (manual || results.length) { ui.driveAuto = true; }
+    save(results.length ? total + '件をGoogleドライブから取り込みました' : false);
+    ui.drive = { state: 'done', results, unmatched, checked: files.length };
+  } catch (e) {
+    ui.drive = { state: 'error', code: e && e.code, message: e && e.message };
+  } finally { driveBusy = false; render(); }
+}
+function driveErrorText(d) {
+  return {
+    needs_reauth: 'Googleドライブとの接続が切れています。claude.ai の「設定 → コネクタ」でGoogleドライブを再接続してから、もう一度押してください。',
+    server_not_connected: 'Googleドライブのコネクタがまだ追加されていません。claude.ai の「設定 → コネクタ」でGoogleドライブを追加してください。',
+    selection_required: 'Googleドライブのコネクタが複数あります。表示される画面で、使うものを選んでください。',
+    not_in_manifest: 'このアプリでのGoogleドライブの利用が許可されていません。もう一度ボタンを押すと、許可の確認が出ます。',
+    approval_required: 'Googleドライブを使う許可が必要です。もう一度ボタンを押して「許可」を選んでください。',
+    blocked_by_policy: '組織の設定で、Googleドライブの利用が止められています。',
+    server_unavailable: 'Googleドライブが一時的に応答しません。少し待ってから、もう一度押してください。'
+  }[d.code] || 'Googleドライブの確認に失敗しました。少し待ってから、もう一度押してください。' + (d.code === 'tool_error' && d.message ? '（' + d.message + '）' : '');
+}
+function drivePanel(compact) {
+  const d = ui.drive || {}, dr = Object.assign(defaultDrive(), S.drive || {});
+  if (!ui.mcpReady) return compact ? '' : '<div class="panel no-print"><div class="panel-h"><div class="eyebrow">GOOGLE DRIVE</div><h3 class="bar-title">Googleドライブから自動で取り込む</h3></div><p class="hint">claude.ai 上でアプリを開くと、Googleドライブの決まったフォルダに置いたCSVを自動で取り込めます。</p></div>';
+  const last = dr.lastCheck ? new Date(dr.lastCheck).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'まだ確認していません';
+  let status = '';
+  if (d.state === 'checking') status = '<p class="hint">Googleドライブを確認しています…（初回は許可の確認が出ます）</p>';
+  else if (d.state === 'nofolder') status = '<div class="note warm"><span class="dot"></span><div><b>「' + esc(d.folder) + '」フォルダが見つかりません</b>Googleドライブにこの名前のフォルダを作り、その中にクライアント名のフォルダを作ってCSVを入れてください。</div></div>';
+  else if (d.state === 'error') status = '<div class="note warm"><span class="dot"></span><div><b>確認できませんでした</b>' + esc(driveErrorText(d)) + '</div></div>';
+  else if (d.state === 'done') status = (d.results.length ? '<div class="auto-res"><b>' + d.results.filter(r => r.ok).length + 'ファイルを取り込みました</b>' + d.results.map(r => '<div class="' + (r.ok ? 'ok' : 'ng') + '"><span>' + (r.ok ? '✓' : '×') + '</span><div><b>' + esc(r.name) + '</b>' + esc((r.client ? r.client + '：' : '') + r.text) + '</div></div>').join('') + '</div>' : '<p class="hint">新しいCSVはありませんでした（フォルダ内 ' + d.checked + 'ファイルを確認）。</p>') +
+    (d.unmatched.length ? '<div class="note warm" style="margin-top:10px"><span class="dot"></span><div><b>どのクライアントか分からないファイルがあります</b>' + d.unmatched.map(u => esc(u.name) + (u.folder ? '（フォルダ「' + esc(u.folder) + '」）' : '')).join('、') + '。クライアント名と同じ名前のフォルダに入れると、次回取り込みます。</div></div>' : '');
+  if (compact) return '<div class="row drive-mini"><span class="hint">Googleドライブ：最終確認 ' + esc(last) + '</span><button class="btn sm" data-act="driveCheck"' + (d.state === 'checking' ? ' disabled' : '') + '>今すぐ確認</button></div>' + (d.state && d.state !== 'checking' ? status : d.state === 'checking' ? status : '');
+  return '<div class="panel no-print"><div class="panel-h"><div class="eyebrow">GOOGLE DRIVE</div><h3 class="bar-title">Googleドライブから自動で取り込む</h3><span class="right hint">最終確認 ' + esc(last) + '</span></div>' +
+    '<div class="split even" style="align-items:start"><div style="display:grid;gap:12px"><label class="field"><span>取り込み用のフォルダ名</span><input data-drivefolder value="' + esc(dr.folder) + '"></label>' +
+    '<label class="check" style="justify-self:start"><input type="checkbox" id="driveAuto"' + (ui.driveAuto ? ' checked' : '') + '>アプリを開いたときに自動で確認する（このブラウザ）</label>' +
+    '<div class="row"><button class="btn dark" data-act="driveCheck"' + (d.state === 'checking' ? ' disabled' : '') + '>' + I.upload + '今すぐドライブを確認</button></div></div>' +
+    '<div class="drive-tree"><b>フォルダの作り方</b><pre>' + esc(dr.folder) + '/\n  ' + esc((S.clients[0] || { name: 'クライアント名' }).name) + '/\n    リーチ.csv\n    閲覧数.csv …\n  ' + esc((S.clients[1] || { name: '別のクライアント' }).name) + '_集客/\n    …</pre><span class="hint">クライアント名と同じ名前のフォルダに、その月のCSVをそのまま入れてください。名前に「集客」「採用」を入れるとバージョンを選べます。一度取り込んだファイルは、中身が更新されない限り二度は取り込みません。</span></div></div>' +
+    status + (dr.log && dr.log.length ? '<details class="more" style="margin-top:10px"><summary>取り込みの履歴（チーム共通）</summary>' + dr.log.slice(0, 10).map(l => '<div class="hint">' + esc(new Date(l.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })) + '　' + l.files + 'ファイル → ' + esc((l.clients || []).join('、')) + '</div>').join('') + '</details>' : '') + '</div>';
+}
+
 /* ================= actions ================= */
 const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
@@ -2355,6 +2634,7 @@ A.taskTab = el => { ui.taskTab = el.dataset.k; render(); };
 A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []).filter(t => t.id !== el.dataset.id); save('削除しました'); render(); });
 A.print = () => window.print();
 A.briefReset = el => arm(el, () => { const b = briefOf(curMonth()); ['results', 'actions', 'noteStories', 'notePref'].forEach(k => delete b[k]); save('自動の下書きに戻しました'); render(); });
+A.driveCheck = () => driveCheck(true);
 A.briefStyle = el => { S.brand.briefStyle = el.dataset.k; save(false); render(); };
 A.autoClose = () => { ui.auto = null; render(); };
 A.briefImgClear = () => { delete briefOf(curMonth()).img; save('画像を外しました'); render(); };
@@ -2440,6 +2720,7 @@ document.addEventListener('input', e => {
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
   else if (d.sim) { const sm = simOf(); sm.vals[d.sim] = sm.vals[d.sim] || []; sm.vals[d.sim][+d.si] = toNum(t.value); saveSoon(); }
   else if (d.simf) { simOf()[d.simf] = t.value; saveSoon(); }
+  else if (d.drivefolder !== undefined) { S.drive.folder = t.value; saveSoon(); }
   else if (d.brief) { briefOf(m)[d.brief] = t.innerText.replace(/\n$/, ''); saveSoon(); }
   else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
   else if (d.cf) { const c = client(); c[d.cf] = t.value; saveSoon(); if (d.cf === 'name') { $('#clientSel').selectedOptions[0].textContent = t.value; } }
@@ -2474,6 +2755,7 @@ document.addEventListener('change', e => {
   else if (d.filter) { if (d.filter === 'sort') ui.sort = t.value; else ui.filters[d.filter] = t.value; render(); }
   else if (d.cver) { const c = client(); const set = new Set(c.versions || []); t.checked ? set.add(d.cver) : set.delete(d.cver); if (!set.size) { t.checked = true; toast('バージョンは1つ以上選んでください'); return; } c.versions = ['recruit', 'attract'].filter(x => set.has(x)); save(); }
   else if (d.sim) render();
+  else if (t.id === 'driveAuto') { ui.driveAuto = t.checked; savePrefs(); }
   else if (t.id === 'briefFile' && t.files.length) { startAuto([...t.files]); t.value = ''; }
   else if (t.id === 'briefImg' && t.files[0]) {
     const file = t.files[0], url = URL.createObjectURL(file), img = new Image();
@@ -2521,8 +2803,16 @@ function autoTick(dec) {
 }
 function readLogo(file) {
   if (!/^image\//.test(file.type)) { toast('画像ファイルを選んでください'); return; }
-  if (file.size > 500 * 1024) { toast('ロゴは500KBまでにしてください（現在 ' + Math.round(file.size / 1024) + 'KB）'); return; }
-  const fr = new FileReader(); fr.onload = () => { S.brand.logo = fr.result; applyTheme(); save('ロゴを登録しました'); render(); }; fr.readAsDataURL(file);
+  if (file.size > 5 * 1024 * 1024) { toast('ロゴは5MBまでにしてください'); return; }
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = () => {
+    // shrink so the logo fits comfortably in the shared store
+    const w = Math.min(480, img.width), cv = document.createElement('canvas'); cv.width = w; cv.height = Math.round(img.height * w / img.width);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    let data = cv.toDataURL('image/png'); if (data.length > 200000) data = cv.toDataURL('image/jpeg', .85);
+    URL.revokeObjectURL(url); S.brand.logo = data; applyTheme(); save('ロゴを登録しました'); render();
+  };
+  img.onerror = () => toast('画像を読み込めませんでした'); img.src = url;
 }
 ['dragover', 'dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => {
   const z = e.target.closest && e.target.closest('#csvDrop, #logoDrop, #briefDrop'); if (!z) return;
@@ -2559,5 +2849,6 @@ document.addEventListener('submit', e => {
 
 applyTheme();
 render();
+cloudInit().catch(() => setCloud('offline'));
 })();
 </script>
