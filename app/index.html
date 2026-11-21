@@ -495,6 +495,14 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
 .cloud.ro { color: var(--ink); background: var(--field); }
 .drive-tree pre { background: var(--field); border-radius: var(--radius); padding: 10px 12px; font: 12px/1.6 var(--num); margin: 6px 0; overflow-x: auto; }
 .drive-mini { margin-top: 10px; }
+.s8 { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.s8r { display: grid; gap: 10px; }
+.hm { display: grid; gap: 2px; font-size: 10px; color: var(--muted); }
+.hm-row { display: grid; grid-template-columns: 18px repeat(24, minmax(0, 1fr)); gap: 2px; align-items: center; }
+.hm-row i { display: block; height: 16px; border-radius: 2px; background: var(--accent); }
+.hm-head b { font-weight: 500; font-family: var(--num); }
+.tips { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; font-weight: 700; }
+@media (max-width: 900px) { .s8 { grid-template-columns: minmax(0, 1fr); } }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -621,7 +629,7 @@ const VER = {
   attract: { name: '集客', en: 'ATTRACT', entry: '問い合わせ', interview: '来店・商談', hire: '成約', goal: '成約数', funnelName: '集客ファネル' }
 };
 const CH = [
-  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth', 'reachF', 'reachN', 'impressionsF', 'impressionsN', 'interactionsF', 'interactionsN', 'unfollows'] },
+  { k: 'instagram', l: 'Instagram', sub: 'プロフィール・投稿・ストーリーズ', src: 'Meta Business Suite（インサイト）', fields: ['reach', 'profileViews', 'line', 'entry', 'interview', 'hire', 'impressions', 'interactions', 'storyViews', 'storyCompletion', 'linkTaps', 'followers', 'followerGrowth', 'reachF', 'reachN', 'impressionsF', 'impressionsN', 'interactionsF', 'interactionsN', 'unfollows', 'newFollows', 'callTaps', 'routeTaps', 'mailTaps', 'textLinkTaps'] },
   { k: 'meta', l: 'Meta広告', sub: 'Facebook・Instagram広告', src: 'Meta広告マネージャ', ads: true, fields: ['impressions', 'reach', 'clicks', 'linkTaps', 'spend', 'results'] },
   { k: 'tiktok', l: 'TikTok', sub: 'オーガニック投稿', src: 'TikTok Studio（アナリティクス）', fields: ['views', 'reach', 'profileViews', 'linkTaps', 'followers', 'followerGrowth'] },
   { k: 'tiktokPromote', l: 'TikTokプロモート', sub: '広告配信', src: 'TikTokプロモート / 広告マネージャー', ads: true, fields: ['impressions', 'reach', 'views', 'clicks', 'spend', 'results'] },
@@ -634,7 +642,7 @@ const FIELD = {
   entry: { l: 'エントリー', u: '件' }, interview: { l: '面接', u: '件' }, hire: { l: '採用数', u: '件' },
   impressions: { l: 'インプレッション（閲覧数）' }, views: { l: '再生数', u: '回' }, storyViews: { l: 'ストーリーズ閲覧数', u: '回' },
   storyCompletion: { l: 'ストーリーズ閲覧完了率', u: '%' }, linkTaps: { l: 'リンクタップ' }, followers: { l: 'フォロワー数', u: '人' },
-  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, unfollows: { l: 'フォロー解除数', u: '人' }, reachF: { l: 'リーチ（フォロワー）' }, reachN: { l: 'リーチ（フォロワー以外）' }, impressionsF: { l: '閲覧数（フォロワー）' }, impressionsN: { l: '閲覧数（フォロワー以外）' }, interactionsF: { l: 'インタラクション（フォロワー）' }, interactionsN: { l: 'インタラクション（フォロワー以外）' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
+  followerGrowth: { l: 'フォロワー増加数（純増）', u: '人' }, clicks: { l: 'クリック数' }, interactions: { l: 'インタラクション' }, unfollows: { l: 'フォロー解除数', u: '人' }, newFollows: { l: '新規フォロワー', u: '人' }, callTaps: { l: '電話タップ' }, routeTaps: { l: '道順タップ' }, mailTaps: { l: 'メールタップ' }, textLinkTaps: { l: 'テキスト内リンクタップ' }, reachF: { l: 'リーチ（フォロワー）' }, reachN: { l: 'リーチ（フォロワー以外）' }, impressionsF: { l: '閲覧数（フォロワー）' }, impressionsN: { l: '閲覧数（フォロワー以外）' }, interactionsF: { l: 'インタラクション（フォロワー）' }, interactionsN: { l: 'インタラクション（フォロワー以外）' }, watchTime: { l: '総再生時間', u: '時間' }, spend: { l: '広告費', u: '円' }, results: { l: '成果数（CV）', u: '件' }
 };
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
@@ -734,7 +742,7 @@ const store = {
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
-['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => S[k] = S[k] || {});
 S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] }, S.drive || {});
 (() => { try { const pf = JSON.parse(localStorage.getItem('orange-insight-prefs')) || {}; if (pf.current) S.current = pf.current; if (pf.ver) S.ver = pf.ver; if (pf.month !== undefined) S.month = pf.month; } catch (e) { /* no saved preferences */ } })();
 /* ================= shared storage (artifact db) =================
@@ -747,7 +755,7 @@ S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] },
      blobs/<hash>        images (logo, thumbnails) kept out of the other documents
    Each viewer's own choices (client on screen, month, ...) stay in their browser. */
 const PREF_KEY = 'orange-insight-prefs';
-const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs'];
+const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs', 'timing'];
 const cloud = { db: null, user: null, canWrite: true, last: {}, timer: null, inflight: 0, applyPending: false, renderPending: false, remote: { meta: null, clients: {}, posts: {}, blobs: {}, drive: null }, status: '', myBlobs: new Set(), loaded: false };
 function defaultDrive() { return { folder: 'ATTRIA取り込み', imported: {}, log: [] }; }
 function prefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } }
@@ -1413,10 +1421,15 @@ R.csv = () => {
       const agg = aggregate(f);
       if (!agg.error) total += agg.groups ? agg.groups.length : 1;
       h += '<div class="panel"><div class="panel-h"><h3 class="bar-title" style="overflow-wrap:anywhere">' + esc(f.name) + '</h3><span class="right">' + (agg.error ? '<span class="chip bad">読み取れませんでした</span>' : '<span class="chip good">読み取り完了</span>') + '</span><button class="btn sm ghost" data-act="csvDropFile" data-i="' + i + '">外す</button></div>';
+      if (f.kind === 'timing' || f.kind === 'empty') {
+        h += agg.error ? '<p class="hint">' + esc(agg.error) + '</p>' : '<p>' + esc(fileSummary(f).text) + '（' + agg.timing.rows.length + '行）</p>';
+        h += '</div>'; return;
+      }
       if (f.kind === 'attr') {
-        const lab = { age: '年齢・男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr];
+        const lab = { age: '年齢・男女', gender: '男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr];
         h += '<div class="grid3" style="margin-bottom:12px"><div class="field"><span>フォロワー属性</span><b style="padding-top:8px">' + lab + '</b></div><label class="field"><span>どの媒体の属性？</span><select data-ffch="' + i + '">' + FOL_CH.map(([k, l]) => '<option value="' + k + '"' + (f.fch === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label><label class="field"><span>何月の属性？</span><input type="month" data-fm="' + i + '" value="' + f.month + '"></label></div>';
         if (agg.error) h += '<p class="hint">' + esc(agg.error) + '</p>';
+        else if (f.attr === 'gender') h += hbars([{ l: '女性', v: agg.attr.female }, { l: '男性', v: agg.attr.male }]);
         else if (f.attr === 'age') h += '<div class="grid2"><div><b style="font-size:12px">男女比</b>' + hbars([{ l: '女性', v: agg.attr.female }, { l: '男性', v: agg.attr.male }]) + '</div><div><b style="font-size:12px">年齢層</b>' + hbars(AGES.filter(a => isNum(agg.attr.ages[a])).map(a => ({ l: a + '歳', v: agg.attr.ages[a] }))) + '</div></div>';
         else h += hbars(agg.attr.items.slice(0, 8)) + (agg.attr.items.length > 8 ? '<p class="hint" style="margin-top:6px">ほか ' + (agg.attr.items.length - 8) + '件（「不明」は除いています）</p>' : '<p class="hint" style="margin-top:6px">「不明」は除いています</p>');
         h += '</div>'; return;
@@ -1518,7 +1531,8 @@ function postThumb(p, rank, k, kl) {
     (p.thumb ? '' : '<span class="ptype">' + PTYPES[p.type] + '</span><span class="pcap">' + esc((p.caption || '（キャプションなし）').slice(0, 60)) + '</span>') +
     '<span class="pmetric">' + esc(kl) + ' <b>' + pfmt(k, pval(p, k)) + '</b></span></div>';
 }
-R.posts = () => {
+R.posts = () => postsView() + timingSection(ui.postMonth || curMonth());
+function postsView() {
   const c = client(); if (!c) return noClient('上げたものを、振り返る。');
   const all = postsOf(), months = [...new Set(all.map(p => p.month))].sort();
   let m = ui.postMonth || (months.includes(curMonth()) ? curMonth() : months[months.length - 1]) || curMonth();
@@ -1556,7 +1570,8 @@ R.posts = () => {
   }).join('') + '</div>';
   h += '<p class="hint">CSVには画像が入っていないため、サムネイルは「画像をつける」から追加できます（スクリーンショットでもOK）。</p>';
   return h;
-};
+}
+
 function postsTop(m) {
   const list = postsOf().filter(p => p.month === m); if (!list.length) return '';
   const reels = list.filter(p => p.type !== 'story').sort((a, b) => (pval(b, 'views') || 0) - (pval(a, 'views') || 0)).slice(0, 3);
@@ -1567,16 +1582,16 @@ function postsTop(m) {
 }
 // CSV: content exports (one row per post)
 const PDETECT = [
-  ['id', ['投稿id', 'post id', 'メディアid', 'media id']], ['permalink', ['パーマリンク', 'permalink']], ['type', ['投稿タイプ', 'post type', 'コンテンツタイプ', 'content type', 'メディアタイプ']],
-  ['date', ['公開時間', 'publish time', '投稿日', '公開日', 'posted', '日付', 'date']], ['caption', ['説明', 'キャプション', 'description', 'caption']],
+  ['id', ['投稿id', 'post id', 'メディアid', 'media id']], ['permalink', ['パーマリンク', 'permalink', '投稿url', 'url']], ['type', ['投稿タイプ', 'post type', 'コンテンツタイプ', 'content type', 'メディアタイプ']],
+  ['date', ['公開時間', 'publish time', '投稿日', '公開日', 'posted', '日付', 'date']], ['caption', ['説明', 'キャプション', '投稿内容', '本文', 'description', 'caption']],
   ['completions', ['閲覧完了', 'completion']], ['linkClicks', ['リンクのクリック', 'リンククリック', 'link click', 'リンク']], ['replies', ['返信', 'replies']],
-  ['views', ['閲覧数', 'views', '再生数', 'plays', 'インプレッション', 'impressions']], ['reach', ['リーチ', 'reach']], ['likes', ['いいね', 'likes']],
+  ['views', ['閲覧数', 'views', '再生数', 'plays', 'インプレッション', 'impressions', 'インプ']], ['reach', ['リーチ', 'reach']], ['likes', ['いいね', 'likes']],
   ['comments', ['コメント数', 'comments', 'コメント']], ['saves', ['保存', 'saves']], ['shares', ['シェア', 'shares']], ['follows', ['フォロー', 'follows']]
 ];
 function postMap(headers) {
   // key-first so e.g. 公開時間 wins over a generic 日付 column
   const map = {}, norm = headers.map(h => String(h).toLowerCase().trim());
-  const skip = i => !norm[i] || /データコメント|data comment|アカウント|account|単価|率|rate|平均|average|秒|duration/.test(norm[i]);
+  const skip = i => !norm[i] || /データコメント|data comment|アカウント|account|単価|率|rate|平均|average|秒|duration|サムネイル|thumbnail/.test(norm[i]);
   PDETECT.forEach(([k, keys]) => {
     for (const x of keys) { const i = norm.findIndex((s, n) => map[n] === undefined && !skip(n) && s.includes(x)); if (i >= 0) { map[i] = k; return; } }
   });
@@ -1601,8 +1616,14 @@ function parsePosts(f) {
     if (r.slice(0, 3).some(x => /^(合計|総計|total)/i.test(String(x).trim()))) return;
     const g = k => { const i = idx(k); return i === undefined ? '' : r[i]; };
     const date = toDate(g('date')); if (!date) return;
-    const p = { id: String(g('id') || g('permalink') || (date + '_' + String(g('caption')).slice(0, 20))), type: toPType(g('type'), f.name), date, month: date.slice(0, 7), caption: String(g('caption') || '').slice(0, 300), permalink: /^https?:\/\//.test(g('permalink')) ? g('permalink') : '' };
+    const link = String(g('permalink') || '');
+    const type = g('type') ? toPType(g('type'), f.name) : f.forceType || (/\/reel\//.test(link) ? 'reel' : /\/p\//.test(link) ? 'feed' : toPType('', f.name));
+    // posts without an id or link (CCX stories): several can share one minute, so the numbers tell them apart
+    const p = { id: String(g('id') || link || ((f.forceType || 'p') + '_' + String(g('date')).replace(/\D/g, '') + '_' + String(g('caption')).slice(0, 20) + '_' + String(g('views')).replace(/\D/g, '') + '_' + String(g('reach')).replace(/\D/g, ''))), type, date, month: date.slice(0, 7), caption: String(g('caption') || '').slice(0, 300), permalink: /^https?:\/\//.test(g('permalink')) ? g('permalink') : '' };
     ['views', 'reach', 'likes', 'comments', 'saves', 'shares', 'follows', 'linkClicks', 'replies', 'completions'].forEach(k => { const v = toNum(g(k)); if (v !== null) p[k] = v; });
+    // CCX stories give a completion rate instead of a count
+    const ri = f.headers.findIndex(h => /閲覧完了率/.test(h));
+    if (ri >= 0 && !isNum(p.completions)) { const rt = toNum(r[ri]); if (rt !== null && isNum(p.views)) p.completions = Math.round(p.views * rt / 100); }
     out.push(p);
   });
   return out;
@@ -1618,6 +1639,56 @@ function readThumb(file, id) {
   };
   img.onerror = () => toast('画像を読み込めませんでした');
   img.src = url;
+}
+
+/* ---- posting time analysis (CCX: performance and online followers by weekday / hour) ---- */
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+function detectTiming(headers) {
+  const H = headers.map(h => String(h).trim()), has = re => H.some(h => re.test(h));
+  if (!(has(/^曜日$/) || has(/^時間/))) return null;
+  if (!has(/^平均/)) return null;
+  return { type: has(/オンライン/) ? 'online' : 'post', shape: has(/^曜日$/) && has(/^時間（時）$|^時間\(時\)$/) ? 'grid' : has(/^曜日$/) ? 'day' : 'slot' };
+}
+function parseTiming(f) {
+  const H = f.headers.map(h => String(h).trim()), col = re => H.findIndex(h => re.test(h));
+  const c = { d: col(/^曜日$/), h: col(/^時間/), imp: col(/平均インプ/), reach: col(/平均リーチ/), saves: col(/保存/), likes: col(/いいね/), eng: col(/エンゲ率/), online: col(/^平均オンラインフォロワー$/), rate: col(/オンラインフォロワー率/) };
+  const rows = f.rows.map(r => {
+    const o = {};
+    if (c.d >= 0) o.d = WD.indexOf(String(r[c.d]).trim().charAt(0));
+    if (c.h >= 0) { if (f.timing.shape === 'grid') o.h = toNum(r[c.h]); else o.l = String(r[c.h]).trim(); }
+    ['imp', 'reach', 'saves', 'likes', 'eng', 'online', 'rate'].forEach(k => { if (c[k] >= 0) { const v = toNum(r[c[k]]); if (v !== null) o[k] = v; } });
+    return o;
+  }).filter(o => (o.d === undefined || o.d >= 0) && Object.keys(o).length > 1);
+  return rows.length ? { rows } : { error: '曜日・時間の行が見つかりませんでした。' };
+}
+function timingOf(m, cid, ver) { return ((((S.timing || {})[cid || S.current] || {})[ver || S.ver]) || {})[m] || null; }
+function heatmap(grid, key, label) {
+  const max = Math.max(1, ...grid.map(x => x[key] || 0));
+  const cell = (d, h) => { const x = grid.find(g => g.d === d && g.h === h); const v = x ? x[key] || 0 : 0; return '<i style="opacity:' + (v ? .12 + .88 * v / max : 0.04).toFixed(2) + '" title="' + WD[d] + '曜 ' + h + '時 ' + fmt(v) + '"></i>'; };
+  return '<div class="hm" role="img" aria-label="' + esc(label) + '"><div class="hm-row hm-head"><span></span>' + Array.from({ length: 24 }, (_, h) => '<b>' + (h % 3 === 0 ? h : '') + '</b>').join('') + '</div>' +
+    [0, 1, 2, 3, 4, 5, 6].map(d => '<div class="hm-row"><span>' + WD[d] + '</span>' + Array.from({ length: 24 }, (_, h) => cell(d, h)).join('') + '</div>').join('') + '</div>';
+}
+function timingSection(m, mode) {
+  const t = timingOf(m); if (!t) return '';
+  const on = t.online || {}, po = t.post || {};
+  const days = WD.map((w, d) => d);
+  const dayChart = (po.day || on.day) ? chart({ labels: WD.map(w => w + '曜'), series: [po.day ? { name: '投稿の平均リーチ', values: days.map(d => { const x = po.day.find(r => r.d === d); return x && x.reach ? x.reach : null; }), kind: 'bar', c: 0 } : null, on.day ? { name: 'オンラインのフォロワー', values: days.map(d => { const x = on.day.find(r => r.d === d); return x ? x.online : null; }), kind: 'line', axis: po.day ? 'R' : 'L', c: 1 } : null].filter(Boolean), h: 190, fmtR: compact }) : '';
+  const slots = (on.slot || po.slot || []).map(x => x.l);
+  const slotChart = slots.length ? chart({ labels: slots.map(l => l.replace(/時〜\d+時/, '〜')), series: [po.slot ? { name: '投稿の平均リーチ', values: slots.map(l => { const x = po.slot.find(r => r.l === l); return x && x.reach ? x.reach : null; }), kind: 'bar', c: 0 } : null, on.slot ? { name: 'オンラインのフォロワー', values: slots.map(l => { const x = on.slot.find(r => r.l === l); return x ? x.online : null; }), kind: 'line', axis: po.slot ? 'R' : 'L', c: 1 } : null].filter(Boolean), h: 190, fmtR: compact }) : '';
+  const grid = on.grid || po.grid, gkey = on.grid ? 'online' : 'reach';
+  // plain-language tips from the numbers
+  const tips = [];
+  if (on.grid) { const b = on.grid.slice().sort((a, b2) => (b2.online || 0) - (a.online || 0))[0]; if (b) tips.push('フォロワーが一番多くオンラインなのは ' + WD[b.d] + '曜 ' + b.h + '時台（約' + fmt(b.online) + '人）'); }
+  else if (on.slot) { const b = on.slot.slice().sort((a, b2) => (b2.online || 0) - (a.online || 0))[0]; if (b) tips.push('フォロワーが一番多くオンラインなのは ' + b.l + '（約' + fmt(b.online) + '人）'); }
+  if (po.day) { const b = po.day.filter(x => x.reach).sort((a, b2) => b2.reach - a.reach)[0]; if (b) tips.push('リーチが伸びたのは ' + WD[b.d] + '曜日の投稿（平均 ' + fmt(b.reach) + '）'); }
+  if (po.slot) { const b = po.slot.filter(x => x.reach).sort((a, b2) => b2.reach - a.reach)[0]; if (b) tips.push('時間帯では ' + b.l + ' の投稿が伸びています（平均 ' + fmt(b.reach) + '）'); }
+  const legendS = (a, b) => legend([a ? { name: '投稿の平均リーチ', kind: 'bar', c: 0 } : null, b ? { name: 'オンラインのフォロワー', kind: 'line', c: 1 } : null].filter(Boolean));
+  const body = '<div class="s8"><div>' + (grid ? '<div class="cap">' + (on.grid ? 'フォロワーがオンラインの時間（濃いほど多い）' : '投稿の平均リーチ（濃いほど伸びた）') + '</div>' + heatmap(grid, gkey, '曜日×時間') : '') +
+    (tips.length ? '<ul class="tips">' + tips.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') + '</div><div class="s8r">' +
+    (dayChart ? '<div><div class="cap">曜日別</div>' + legendS(po.day, on.day) + '<div class="chart">' + dayChart + '</div></div>' : '') +
+    (slotChart ? '<div><div class="cap">時間帯別</div>' + legendS(po.slot, on.slot) + '<div class="chart">' + slotChart + '</div></div>' : '') + '</div></div>';
+  if (mode === 'slide') return '<section class="slide">' + bBanner('TIMING', '投稿のタイミング') + body + bTxt(m, 'noteTiming', tips[0] ? tips[0] + '。この時間の少し前に投稿すると見てもらいやすくなります。' : '', 'note-y', '投稿の時間についての一言') + '</section>';
+  return '<section class="sec-head"><div><div class="eyebrow">TIMING · ' + mLabel(m) + '</div><h2>いつ投稿すると、伸びる？</h2><p>CCXの「曜日・時間帯」のCSVから作っています。</p></div></section><div class="panel">' + body + '</div>';
 }
 
 /* ---- simple simulation sheet (plan) and the same layout for actuals ---- */
@@ -1775,9 +1846,9 @@ R.brief = () => {
   // 3. overview: big numbers with arrows and a half-year sparkline
   {
     const ms6 = monthsOf().filter(x => x <= m).slice(-6);
-    const defs = [['reach', 'リーチ', '見てくれた人の数'], ['impressions', '閲覧数', '表示された回数'], ['profileViews', 'プロフィールビュー', 'プロフィールを見た回数'], ['linkTaps', 'リンククリック', 'リンクを押した回数'],
+    const defs = [['reach', 'リーチ', '見てくれた人の数'], ['impressions', '閲覧数', '表示された回数'], ['profileViews', 'プロフィールビュー', 'プロフィールを見た回数'], ['linkTaps', 'リンククリック', 'リンクを押した回数'], ['callTaps', '電話タップ', 'お店に電話した回数'], ['routeTaps', '道順タップ', '道順を調べた回数'],
       ['followers', 'フォロワー数', '今のフォロワー'], ['followerGrowth', 'フォロワー増加', 'この月に増えた人数'], ['interactions', '反応の数', 'いいね・保存・コメントなど'], ['line', 'LINE登録', 'LINEに登録した人'], ['entry', v.entry, '申し込みの数']];
-    const cards = defs.filter(([k]) => isNum(r[k])).slice(0, 8).map(([k, l, sub]) => {
+    const cards = defs.filter(([k]) => isNum(r[k])).slice(0, 12).map(([k, l, sub]) => {
       const cur = Number(r[k]), prev = isNum(p[k]) ? Number(p[k]) : null, dp = prev ? (cur - prev) / prev * 100 : null;
       const up = dp !== null && dp > 0.05, down = dp !== null && dp < -0.05;
       return '<div class="ov"><div class="ov-h"><b>' + l + '</b><span>' + sub + '</span></div><div class="ov-v">' + fmt(cur) + '</div>' +
@@ -1823,6 +1894,7 @@ R.brief = () => {
       '<div>' + (rx.length ? donutN(rx, '反応の内訳', fmt(rx.reduce((a2, x) => a2 + x.v, 0))) : '') + '</div></div>' +
       bTxt(m, 'notePosts', top[0] ? '一番見られたのは「' + (top[0].caption || PTYPES[top[0].type]).slice(0, 20) + '」（' + fmt(pval(top[0], 'views')) + '回）でした。' : '', 'note-y', '投稿についての一言') + '</section>';
   }
+  h += timingSection(m, 'slide');
   // 4. followers by prefecture, last month vs this month
   if (d || pd) {
     const top = d ? attrLines(d.locations)[0] : null;
@@ -2116,7 +2188,7 @@ const DETECT = [
   ['followerGrowth', ['フォロワー増', '純増', '増加', 'followers gained', 'subscribers gained', 'new followers', '登録者増', '登録者の増', 'チャンネル登録者', 'subscribers', 'フォロー数', 'follows', '新しいフォロワー', 'でのフォロー', 'フォロー']],
   ['followers', ['フォロワー', 'follower', '登録者', 'subscriber']], ['profileViews', ['プロフィール', 'profile']],
   ['line', ['line登録', 'line友だち', 'line友達', '友だち追加', 'line']], ['spend', ['消化金額', '広告費', '費用', 'amount spent', 'spend', 'cost']],
-  ['linkTaps', ['リンク', 'link', 'タップ', '外部']], ['clicks', ['クリック', 'click']],
+  ['callTaps', ['電話', 'call']], ['routeTaps', ['道順', 'direction']], ['mailTaps', ['メール', 'email']], ['textLinkTaps', ['テキスト内リンク']], ['linkTaps', ['リンク', 'link', 'タップ', '外部']], ['clicks', ['クリック', 'click']],
   ['entry', ['エントリー', 'entry', '応募', '問い合わせ', '問合せ', '申込']], ['interview', ['面接', '来店', '商談', 'interview']],
   ['hire', ['採用', '成約', '契約', 'hire', '受注']], ['results', ['結果', '成果', 'conversion', 'コンバージョン', 'results']],
   ['impressions', ['インプレッション', 'impression', '表示回数', '閲覧数', 'ビュー数']], ['views', ['再生', '視聴', 'views', 'video views']], ['reach', ['リーチ', 'reach', '到達']]
@@ -2162,6 +2234,8 @@ function toNum(v) { const s = String(v == null ? '' : v).replace(/[,\s%件人回
 function aggregate(f) {
   const { rows, map, kind } = f;
   if (kind === 'attr') { const a = parseAttr(f); return a.error ? a : { attr: a }; }
+  if (kind === 'timing') { const t = parseTiming(f); return t.error ? t : { timing: t }; }
+  if (kind === 'empty') return { error: 'データの行がありません（中身が空のファイルです）。' };
   if (kind === 'posts') { const posts = parsePosts(f); return posts.length ? { posts } : { error: '投稿日のある行が見つかりませんでした。' }; }
   if (kind === 'demo') {
     const g = [], a = [], l = [];
@@ -2195,6 +2269,8 @@ function aggregate(f) {
     });
     // the total is the two audience parts added up when the file has no total column
     ['reach', 'impressions', 'interactions'].forEach(b => { if (!isNum(v[b]) && (isNum(v[b + 'F']) || isNum(v[b + 'N']))) v[b] = (v[b + 'F'] || 0) + (v[b + 'N'] || 0); });
+    // CCX: new followers minus the net change = people who unfollowed
+    if (!isNum(v.unfollows) && isNum(v.newFollows) && isNum(v.followerGrowth)) v.unfollows = Math.max(0, v.newFollows - v.followerGrowth);
     return { ch, month, v };
   }).filter(g => Object.keys(g.v).length);
   if (!groups.length) return { error: '数字が入っている行が見つかりませんでした。' };
@@ -2220,6 +2296,7 @@ function detectAttr(headers) {
   const n = headers.map(h => String(h).trim());
   const has = re => n.some(h => re.test(h));
   if (has(/^年齢/) && has(/女性|男性|female|male/i)) return 'age';
+  if (has(/^女性/) && has(/^男性/)) return 'gender';
   if (!has(/フォロワー|%|割合|follower/i)) return null;
   if (has(/市区町村|^city$/i)) return 'city';
   if (has(/^(国|国名|country)$/i)) return 'country';
@@ -2233,6 +2310,13 @@ function countPct(v) {
 }
 function parseAttr(f) {
   const H = f.headers.map(h => String(h).trim()), col = re => H.findIndex(h => re.test(h));
+  if (f.attr === 'gender') {
+    const r = f.rows[0] || [], fi = col(/^女性.*人/), mi = col(/^男性.*人/), fp = col(/^女性.*%/), mp = col(/^男性.*%/);
+    const fv = toNum(r[fi]), mv = toNum(r[mi]);
+    if (isNum(fv) && isNum(mv) && fv + mv > 0) return { female: Math.round(fv / (fv + mv) * 1000) / 10, male: Math.round(mv / (fv + mv) * 1000) / 10 };
+    const fpv = toNum(r[fp]), mpv = toNum(r[mp]);
+    return isNum(fpv) && isNum(mpv) ? { female: fpv, male: mpv } : { error: '男女の数字が見つかりませんでした。' };
+  }
   if (f.attr === 'age') {
     const ai = col(/^年齢/), fi = col(/女性.*人|女性\(人\)/), mi = col(/男性.*人|男性\(人\)/), fp = col(/女性.*%/), mp = col(/男性.*%/);
     const rows = f.rows.map(r => {
@@ -2256,7 +2340,7 @@ function parseAttr(f) {
 }
 function loadFile(name, text) {
   const all = parseCSV(text);
-  if (all.length < 2) { toast('「' + name + '」は表として読み取れませんでした'); return; }
+  if (all.length < 2) { ui.files = ui.files || []; ui.files.push({ name, headers: all[0] || [], rows: [], kind: 'empty', map: {} }); render(); return; }
   const hi = findHeader(all), headers = all[hi].map(h => String(h).trim());
   const rows = all.slice(hi + 1).map(r => headers.map((_, i) => r[i] == null ? '' : String(r[i]).trim())).filter(r => r.some(x => x));
   const pre = all.slice(0, hi).map(r => r.join(' ')).join(' ');
@@ -2267,10 +2351,23 @@ function loadFile(name, text) {
     ui.files.push({ name, headers, rows, kind: 'attr', attr, map: {}, fch: FOLCH_OF[toCh(name + ' ' + pre)] || 'instagram', month: monthFromText(name) || monthFromText(pre) || csvT().m });
     render(); return;
   }
+  const timing = detectTiming(headers);
+  if (timing) { ui.files = ui.files || []; ui.files.push({ name, headers, rows, kind: 'timing', timing, map: {}, month: monthFromText(name) || monthFromText(pre) || csvT().m }); render(); return; }
   const pmap = postMap(headers), pk = Object.values(pmap);
-  if (!isDemo && (pk.includes('id') || pk.includes('permalink') || pk.includes('type')) && pk.includes('date') && pk.some(k => ['views', 'reach', 'likes'].includes(k))) {
+  const storyList = headers.some(h => /閲覧完了率|戻る・次へ/.test(h));
+  if (!isDemo && (pk.includes('id') || pk.includes('permalink') || pk.includes('type') || storyList) && pk.includes('date') && pk.some(k => ['views', 'reach', 'likes'].includes(k))) {
     ui.files = ui.files || [];
-    ui.files.push({ name, headers, rows, pmap, kind: 'posts', map: {} });
+    ui.files.push({ name, headers, rows, pmap, kind: 'posts', map: {}, forceType: storyList && !pk.includes('permalink') ? 'story' : null });
+    render(); return;
+  }
+  // CCX daily account / daily post files: take only what is account-level, by exact column names
+  const Hn = headers.map(h => String(h).trim()), at = k => Hn.indexOf(k);
+  if (at('日付') >= 0 && (at('トータルフォロワー増減') >= 0 || (at('リール投稿数') >= 0 && at('フォロワー増減') >= 0))) {
+    const cmap = { [at('日付')]: 'month' };
+    if (at('トータルフォロワー増減') >= 0) { cmap[at('トータルフォロワー増減')] = 'followerGrowth'; if (at('フォロワー数') >= 0) cmap[at('フォロワー数')] = 'followers'; if (at('新規フォロワー増数') >= 0) cmap[at('新規フォロワー増数')] = 'newFollows'; }
+    else cmap[at('フォロワー増減')] = 'followerGrowth';
+    ui.files = ui.files || [];
+    ui.files.push({ name, headers, rows, map: cmap, pre, kind: 'metrics', hasChannelCol: false, hasDate: true, ch: 'instagram', month: monthFromText(name) || csvT().m, ccx: true });
     render(); return;
   }
   const map = autoMap(headers);
@@ -2529,13 +2626,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -2568,6 +2665,12 @@ function importFiles(stay) {
   let n = 0, lastM = null, demoOnly = true, postsOnly = true;
   (ui.files || []).forEach(f => {
     const agg = aggregate(f); if (agg.error) return;
+    if (f.kind === 'timing') {
+      const c = cid, v = ver; S.timing[c] = S.timing[c] || {}; S.timing[c][v] = S.timing[c][v] || {};
+      const tm = S.timing[c][v][f.month] = S.timing[c][v][f.month] || {};
+      tm[f.timing.type] = tm[f.timing.type] || {}; tm[f.timing.type][f.timing.shape] = agg.timing.rows;
+      n++; demoOnly = false; if (!lastM || f.month > lastM) lastM = f.month; return;
+    }
     if (f.kind === 'posts') {
       demoOnly = false;
       const list = postsOf(cid, ver);
@@ -2582,7 +2685,8 @@ function importFiles(stay) {
         const ch = f.fch === 'youtube' ? 'youtube' : f.fch, tr = ensureRecFor(cid, ver, ch, f.month);
         if (!isNum(tr.followers)) tr.followers = a.total;
       }
-      if (f.attr === 'age') { d.ages = a.ages; d.agesF = a.agesF; d.agesM = a.agesM; d.female = a.female; d.male = a.male; delete d.other; }
+      if (f.attr === 'gender') { d.female = a.female; d.male = a.male; delete d.other; }
+      else if (f.attr === 'age') { d.ages = a.ages; d.agesF = a.agesF; d.agesM = a.agesM; d.female = a.female; d.male = a.male; delete d.other; }
       else if (f.attr === 'pref') { d.locations = lines; if (linesN) d.locationsN = linesN; }
       else if (f.attr === 'city') d.cities = lines;
       else d.countries = lines;
@@ -2787,8 +2891,9 @@ function startAuto(files) {
 function fileSummary(f) {
   const agg = aggregate(f);
   if (agg.error) return { name: f.name, ok: false, text: agg.error };
-  if (f.kind === 'posts') return { name: f.name, ok: true, text: '投稿 ' + agg.posts.length + '件（' + [...new Set(agg.posts.map(x => mLabel(x.month)))].join('・') + '）' };
-  if (f.kind === 'attr') return { name: f.name, ok: true, text: FOL_CH.find(x => x[0] === f.fch)[1] + 'のフォロワー属性（' + { age: '年齢・男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr] + '）' + mLabel(f.month) };
+  if (f.kind === 'timing') return { name: f.name, ok: true, text: (f.timing.type === 'online' ? 'オンラインのフォロワー' : '投稿の伸び') + '（' + { grid: '曜日×時間', day: '曜日別', slot: '時間帯別' }[f.timing.shape] + '）' + mLabel(f.month) };
+  if (f.kind === 'posts') return { name: f.name, ok: true, text: (f.forceType === 'story' ? 'ストーリーズ ' : '投稿 ') + agg.posts.length + '件（' + [...new Set(agg.posts.map(x => mLabel(x.month)))].join('・') + '）' };
+  if (f.kind === 'attr') return { name: f.name, ok: true, text: FOL_CH.find(x => x[0] === f.fch)[1] + 'のフォロワー属性（' + { age: '年齢・男女', gender: '男女', pref: '都道府県', city: '市区町村', country: '国' }[f.attr] + '）' + mLabel(f.month) };
   if (f.kind === 'demo') return { name: f.name, ok: true, text: 'フォロワー属性 ' + mLabel(f.month) };
   return { name: f.name, ok: true, text: agg.groups.map(g => CHM[g.ch].l + ' ' + mLabel(g.month) + '：' + Object.keys(g.v).map(fl).join('・')).join(' ／ ') };
 }
