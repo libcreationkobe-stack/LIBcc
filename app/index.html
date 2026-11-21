@@ -639,9 +639,9 @@ const FIELD = {
 function fl(k) { const v = VER[S.ver]; if (k === 'entry') return v.entry; if (k === 'interview') return v.interview; if (k === 'hire') return v.goal; return FIELD[k] ? FIELD[k].l : k; }
 function fu(k) { return FIELD[k] && FIELD[k].u || ''; }
 const AGES = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
-const DEFAULT_TARGET = { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 3, gReach: null, gProfile: null, gLine: null, gEntry: null, gInterview: null };
+const DEFAULT_TARGET = { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 3, gReach: null, gProfile: null, gLine: null, gEntry: null, gInterview: null, gFollowers: null };
 // monthly KPI goals: [record key, standard-goal key in targets]
-const GOAL_KEYS = [['reach', 'gReach'], ['profileViews', 'gProfile'], ['line', 'gLine'], ['entry', 'gEntry'], ['interview', 'gInterview'], ['hire', 'goal']];
+const GOAL_KEYS = [['followers', 'gFollowers'], ['reach', 'gReach'], ['profileViews', 'gProfile'], ['line', 'gLine'], ['entry', 'gEntry'], ['interview', 'gInterview'], ['hire', 'goal']];
 const STATUSES = ['契約中', '提案中', '休止中'];
 const HEARING = [
   ['target', '届けたい相手（ターゲット像）'], ['strength', '強み・選ばれる理由'], ['competitor', '競合・比較される相手'],
@@ -906,7 +906,7 @@ function commit(m, cid, ver) {
   const items = GOAL_KEYS.map(([k]) => {
     const a = isNum(r[k]) ? Number(r[k]) : null, goal = g[k];
     const rt = isNum(goal) && goal > 0 && a !== null ? a / goal * 100 : null;
-    const fc = running && a !== null && elapsed > 0 ? Math.round(a / elapsed * days) : null;
+    const fc = running && a !== null && elapsed > 0 && k !== 'followers' ? Math.round(a / elapsed * days) : null;
     return { k, label: fl(k), actual: a, goal, rate: rt, rest: isNum(goal) && a !== null ? Math.max(0, goal - a) : null, forecast: fc, forecastRate: fc !== null && isNum(goal) && goal > 0 ? fc / goal * 100 : null };
   });
   const set = items.filter(i => i.rate !== null);
@@ -914,7 +914,7 @@ function commit(m, cid, ver) {
   return { items, overall, hit: set.filter(i => i.rate >= 100).length, count: set.length, running, elapsed, days };
 }
 function commitTiles(m) {
-  const cm = commit(m), unit = k => k === 'reach' || k === 'profileViews' ? '' : '件';
+  const cm = commit(m), unit = k => k === 'reach' || k === 'profileViews' ? '' : k === 'followers' ? '人' : '件';
   const items = ui.inReport ? cm.items.filter(i => isNum(i.goal) && i.rate !== null) : cm.items;
   if (!items.length) return '';
   return '<div class="tiles t3">' + items.map(i => {
@@ -1751,7 +1751,7 @@ R.brief = () => {
   if (isNum(r.entry)) res.push(v.entry + ' ' + fmt(r.entry) + '件' + (isNum(r.hire) ? '／' + v.hire + ' ' + fmt(r.hire) + '件' : ''));
   const loc0 = d ? attrLines(d.locations)[0] : null; if (loc0) res.push('フォロワーの地域は' + loc0.l + 'が最多（' + loc0.v + '%）');
   const explicitGoals = !!((S.targets[S.current] || {})[S.ver]) || Object.keys(goalOverride(m)).length > 0;
-  const goalTxt = [['entry', v.entry], ['line', 'LINE登録'], ['hire', v.hire]].filter(([k]) => explicitGoals && isNum(g[k])).map(([k, l]) => l + fmt(g[k]) + '件').join('／');
+  const goalTxt = [['followers', 'フォロワー'], ['entry', v.entry], ['line', 'LINE登録'], ['hire', v.hire]].filter(([k]) => explicitGoals && isNum(g[k])).map(([k, l]) => l + fmt(g[k]) + (k === 'followers' ? '人' : '件')).join('／');
   const acts = (goalTxt ? '★毎月の目標➡' + goalTxt + '\n' : '') + (() => { const o = ui.inReport; ui.inReport = true; const x = suggestions(m); ui.inReport = o; return x; })().slice(0, 2).map(s => '・' + s.t).join('\n');
   const sumImg = ((((S.briefs[S.current] || {})[S.ver] || {})[m]) || {}).img;
   let h = head('BRIEF REPORT', '簡易レポート', cLead() + '　文字はスライド上で直接クリックして書き換えられます。数字は取り込んだデータから自動で入ります。',
@@ -2009,7 +2009,7 @@ R.targets = () => {
   h += '<section class="sec-head"><div><div class="eyebrow">CONVERSION TARGETS</div><h2>移行率の目標</h2><p>各段階で何％が次に進めば良いか。ダッシュボードの「5つの壁」と次の一手の提案に使います。</p></div></section>';
   h += '<div class="panel"><div class="grid3">' + f('rp', 'リーチ → プロフィール', '%') + f('pl', 'プロフィール → LINE', '%') + f('le', 'LINE → ' + v.entry, '%') + f('ei', v.entry + ' → ' + v.interview, '%') + f('ih', v.interview + ' → ' + v.hire, '%') + '</div></div>';
   h += '<section class="sec-head"><div><div class="eyebrow">MONTHLY KPI COMMITMENT</div><h2>毎月の目標件数（コミット）</h2><p>毎月「' + v.entry + '何件」などの目標を決めると、実績との比率をコミット率として表示します。まず標準の月目標を決め、月ごとに変えたいときだけ下の表に入力してください。</p></div></section>';
-  h += '<div class="panel"><div class="panel-h"><h3 class="bar-title">標準の月目標</h3><span class="right hint">空欄の項目はコミット率を計算しません</span></div><div class="grid3">' + fv('gEntry', v.entry + '・月目標', '件') + fv('gInterview', v.interview + '・月目標', '件') + fv('goal', v.goal + '・月目標', '件') + fv('gLine', 'LINE登録・月目標', '件') + fv('gProfile', 'プロフィール流入・月目標', '') + fv('gReach', 'リーチ数・月目標', '') + '</div>' +
+  h += '<div class="panel"><div class="panel-h"><h3 class="bar-title">標準の月目標</h3><span class="right hint">空欄の項目はコミット率を計算しません</span></div><div class="grid3">' + fv('gEntry', v.entry + '・月目標', '件') + fv('gInterview', v.interview + '・月目標', '件') + fv('goal', v.goal + '・月目標', '件') + fv('gLine', 'LINE登録・月目標', '件') + fv('gProfile', 'プロフィール流入・月目標', '') + fv('gFollowers', 'フォロワー数・目標', '人') + fv('gReach', 'リーチ数・月目標', '') + '</div>' +
     '<div class="row" style="margin-top:16px"><button class="btn dark" data-act="saveTargets">' + I.check + '移行率と標準目標を保存</button></div></div>';
   const ms = monthsOf(), last = ms.length ? ms[ms.length - 1] : thisMonth(), first = ms.length ? ms[Math.max(0, ms.length - 6)] : thisMonth();
   const rows = []; let x = first; const endM = addMonth(last > thisMonth() ? last : thisMonth(), 3); while (x <= endM && rows.length < 24) { rows.push(x); x = addMonth(x, 1); }
