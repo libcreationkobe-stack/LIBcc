@@ -2522,6 +2522,9 @@ const qv = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 const normName = s => String(s || '').replace(/株式会社|有限会社|合同会社|医療法人|（.*?）|\(.*?\)|採用|集客|ver|バージョン|[\s_\-・]/gi, '').toLowerCase();
 function matchClient(title) {
   const t = normName(title); if (!t) return null;
+  const raw = String(title || '').toLowerCase();
+  const byHandle = S.clients.find(c => { const h = String(c.insta || '').replace(/^@/, '').trim().toLowerCase(); return h.length >= 3 && raw.includes(h); });
+  if (byHandle) return byHandle;
   let best = null;
   S.clients.forEach(c => { const n = normName(c.name); if (n && (t === n || t.includes(n) || n.includes(t)) && (!best || n.length > normName(best.name).length)) best = c; });
   return best;
@@ -2552,9 +2555,15 @@ async function driveCheck(manual) {
     const found = (await gd('search_files', { query: "title = '" + qv(folder) + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", pageSize: 5, excludeContentSnippets: true })).payload || {};
     const root = (found.files || [])[0];
     if (!root) { ui.drive = { state: 'nofolder', folder }; return; }
-    const subs = ((await gd('search_files', { query: "parentId = '" + qv(root.id) + "' and mimeType = 'application/vnd.google-apps.folder' and trashed = false", pageSize: 100, excludeContentSnippets: true })).payload || {}).files || [];
+    const folders = ((await gd('search_files', { query: "'" + qv(root.id) + "' in ancestors and mimeType = 'application/vnd.google-apps.folder' and trashed = false", pageSize: 200, excludeContentSnippets: true })).payload || {}).files || [];
+    const fById = Object.fromEntries(folders.map(x => [x.id, x]));
     const byFolder = {};
-    subs.forEach(sf => { const c = matchClient(sf.title); byFolder[sf.id] = c ? { c: c.id, v: verFromName(sf.title), name: sf.title } : { none: true, name: sf.title }; });
+    folders.forEach(sf => {
+      // walk up to the folder directly under the root: that one names the client
+      let top = sf, guard = 0; while (top.parentId && top.parentId !== root.id && fById[top.parentId] && guard++ < 10) top = fById[top.parentId];
+      const c = matchClient(top.title), path = top === sf ? sf.title : top.title + ' / ' + sf.title;
+      byFolder[sf.id] = c ? { c: c.id, v: verFromName(top.title), name: path } : { none: true, name: path };
+    });
     let files = [], token;
     for (let i = 0; i < 5; i++) {
       const p = (await gd('search_files', Object.assign({ query: "'" + qv(root.id) + "' in ancestors and mimeType != 'application/vnd.google-apps.folder' and trashed = false", pageSize: 100, excludeContentSnippets: true, orderBy: 'modifiedTime desc' }, token ? { pageToken: token } : {}))).payload || {};
