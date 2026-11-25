@@ -542,6 +542,27 @@ select.pst { border-radius: 999px; }
 .g-bar.post { background: var(--s3); height: 14px; top: 11px; border-radius: 7px; }
 .g-bar.post.posted { background: var(--good); }
 .g-bar.late { box-shadow: 0 0 0 2px var(--bad); }
+.gantt.edit .g-bar { cursor: grab; touch-action: none; display: flex; align-items: center; overflow: hidden; color: #fff; font-size: 10.5px; font-weight: 600; user-select: none; z-index: 1; }
+.gantt.edit .g-bar span { flex: 1; min-width: 0; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.gantt.edit .g-bar.task.todo span, .gantt.edit .g-bar.task.done span { color: #fff; }
+.gantt.edit .g-bar:active { cursor: grabbing; }
+.gantt.edit .g-bar.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.g-h { width: 7px; align-self: stretch; cursor: ew-resize; flex: none; }
+.g-h:hover { background: rgba(0,0,0,.18); }
+.g-we { position: absolute; top: 0; bottom: 0; background: var(--field); pointer-events: none; }
+.g-name { cursor: pointer; } .g-name:hover { color: var(--accent); }
+.g-add .g-track { cursor: crosshair; touch-action: none; height: 30px; }
+.g-add .g-track:hover { background: var(--accent-soft); }
+.g-add > div:first-child { padding: 4px 8px !important; }
+.g-addbtn { border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; padding: 4px; }
+.g-addbtn:hover { color: var(--accent); }
+.g-ghost { opacity: .6 !important; pointer-events: none; }
+.g-row.drop { background: var(--accent-soft); }
+.g-row.drop > div:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.g-panel { position: fixed; top: 0; right: 0; bottom: 0; width: 340px; max-width: 100vw; background: var(--surface); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.12); padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 60; }
+.g-panel .panel-h { margin: 0; }
+.g-newfor { margin: 0; }
+.pdfmode .g-add, .pdfmode .g-panel { display: none !important; }
 tr.late td { background: var(--bad-soft); }
 .ist { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
 .ist.draft { background: var(--accent-soft); color: var(--accent); } .ist.ok { background: var(--s3-soft); color: var(--s3); } .ist.sent { background: var(--good-soft); color: var(--good); } .ist.done { background: var(--good); color: #fff; }
@@ -1922,10 +1943,13 @@ async function makePdf(nodes, filename, mode, opts) {
   } finally { document.body.classList.remove('pdfmode'); pdfBusy = false; }
 }
 
-/* ---- team gantt: every client's production tasks and planned posts, by editor ---- */
+/* ---- team gantt: every client's production tasks and planned posts, by editor ----
+   Edited right on the chart: drag a bar to move it (up/down moves it to another person), drag its ends to change
+   the dates, drag across an empty "＋" row to add a task, click a bar or a name to open the side panel. */
 const TASK_ST = { todo: '未着手', doing: '進行中', done: '完了' };
 function addDays(ds, n) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function weekStart(ds) { const d = new Date(ds + 'T00:00:00'), wd = (d.getDay() + 6) % 7; return addDays(ds, -wd); }
+const dayDiff = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
 function teamItems() {
   const out = [];
   S.clients.forEach(c => {
@@ -1935,56 +1959,156 @@ function teamItems() {
   return out;
 }
 function teamLate(x) { return x.kind === 'task' ? x.status !== 'done' && x.end < today() : x.status !== 'posted' && x.end < today(); }
+const gkOf = x => x.kind + '|' + x.cid + '|' + x.id;
+function gObj(gk) {
+  const [kind, cid, id] = String(gk || '').split('|');
+  const obj = kind === 'task' ? (S.tasks[cid] || []).find(t => t.id === id) : kind === 'post' ? plansOf(cid).find(p => p.id === id) : null;
+  return obj ? { kind, cid, id, obj } : null;
+}
+function ganttRange() { const span = ui.teamSpan || 28; return { span, from: ui.teamFrom || weekStart(addDays(today(), -7)) }; }
+function ganttControls() {
+  const { span } = ganttRange();
+  return '<div class="seg">' + [[14, '2週'], [28, '4週'], [56, '8週']].map(([n, l]) => '<button data-act="teamSpan" data-n="' + n + '" class="' + (span === n ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<button class="btn sm" data-act="teamShift" data-n="-7" aria-label="1週前へ">◀</button><button class="btn sm" data-act="teamToday">今週</button><button class="btn sm" data-act="teamShift" data-n="7" aria-label="1週後へ">▶</button>';
+}
+// opts: { items, people (names, '' = no one), me, addCid (client for new tasks; null = the client on screen) }
+function ganttBlock(opts) {
+  const { span, from } = ganttRange(), to = addDays(from, span - 1);
+  const items = opts.items.filter(x => x.start <= to && x.end >= from);
+  const days = Array.from({ length: span }, (_, i) => addDays(from, i)), pos = ds => Math.max(0, Math.min(100, dayDiff(from, ds) / span * 100));
+  const tickEvery = span > 28 ? 7 : 1;
+  const bg = days.map((d, i) => [0, 6].includes(new Date(d + 'T00:00:00').getDay()) ? '<i class="g-we" style="left:' + (i / span * 100) + '%;width:' + (100 / span) + '%"></i>' : '').join('');
+  const tp = today() >= from && today() <= to ? '<div class="g-today" style="left:' + pos(today()) + '%"></div>' : '';
+  let h = '<div class="gantt team edit" data-from="' + from + '" data-span="' + span + '"><div class="g-row g-head"><div>' + (opts.me ? 'タスク' : '担当 / タスク') + '</div><div class="g-track">' + days.map((d, i) => i % tickEvery === 0 ? '<div class="g-tick" style="left:' + (i / span * 100) + '%">' + (i === 0 || d.slice(8) === '01' || span > 28 ? Number(d.slice(5, 7)) + '/' : '') + Number(d.slice(8)) + (span <= 14 ? '<br>' + WD[new Date(d + 'T00:00:00').getDay()] : '') + '</div>' : '').join('') + '</div></div>';
+  const row = x => {
+    const l = pos(x.start), w = Math.max(100 / span * .9, pos(addDays(x.end, 1)) - l), gk = gkOf(x);
+    const cls = (x.kind === 'post' ? 'post ' : 'task ') + x.status + (teamLate(x) ? ' late' : '') + (ui.gpop === gk ? ' sel' : '');
+    const lbl = x.kind === 'post' ? psl(x.status) : TASK_ST[x.status];
+    return '<div class="g-row" data-who="' + esc(x.who) + '"><div class="g-name" data-act="gOpen" data-gk="' + esc(gk) + '" title="' + esc(x.client + '｜' + x.title) + '"><span class="g-cl">' + esc(x.client) + '</span>' + esc(x.title) + '</div><div class="g-track">' + bg + tp +
+      '<div class="g-bar ' + cls + '" data-gk="' + esc(gk) + '" style="left:' + l + '%;width:' + w + '%" title="' + esc(lbl + '　' + x.start + (x.end !== x.start ? '〜' + x.end : '') + '　ドラッグで移動・クリックで編集') + '">' + (x.kind === 'task' ? '<i class="g-h l"></i><span>' + esc(x.title) + '</span><i class="g-h r"></i>' : '') + '</div></div></div>';
+  };
+  const addRow = who => '<div class="g-row g-add" data-who="' + esc(who) + '"><div><button class="g-addbtn" data-act="gAdd" data-who="' + esc(who) + '">＋ タスクを追加</button></div><div class="g-track" data-who="' + esc(who) + '" title="ドラッグした期間でタスクを追加">' + bg + tp + '</div></div>';
+  opts.people.forEach(n => {
+    const mine = items.filter(x => x.who === n).sort((a, b) => a.start < b.start ? -1 : a.start > b.start ? 1 : 0);
+    if (!opts.me) h += '<div class="g-row g-person" data-who="' + esc(n) + '"><div>' + esc(n || '担当なし') + '<span class="hint">　' + mine.length + '件</span></div><div class="g-track">' + bg + tp + '</div></div>';
+    h += mine.map(row).join('') + addRow(n);
+  });
+  h += '</div><div class="legend"><span><i class="k0"></i>制作タスク（進行中）</span><span><i class="k0" style="opacity:.45"></i>未着手</span><span><i class="k2"></i>完了</span><span><i class="k3"></i>投稿予定</span><span><i style="background:var(--bad)"></i>期限切れ（赤い枠）</span><span><i style="background:var(--bad);width:2px"></i>今日</span></div>' +
+    '<p class="hint no-print">バーをドラッグで日付を移動（上下にドラッグで担当を変更）、両端をドラッグで期間を変更、クリックで詳細を編集。「＋」の行をドラッグするとその期間でタスクを追加できます。</p>';
+  return h + ganttPanel(opts.addCid);
+}
+function ganttPanel() {
+  const g = ui.gpop && gObj(ui.gpop); if (!g) return '';
+  const o = g.obj, isT = g.kind === 'task', f = (k, l, v, type) => '<label class="field"><span>' + l + '</span><input data-gp="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(v || '') + '"></label>';
+  const who = isT ? o.assignee : o.assignee, people = S.editors.map(e => e.name);
+  if (who && !people.includes(who)) people.push(who);
+  return '<aside class="g-panel no-print" role="dialog" aria-label="' + (isT ? 'タスクの編集' : '投稿予定の編集') + '"><div class="panel-h"><div><div class="eyebrow">' + (isT ? 'TASK' : 'POST') + '</div><h3 class="bar-title">' + (isT ? 'タスク' : '投稿予定') + '</h3></div><button class="btn sm ghost" data-act="gClose" aria-label="閉じる">✕</button></div>' +
+    (isT ? f('title', 'タスク名', o.title) : f('theme', 'テーマ・内容', o.theme)) +
+    '<label class="field"><span>クライアント</span><select data-gp="cid"' + (isT ? '' : ' disabled') + '>' + S.clients.map(c => '<option value="' + c.id + '"' + (c.id === g.cid ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label>' +
+    '<label class="field"><span>担当</span><select data-gp="assignee"><option value="">担当なし</option>' + people.map(n => '<option' + (n === who ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>' +
+    (isT ? '<div class="grid2">' + f('start', '開始日', o.start, 'date') + f('end', '期限', o.end, 'date') + '</div>' : '<div class="grid2">' + f('date', '投稿日', o.date, 'date') + f('time', '時間', o.time, 'time') + '</div>') +
+    '<label class="field"><span>状態</span><select data-gp="status">' + (isT ? Object.entries(TASK_ST) : PLAN_ST).map(([k, l]) => '<option value="' + k + '"' + (o.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>' +
+    (isT ? '' : '<label class="field"><span>メモ</span><textarea data-gp="memo" rows="3">' + esc(o.memo || '') + '</textarea></label><a href="#plan-' + esc(g.cid) + '" class="hint">このクライアントの投稿管理を開く →</a>') +
+    '<div class="row" style="margin-top:6px"><button class="btn dark" data-act="gClose">完了</button><button class="btn ghost" data-act="gDel">削除</button></div></aside>';
+}
 R.team = () => {
   const me = ui.teamWho && S.editors.find(e => e.id === ui.teamWho) ? S.editors.find(e => e.id === ui.teamWho) : null;
-  const span = ui.teamSpan || 28, from = ui.teamFrom || weekStart(addDays(today(), -7)), to = addDays(from, span - 1);
-  const items = teamItems().filter(x => x.start <= to && x.end >= from && (!me || x.who === me.name));
-  const people = me ? [me.name] : [...new Set(S.editors.map(e => e.name).concat(items.map(x => x.who)))].filter(n => n && (items.some(x => x.who === n) || S.editors.some(e => e.name === n)));
-  if (!me && items.some(x => !x.who)) people.push('');
-  let h = head('TEAM SCHEDULE', me ? me.name + 'さんのスケジュール' : '編集者のスケジュール', (me ? '<a href="#team">← 全員の表示</a>　' : '') + '全クライアントの制作タスクと投稿予定を、担当者ごとに並べています。',
+  const { span, from } = ganttRange(), to = addDays(from, span - 1);
+  const all = teamItems().filter(x => !me || x.who === me.name), inRange = all.filter(x => x.start <= to && x.end >= from);
+  const people = me ? [me.name] : [...new Set(S.editors.map(e => e.name).concat(inRange.map(x => x.who)))].filter(n => n);
+  if (!me) people.push('');
+  let h = head('TEAM SCHEDULE', me ? me.name + 'さんのスケジュール' : '編集者のスケジュール', (me ? '<a href="#team">← 全員の表示</a>　' : '') + '全クライアントの制作タスクと投稿予定を、担当者ごとに並べています。チャートの上で直接追加・移動できます。',
     '<select class="input" style="width:auto" id="teamWho" aria-label="表示する人"><option value="">全員</option>' + S.editors.map(e => '<option value="' + esc(e.id) + '"' + (me && me.id === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select>' +
-    '<div class="seg">' + [[14, '2週'], [28, '4週'], [56, '8週']].map(([n, l]) => '<button data-act="teamSpan" data-n="' + n + '" class="' + (span === n ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
-    '<button class="btn sm" data-act="teamShift" data-n="-7" aria-label="1週前へ">◀</button><button class="btn sm" data-act="teamToday">今週</button><button class="btn sm" data-act="teamShift" data-n="7" aria-label="1週後へ">▶</button>' +
-    '<button class="btn" data-act="teamNew">' + I.plus + 'タスク追加</button><button class="btn dark" data-act="teamPdf">' + I.print + 'PDFで保存</button>');
-  const mine = teamItems().filter(x => !me || x.who === me.name), late = mine.filter(teamLate), doing = mine.filter(x => x.kind === 'task' && x.status === 'doing');
-  const wk = mine.filter(x => x.start <= addDays(today(), 7) && x.end >= today() && !(x.kind === 'task' ? x.status === 'done' : x.status === 'posted'));
+    ganttControls() + '<button class="btn dark" data-act="teamPdf">' + I.print + 'PDFで保存</button>');
+  const late = all.filter(teamLate), doing = all.filter(x => x.kind === 'task' && x.status === 'doing');
+  const wk = all.filter(x => x.start <= addDays(today(), 7) && x.end >= today() && !(x.kind === 'task' ? x.status === 'done' : x.status === 'posted'));
   h += '<div id="teamSheet" class="plan-sheet"><div class="pdf-title">' + esc(me ? me.name + 'さんのスケジュール' : '編集者のスケジュール') + '　' + from.replace(/-/g, '/') + '〜' + to.replace(/-/g, '/') + '</div>';
   h += '<div class="tiles"><div class="tile"><span class="lbl">' + I.tasks + 'これから7日でやること</span><span class="val">' + wk.length + '<small>件</small></span></div><div class="tile"><span class="lbl">' + I.trend + '進行中のタスク</span><span class="val">' + doing.length + '<small>件</small></span></div><div class="tile' + (late.length ? ' hero' : '') + '"><span class="lbl">' + I.info + '期限切れ</span><span class="val">' + late.length + '<small>件</small></span></div></div>';
-  if (ui.teamForm) {
-    h += '<form class="panel no-print" id="teamForm"><div class="panel-h"><h3 class="bar-title">タスクを追加</h3></div><div class="grid3">' +
-      '<label class="field"><span>クライアント</span><select id="tmClient">' + S.clients.map(c => '<option value="' + c.id + '"' + (c.id === S.current ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label>' +
-      '<label class="field"><span>タスク名</span><input id="tmTitle" required placeholder="例：12月 リール撮影"></label>' +
-      '<label class="field"><span>担当</span><select id="tmWho">' + S.editors.map(e => '<option' + (me && me.id === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select></label>' +
-      '<label class="field"><span>開始日</span><input type="date" id="tmStart" value="' + today() + '" required></label><label class="field"><span>期限</span><input type="date" id="tmEnd" value="' + addDays(today(), 3) + '" required></label>' +
-      '<label class="field"><span>状態</span><select id="tmSt">' + Object.entries(TASK_ST).map(([k, l]) => '<option value="' + k + '">' + l + '</option>').join('') + '</select></label></div>' +
-      '<div class="row" style="margin-top:14px"><button class="btn dark" type="submit">' + I.plus + '追加する</button><button class="btn ghost" type="button" data-act="teamNew">閉じる</button></div></form>';
-  }
-  // the chart
-  const days = Array.from({ length: span }, (_, i) => addDays(from, i)), pos = ds => Math.max(0, Math.min(100, (new Date(ds) - new Date(from)) / 864e5 / span * 100));
-  const tickEvery = span > 28 ? 7 : 1;
-  const head2 = '<div class="g-row g-head"><div>' + (me ? 'タスク' : '担当 / タスク') + '</div><div class="g-track">' + days.map((d, i) => i % tickEvery === 0 ? '<div class="g-tick' + ([0, 6].includes(new Date(d).getDay()) ? ' we' : '') + '" style="left:' + (i / span * 100) + '%">' + (i === 0 || d.slice(8) === '01' || span > 28 ? Number(d.slice(5, 7)) + '/' : '') + Number(d.slice(8)) + (span <= 14 ? '<br>' + WD[new Date(d).getDay()] : '') + '</div>' : '').join('') + '</div></div>';
-  const tp = today() >= from && today() <= to ? '<div class="g-today" style="left:' + pos(today()) + '%"></div>' : '';
-  const row = x => {
-    const l = pos(x.start), w = Math.max(100 / span * .9, pos(addDays(x.end, 1)) - l);
-    const cls = x.kind === 'post' ? 'post ' + x.status : 'task ' + x.status;
-    return '<div class="g-row"><div title="' + esc(x.client + '｜' + x.title) + '"><span class="g-cl">' + esc(x.client) + '</span>' + esc(x.title) + '</div><div class="g-track">' + tp + '<div class="g-bar ' + cls + (teamLate(x) ? ' late' : '') + '" style="left:' + l + '%;width:' + w + '%" title="' + esc((x.kind === 'post' ? psl(x.status) : TASK_ST[x.status]) + '　' + x.start + (x.end !== x.start ? '〜' + x.end : '')) + '"></div></div></div>';
-  };
-  let body = '';
-  people.forEach(n => {
-    const mineRows = items.filter(x => x.who === n).sort((a, b) => a.start < b.start ? -1 : 1);
-    if (!mineRows.length && me) return;
-    if (!me) body += '<div class="g-row g-person"><div>' + esc(n || '担当なし') + '<span class="hint">　' + mineRows.length + '件</span></div><div class="g-track">' + tp + '</div></div>';
-    body += mineRows.map(row).join('');
-  });
-  h += items.length ? '<div class="gantt team">' + head2 + body + '</div><div class="legend"><span><i class="k0"></i>制作タスク（進行中）</span><span><i class="k0" style="opacity:.45"></i>未着手</span><span><i class="k2"></i>完了</span><span><i class="k3"></i>投稿予定</span><span><i style="background:var(--bad)"></i>期限切れ（赤い枠）</span><span><i style="background:var(--bad);width:2px"></i>今日</span></div>'
-    : '<div class="panel">' + emptyBox('この期間の予定はありません', '「タスク追加」か、各クライアントの「投稿管理」で担当者を入れると表示されます。', I.tasks) + '</div>';
-  // to-do list with status switches
-  const open = mine.filter(x => x.kind === 'task' && x.status !== 'done').sort((a, b) => a.end < b.end ? -1 : 1);
+  h += '<div class="row no-print g-newfor"><label class="field" style="max-width:260px"><span>新しいタスクのクライアント</span><select id="gAddCid">' + S.clients.map(c => '<option value="' + c.id + '"' + (c.id === (ui.gAddCid || S.current) ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label></div>';
+  h += ganttBlock({ items: all, people, me });
+  const open = all.filter(x => x.kind === 'task' && x.status !== 'done').sort((a, b) => a.end < b.end ? -1 : 1);
   if (open.length) h += '<section class="sec-head"><div><div class="eyebrow">TO DO</div><h2>まだ終わっていないタスク</h2></div></section><div class="tbl-wrap"><table><thead><tr><th>期限</th><th>クライアント</th><th>タスク</th>' + (me ? '' : '<th>担当</th>') + '<th>状態</th></tr></thead><tbody>' +
-    open.map(x => '<tr class="' + (teamLate(x) ? 'late' : '') + '"><td class="num">' + esc(x.end.slice(5).replace('-', '/')) + '</td><td>' + esc(x.client) + '</td><td style="white-space:normal">' + esc(x.title) + '</td>' + (me ? '' : '<td>' + esc(x.who || '—') + '</td>') + '<td><select data-tteam="' + esc(x.cid + '|' + x.id) + '" aria-label="状態">' + Object.entries(TASK_ST).map(([k, l]) => '<option value="' + k + '"' + (x.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td></tr>').join('') + '</tbody></table></div>';
+    open.map(x => '<tr class="' + (teamLate(x) ? 'late' : '') + '"><td class="num">' + esc(x.end.slice(5).replace('-', '/')) + '</td><td>' + esc(x.client) + '</td><td style="white-space:normal"><a href="#" data-act="gOpen" data-gk="' + esc(gkOf(x)) + '">' + esc(x.title) + '</a></td>' + (me ? '' : '<td>' + esc(x.who || '—') + '</td>') + '<td><select data-tteam="' + esc(x.cid + '|' + x.id) + '" aria-label="状態">' + Object.entries(TASK_ST).map(([k, l]) => '<option value="' + k + '"' + (x.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td></tr>').join('') + '</tbody></table></div>';
   h += '</div><details class="more no-print"><summary>自分用のリンク</summary><div class="hint">表示する人を選んだ状態で、右上の「共有」→「リンクをコピー」を押すと、その人のスケジュールが直接開くリンクになります（末尾が <code>#team-担当者ID</code>）。自分用のブックマークにも使えます。</div></details>';
   return h;
 };
+// new task for a person on a date range; opens the side panel to name it
+function gNewTask(who, start, end) {
+  const cid = route() === 'tasks' ? S.current : (ui.gAddCid && S.clients.find(c => c.id === ui.gAddCid) ? ui.gAddCid : S.current);
+  if (!cid) { toast('先にクライアントを登録してください'); return; }
+  const t = { id: uid(), title: '新しいタスク', assignee: who || '', channel: 'instagram', start, end: end < start ? start : end, status: 'todo' };
+  (S.tasks[cid] = S.tasks[cid] || []).push(t);
+  ui.gpop = 'task|' + cid + '|' + t.id; save('タスクを追加しました'); render();
+  const i = document.querySelector('.g-panel [data-gp=title]'); if (i) { i.focus(); i.select(); }
+}
+/* dragging on the chart */
+(() => {
+  let drag = null;
+  const geo = el => { const g = el.closest('.gantt.edit'), tr = el.closest('.g-track'); return { from: g.dataset.from, span: +g.dataset.span, rect: tr.getBoundingClientRect() }; };
+  const rowAt = (e, bar) => { const own = bar.closest('.g-row'); return document.elementsFromPoint(e.clientX, e.clientY).map(x => x.closest && x.closest('.gantt.edit .g-row[data-who]')).find(r => r && r !== own && !bar.contains(r)) || own; };
+  const dateAt = (G, x) => addDays(G.from, Math.max(0, Math.min(G.span - 1, Math.floor((x - G.rect.left) / G.rect.width * G.span))));
+  document.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const bar = e.target.closest('.gantt.edit .g-bar[data-gk]');
+    if (bar) {
+      const g = gObj(bar.dataset.gk); if (!g) return;
+      const G = geo(bar), mode = e.target.closest('.g-h.l') ? 'l' : e.target.closest('.g-h.r') ? 'r' : 'm';
+      const st = g.kind === 'task' ? g.obj.start : g.obj.date, en = g.kind === 'task' ? (g.obj.end || g.obj.start) : g.obj.date;
+      drag = { type: 'bar', bar, g, G, mode, x0: e.clientX, y0: e.clientY, st, en, l0: parseFloat(bar.style.left), w0: parseFloat(bar.style.width), dd: 0, moved: false };
+      bar.setPointerCapture(e.pointerId); e.preventDefault(); return;
+    }
+    const add = e.target.closest('.gantt.edit .g-add .g-track');
+    if (add) {
+      const G = geo(add), d = dateAt(G, e.clientX), ghost = document.createElement('div');
+      ghost.className = 'g-bar task todo g-ghost'; add.appendChild(ghost);
+      drag = { type: 'add', el: add, G, d0: d, d1: d, ghost, who: add.dataset.who };
+      const paint = () => { const a = drag.d0 < drag.d1 ? drag.d0 : drag.d1, b = drag.d0 < drag.d1 ? drag.d1 : drag.d0; ghost.style.left = dayDiff(G.from, a) / G.span * 100 + '%'; ghost.style.width = (dayDiff(a, b) + 1) / G.span * 100 + '%'; };
+      drag.paint = paint; paint(); add.setPointerCapture(e.pointerId); e.preventDefault();
+    }
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return;
+    if (drag.type === 'add') { drag.d1 = dateAt(drag.G, e.clientX); drag.paint(); return; }
+    const dayW = drag.G.rect.width / drag.G.span, dd = Math.round((e.clientX - drag.x0) / dayW);
+    if (Math.abs(e.clientX - drag.x0) > 4 || Math.abs(e.clientY - drag.y0) > 6) drag.moved = true;
+    if (!drag.moved) return;
+    drag.dd = dd; const u = 100 / drag.G.span, b = drag.bar;
+    if (drag.g.kind === 'post' || drag.mode === 'm') { b.style.left = drag.l0 + dd * u + '%'; b.style.transform = drag.mode === 'm' ? 'translateY(' + (e.clientY - drag.y0) + 'px)' : ''; }
+    else if (drag.mode === 'l') { const max = dayDiff(drag.st, drag.en); const k = Math.min(dd, max); b.style.left = drag.l0 + k * u + '%'; b.style.width = drag.w0 - k * u + '%'; }
+    else { const k = Math.max(dd, -dayDiff(drag.st, drag.en)); b.style.width = drag.w0 + k * u + '%'; }
+    document.querySelectorAll('.g-row.drop').forEach(r => r.classList.remove('drop'));
+    if (drag.mode === 'm') { const r = rowAt(e, drag.bar); if (r && r.dataset.who !== (drag.g.obj.assignee || '')) r.classList.add('drop'); }
+  });
+  const end = e => {
+    if (!drag) return; const d = drag; drag = null;
+    document.querySelectorAll('.g-row.drop').forEach(r => r.classList.remove('drop'));
+    if (d.type === 'add') { d.ghost.remove(); const a = d.d0 < d.d1 ? d.d0 : d.d1, b = d.d0 < d.d1 ? d.d1 : d.d0; gNewTask(d.who, a, a === b ? addDays(a, 2) : b); return; }
+    if (!d.moved) { ui.gpop = gkOf({ kind: d.g.kind, cid: d.g.cid, id: d.g.id }); ui.gFocus = false; render(); return; }
+    const o = d.g.obj; let who = null;
+    if (d.mode === 'm' && e.type === 'pointerup') { const r = rowAt(e, d.bar); if (r && r.dataset.who !== (o.assignee || '')) who = r.dataset.who; }
+    if (d.g.kind === 'post') { o.date = addDays(d.st, d.dd); }
+    else if (d.mode === 'm') { o.start = addDays(d.st, d.dd); o.end = addDays(d.en, d.dd); }
+    else if (d.mode === 'l') { o.start = addDays(d.st, Math.min(d.dd, dayDiff(d.st, d.en))); }
+    else { o.end = addDays(d.en, Math.max(d.dd, -dayDiff(d.st, d.en))); }
+    if (who !== null) o.assignee = who;
+    save(who !== null ? (who || '担当なし') + 'に移しました' : d.g.kind === 'post' ? '投稿日を ' + o.date.slice(5).replace('-', '/') + ' にしました' : o.start.slice(5).replace('-', '/') + '〜' + o.end.slice(5).replace('-', '/') + ' にしました'); render();
+  };
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+})();
+// side panel edits; returns true when handled
+function ganttInput(t, d, isChange) {
+  if (t.id === 'gAddCid') { ui.gAddCid = t.value; return true; }
+  if (!d.gp) return false;
+  const g = gObj(ui.gpop); if (!g) return true;
+  const o = g.obj, k = d.gp;
+  if (k === 'cid') { if (!isChange || t.value === g.cid) return true; S.tasks[g.cid] = S.tasks[g.cid].filter(x => x !== o); (S.tasks[t.value] = S.tasks[t.value] || []).push(o); ui.gpop = 'task|' + t.value + '|' + o.id; save('クライアントを変えました'); render(); return true; }
+  if ((k === 'start' || k === 'end' || k === 'date') && !t.value) return true;
+  o[k] = t.value;
+  if (k === 'start' && o.end < o.start) o.end = o.start;
+  if (k === 'end' && o.end < o.start) o.start = o.end;
+  if (isChange) { save(false); render(); } else { saveSoon(); const n = document.querySelector('.gantt.edit .g-name[data-gk="' + CSS.escape(ui.gpop) + '"]'); if (n && (k === 'title' || k === 'theme')) n.lastChild.textContent = g.kind === 'post' ? ptl(o.type) + '投稿：' + (o.theme || 'テーマ未定') : o.title; }
+  return true;
+}
 
 /* ================= back office: invoices and payslips =================
    Kept apart from the analytics data. Outside claude.ai: this browser's localStorage ('orange-insight-office').
@@ -2601,19 +2725,14 @@ R.tasks = () => {
     '<label class="field"><span>状態</span><select id="tSt"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option></select></label></div><div class="row" style="margin-top:14px"><button class="btn dark" type="submit">' + I.plus + '追加する</button><button class="btn ghost" type="button" data-act="toggleNewTask">閉じる</button></div></form>';
   h += '<div class="row"><div class="tabs" style="flex:1">' + [['list', 'タスク一覧'], ['gantt', 'ガントチャート']].map(([k, l]) => '<button data-act="taskTab" data-k="' + k + '" class="' + (ui.taskTab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><input class="input" style="width:180px" id="taskQ" placeholder="タスクを検索" value="' + esc(ui.taskQ) + '"><select class="input" style="width:auto" id="taskSt"><option value="">すべての状態</option><option value="todo"' + (ui.taskSt === 'todo' ? ' selected' : '') + '>未着手</option><option value="doing"' + (ui.taskSt === 'doing' ? ' selected' : '') + '>進行中</option><option value="done"' + (ui.taskSt === 'done' ? ' selected' : '') + '>完了</option></select></div>';
   const list = all.filter(t => (!ui.taskQ || t.title.includes(ui.taskQ)) && (!ui.taskSt || t.status === ui.taskSt)).sort((a, b) => (a.start || '') < (b.start || '') ? -1 : 1);
-  if (!list.length) return h + '<div class="panel">' + emptyBox('タスクはまだありません', 'タスクを登録すると、担当者別の進捗とガントチャートに反映されます。', I.tasks) + '</div>';
+  if (!list.length && ui.taskTab !== 'gantt') return h + '<div class="panel">' + emptyBox('タスクはまだありません', 'タスクを登録すると、担当者別の進捗とガントチャートに反映されます。', I.tasks) + '</div>';
   const stl = { todo: '未着手', doing: '進行中', done: '完了' };
   if (ui.taskTab === 'list') {
     h += '<div class="tbl-wrap"><table><thead><tr><th>タスク</th><th>担当</th><th>媒体</th><th>期間</th><th>状態</th><th></th></tr></thead><tbody>' + list.map(t => '<tr><td style="white-space:normal"><b>' + esc(t.title) + '</b>' + (t.status !== 'done' && t.end < today ? ' <span class="chip bad">期限超過</span>' : '') + '</td><td>' + esc(t.assignee) + '</td><td>' + (CHM[t.channel] || {}).l + '</td><td class="num">' + esc((t.start || '').slice(5).replace('-', '/')) + '〜' + esc((t.end || '').slice(5).replace('-', '/')) + '</td><td><select data-taskst="' + t.id + '" aria-label="状態">' + Object.entries(stl).map(([k, l]) => '<option value="' + k + '"' + (t.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td><td><button class="btn sm ghost" data-act="delTask" data-id="' + t.id + '">削除</button></td></tr>').join('') + '</tbody></table></div>';
   } else {
-    const ds = list.flatMap(t => [t.start, t.end]).filter(Boolean).sort();
-    const d0 = new Date(ds[0]), d1 = new Date(ds[ds.length - 1]); d0.setDate(d0.getDate() - 1); d1.setDate(d1.getDate() + 2);
-    const span = Math.max(1, (d1 - d0) / 864e5), pos = d => ((new Date(d) - d0) / 864e5 / span * 100);
-    let ticks = ''; const step = span > 60 ? 7 : span > 21 ? 3 : 1;
-    for (let i = 0; i < span; i += step) { const d = new Date(d0); d.setDate(d.getDate() + i); ticks += '<div class="g-tick" style="left:' + (i / span * 100) + '%">' + (d.getMonth() + 1) + '/' + d.getDate() + '</div>'; }
-    const tp = pos(today);
-    h += '<div class="gantt"><div class="g-row g-head"><div>タスク</div><div class="g-track">' + ticks + '</div></div>' + list.map(t => { const l = pos(t.start), w = Math.max(1.5, pos(t.end) - l + 100 / span); return '<div class="g-row"><div title="' + esc(t.title) + '">' + esc(t.title) + '</div><div class="g-track">' + (tp >= 0 && tp <= 100 ? '<div class="g-today" style="left:' + tp + '%"></div>' : '') + '<div class="g-bar ' + t.status + '" style="left:' + l + '%;width:' + w + '%" title="' + stl[t.status] + '"></div></div></div>'; }).join('') + '</div>' +
-      '<div class="legend"><span><i class="k0"></i>進行中</span><span><i class="k0" style="opacity:.45"></i>未着手</span><span><i class="k2"></i>完了</span><span><i style="background:var(--bad);width:2px"></i>今日</span></div>';
+    const items = teamItems().filter(x => x.cid === c.id), people = [...new Set(S.editors.map(e => e.name).concat(items.map(x => x.who)))].filter(n => n);
+    people.push('');
+    h += '<div class="row no-print" style="justify-content:flex-end;gap:8px;margin-bottom:10px">' + ganttControls() + '</div>' + ganttBlock({ items, people, me: null });
   }
   return h;
 };
@@ -3417,6 +3536,10 @@ A.driveCheck = () => driveCheck(true);
 A.teamSpan = el => { ui.teamSpan = +el.dataset.n; render(); };
 A.teamShift = el => { ui.teamFrom = addDays(ui.teamFrom || weekStart(addDays(today(), -7)), +el.dataset.n); render(); };
 A.teamToday = () => { ui.teamFrom = null; render(); };
+A.gOpen = el => { ui.gpop = el.dataset.gk; render(); };
+A.gClose = () => { ui.gpop = null; render(); };
+A.gDel = el => arm(el, () => { const g = gObj(ui.gpop); if (g) { if (g.kind === 'task') S.tasks[g.cid] = S.tasks[g.cid].filter(x => x !== g.obj); else { const l = plansOf(g.cid); l.splice(l.indexOf(g.obj), 1); } } ui.gpop = null; save('削除しました'); render(); });
+A.gAdd = el => gNewTask(el.dataset.who, today(), addDays(today(), 2));
 A.teamNew = () => { ui.teamForm = !ui.teamForm; render(); };
 A.teamPdf = () => { const me = S.editors.find(e => e.id === ui.teamWho); makePdf([...document.getElementById('teamSheet').children], (me ? me.name : '全員') + '_スケジュール_' + today() + '.pdf', 'flow'); };
 A.planView = el => { ui.planView = el.dataset.k; render(); };
@@ -3518,7 +3641,7 @@ let saveTimer;
 function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(() => save(false), 400); }
 document.addEventListener('input', e => {
   const t = e.target, d = t.dataset, m = curMonth();
-  if (officeInput(t, d, false)) return;
+  if (officeInput(t, d, false) || ganttInput(t, d, false)) return;
   if (d.rec) { ensureRec(ui.inputCh, m)[d.rec] = toNum(t.value); saveSoon(); }
   else if (d.demo) { demoEdit(m, FOLCH_OF[ui.inputCh])[d.demo] = d.demo === 'locations' ? t.value : toNum(t.value); saveSoon(); }
   else if (d.age) { demoEdit(m, FOLCH_OF[ui.inputCh]).ages[d.age] = toNum(t.value); saveSoon(); }
@@ -3548,7 +3671,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target, d = t.dataset;
-  if (officeInput(t, d, true)) return;
+  if (officeInput(t, d, true) || ganttInput(t, d, true)) return;
   if (t.id === 'monthSel' || t.id === 'inputMonth') { if (t.value) { S.month = t.value; save(false); render(); } }
   else if (d.brand && t.tagName === 'SELECT') render();
   else if (d.fmap !== undefined) { const f = ui.files[+d.fmap]; if (t.value) { Object.keys(f.map).forEach(j => { if (f.map[j] === t.value) delete f.map[j]; }); f.map[d.col] = t.value; } else delete f.map[d.col]; f.hasDate = Object.values(f.map).includes('month'); f.hasChannelCol = Object.values(f.map).includes('channel'); render(); }
@@ -3632,7 +3755,21 @@ function readLogo(file) {
   if (ev === 'drop' && e.dataTransfer.files.length && z.id === 'briefDrop') { startAuto([...e.dataTransfer.files]); return; }
   if (ev === 'drop' && e.dataTransfer.files.length) { if (z.id === 'csvDrop') [...e.dataTransfer.files].forEach(readCsvFile); else readLogo(e.dataTransfer.files[0]); }
 }));
-document.addEventListener('submit', e => {
+/* Forms: inside the claude.ai viewer the page runs in a sandboxed frame where the browser blocks form submission
+   (no submit event at all), so the submit buttons and Enter key run the handler themselves. */
+function submitByHand(form) { if (!form || !form.id) return; if (!form.reportValidity()) return; onFormSubmit({ target: form, preventDefault() {} }); }
+document.addEventListener('click', e => {
+  const btn = e.target.closest('button[type=submit], input[type=submit]'); if (!btn || !btn.form) return;
+  e.preventDefault(); submitByHand(btn.form);
+}, true);
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || !t.form || t.tagName !== 'INPUT' || /^(button|submit|checkbox|radio|file)$/.test(t.type)) return;
+  e.preventDefault(); submitByHand(t.form);
+});
+document.addEventListener('submit', onFormSubmit);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.gpop) { ui.gpop = null; render(); } });
+function onFormSubmit(e) {
   e.preventDefault();
   const id = e.target.id;
   if (id === 'clientForm') {
@@ -3661,7 +3798,7 @@ document.addEventListener('submit', e => {
     S.tasks[S.current].push({ id: uid(), title: $('#tTitle').value.trim(), assignee: $('#tAsg').value, channel: $('#tCh').value, start: s, end: en, status: $('#tSt').value });
     ui.newTask = false; save('タスクを追加しました'); render();
   }
-});
+}
 
 applyTheme();
 render();
