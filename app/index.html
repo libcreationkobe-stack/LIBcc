@@ -533,6 +533,16 @@ select.pst { border-radius: 999px; }
 .cal-i b { display: block; font-weight: 700; }
 .cal-i.late { outline: 2px solid var(--bad); }
 @media (max-width: 700px) { .cal-d { min-height: 64px; } .cal-i b { display: none; } }
+.gantt.team .g-row > div:first-child { white-space: normal; line-height: 1.35; font-size: 11.5px; }
+.g-cl { display: block; font-size: 10px; color: var(--muted); }
+.g-person > div:first-child { font-weight: 700; font-size: 12.5px; background: var(--field); }
+.g-person .g-track { background: var(--field); height: 30px; }
+.g-tick.we { background: var(--field); }
+.g-bar.task.doing { background: var(--accent); } .g-bar.task.todo { background: var(--accent); opacity: .45; } .g-bar.task.done { background: var(--s2); }
+.g-bar.post { background: var(--s3); height: 14px; top: 11px; border-radius: 7px; }
+.g-bar.post.posted { background: var(--good); }
+.g-bar.late { box-shadow: 0 0 0 2px var(--bad); }
+tr.late td { background: var(--bad-soft); }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -1299,6 +1309,7 @@ const VIEWS = {
   brief: { label: '簡易レポート', group: 'ANALYTICS', icon: 'report' },
   plan: { label: '投稿管理', group: 'PRODUCTION', icon: 'tasks' },
   tasks: { label: '制作管理', group: 'PRODUCTION', icon: 'tasks' },
+  team: { label: '編集者スケジュール', group: 'PRODUCTION', icon: 'editors' },
   targets: { label: '目標設定', group: 'SETTINGS', icon: 'target' },
   editors: { label: '編集者管理', group: 'SETTINGS', icon: 'editors' },
   design: { label: 'デザイン設定', group: 'SETTINGS', icon: 'design' }
@@ -1865,6 +1876,70 @@ async function makePdf(nodes, filename, mode) {
     toast('PDFを作れませんでした。通信状態を確かめて、もう一度押してください');
   } finally { document.body.classList.remove('pdfmode'); pdfBusy = false; }
 }
+
+/* ---- team gantt: every client's production tasks and planned posts, by editor ---- */
+const TASK_ST = { todo: '未着手', doing: '進行中', done: '完了' };
+function addDays(ds, n) { const d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function weekStart(ds) { const d = new Date(ds + 'T00:00:00'), wd = (d.getDay() + 6) % 7; return addDays(ds, -wd); }
+function teamItems() {
+  const out = [];
+  S.clients.forEach(c => {
+    (S.tasks[c.id] || []).forEach(t => out.push({ kind: 'task', cid: c.id, client: c.name, id: t.id, title: t.title, who: t.assignee || '', start: t.start, end: t.end || t.start, status: t.status }));
+    plansOf(c.id).forEach(p => { if (p.date) out.push({ kind: 'post', cid: c.id, client: c.name, id: p.id, title: ptl(p.type) + '投稿：' + (p.theme || 'テーマ未定'), who: p.assignee || '', start: p.date, end: p.date, status: p.status }); });
+  });
+  return out;
+}
+function teamLate(x) { return x.kind === 'task' ? x.status !== 'done' && x.end < today() : x.status !== 'posted' && x.end < today(); }
+R.team = () => {
+  const me = ui.teamWho && S.editors.find(e => e.id === ui.teamWho) ? S.editors.find(e => e.id === ui.teamWho) : null;
+  const span = ui.teamSpan || 28, from = ui.teamFrom || weekStart(addDays(today(), -7)), to = addDays(from, span - 1);
+  const items = teamItems().filter(x => x.start <= to && x.end >= from && (!me || x.who === me.name));
+  const people = me ? [me.name] : [...new Set(S.editors.map(e => e.name).concat(items.map(x => x.who)))].filter(n => n && (items.some(x => x.who === n) || S.editors.some(e => e.name === n)));
+  if (!me && items.some(x => !x.who)) people.push('');
+  let h = head('TEAM SCHEDULE', me ? me.name + 'さんのスケジュール' : '編集者のスケジュール', (me ? '<a href="#team">← 全員の表示</a>　' : '') + '全クライアントの制作タスクと投稿予定を、担当者ごとに並べています。',
+    '<select class="input" style="width:auto" id="teamWho" aria-label="表示する人"><option value="">全員</option>' + S.editors.map(e => '<option value="' + esc(e.id) + '"' + (me && me.id === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select>' +
+    '<div class="seg">' + [[14, '2週'], [28, '4週'], [56, '8週']].map(([n, l]) => '<button data-act="teamSpan" data-n="' + n + '" class="' + (span === n ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' +
+    '<button class="btn sm" data-act="teamShift" data-n="-7" aria-label="1週前へ">◀</button><button class="btn sm" data-act="teamToday">今週</button><button class="btn sm" data-act="teamShift" data-n="7" aria-label="1週後へ">▶</button>' +
+    '<button class="btn" data-act="teamNew">' + I.plus + 'タスク追加</button><button class="btn dark" data-act="teamPdf">' + I.print + 'PDFで保存</button>');
+  const mine = teamItems().filter(x => !me || x.who === me.name), late = mine.filter(teamLate), doing = mine.filter(x => x.kind === 'task' && x.status === 'doing');
+  const wk = mine.filter(x => x.start <= addDays(today(), 7) && x.end >= today() && !(x.kind === 'task' ? x.status === 'done' : x.status === 'posted'));
+  h += '<div id="teamSheet" class="plan-sheet"><div class="pdf-title">' + esc(me ? me.name + 'さんのスケジュール' : '編集者のスケジュール') + '　' + from.replace(/-/g, '/') + '〜' + to.replace(/-/g, '/') + '</div>';
+  h += '<div class="tiles"><div class="tile"><span class="lbl">' + I.tasks + 'これから7日でやること</span><span class="val">' + wk.length + '<small>件</small></span></div><div class="tile"><span class="lbl">' + I.trend + '進行中のタスク</span><span class="val">' + doing.length + '<small>件</small></span></div><div class="tile' + (late.length ? ' hero' : '') + '"><span class="lbl">' + I.info + '期限切れ</span><span class="val">' + late.length + '<small>件</small></span></div></div>';
+  if (ui.teamForm) {
+    h += '<form class="panel no-print" id="teamForm"><div class="panel-h"><h3 class="bar-title">タスクを追加</h3></div><div class="grid3">' +
+      '<label class="field"><span>クライアント</span><select id="tmClient">' + S.clients.map(c => '<option value="' + c.id + '"' + (c.id === S.current ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') + '</select></label>' +
+      '<label class="field"><span>タスク名</span><input id="tmTitle" required placeholder="例：12月 リール撮影"></label>' +
+      '<label class="field"><span>担当</span><select id="tmWho">' + S.editors.map(e => '<option' + (me && me.id === e.id ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select></label>' +
+      '<label class="field"><span>開始日</span><input type="date" id="tmStart" value="' + today() + '" required></label><label class="field"><span>期限</span><input type="date" id="tmEnd" value="' + addDays(today(), 3) + '" required></label>' +
+      '<label class="field"><span>状態</span><select id="tmSt">' + Object.entries(TASK_ST).map(([k, l]) => '<option value="' + k + '">' + l + '</option>').join('') + '</select></label></div>' +
+      '<div class="row" style="margin-top:14px"><button class="btn dark" type="submit">' + I.plus + '追加する</button><button class="btn ghost" type="button" data-act="teamNew">閉じる</button></div></form>';
+  }
+  // the chart
+  const days = Array.from({ length: span }, (_, i) => addDays(from, i)), pos = ds => Math.max(0, Math.min(100, (new Date(ds) - new Date(from)) / 864e5 / span * 100));
+  const tickEvery = span > 28 ? 7 : 1;
+  const head2 = '<div class="g-row g-head"><div>' + (me ? 'タスク' : '担当 / タスク') + '</div><div class="g-track">' + days.map((d, i) => i % tickEvery === 0 ? '<div class="g-tick' + ([0, 6].includes(new Date(d).getDay()) ? ' we' : '') + '" style="left:' + (i / span * 100) + '%">' + (i === 0 || d.slice(8) === '01' || span > 28 ? Number(d.slice(5, 7)) + '/' : '') + Number(d.slice(8)) + (span <= 14 ? '<br>' + WD[new Date(d).getDay()] : '') + '</div>' : '').join('') + '</div></div>';
+  const tp = today() >= from && today() <= to ? '<div class="g-today" style="left:' + pos(today()) + '%"></div>' : '';
+  const row = x => {
+    const l = pos(x.start), w = Math.max(100 / span * .9, pos(addDays(x.end, 1)) - l);
+    const cls = x.kind === 'post' ? 'post ' + x.status : 'task ' + x.status;
+    return '<div class="g-row"><div title="' + esc(x.client + '｜' + x.title) + '"><span class="g-cl">' + esc(x.client) + '</span>' + esc(x.title) + '</div><div class="g-track">' + tp + '<div class="g-bar ' + cls + (teamLate(x) ? ' late' : '') + '" style="left:' + l + '%;width:' + w + '%" title="' + esc((x.kind === 'post' ? psl(x.status) : TASK_ST[x.status]) + '　' + x.start + (x.end !== x.start ? '〜' + x.end : '')) + '"></div></div></div>';
+  };
+  let body = '';
+  people.forEach(n => {
+    const mineRows = items.filter(x => x.who === n).sort((a, b) => a.start < b.start ? -1 : 1);
+    if (!mineRows.length && me) return;
+    if (!me) body += '<div class="g-row g-person"><div>' + esc(n || '担当なし') + '<span class="hint">　' + mineRows.length + '件</span></div><div class="g-track">' + tp + '</div></div>';
+    body += mineRows.map(row).join('');
+  });
+  h += items.length ? '<div class="gantt team">' + head2 + body + '</div><div class="legend"><span><i class="k0"></i>制作タスク（進行中）</span><span><i class="k0" style="opacity:.45"></i>未着手</span><span><i class="k2"></i>完了</span><span><i class="k3"></i>投稿予定</span><span><i style="background:var(--bad)"></i>期限切れ（赤い枠）</span><span><i style="background:var(--bad);width:2px"></i>今日</span></div>'
+    : '<div class="panel">' + emptyBox('この期間の予定はありません', '「タスク追加」か、各クライアントの「投稿管理」で担当者を入れると表示されます。', I.tasks) + '</div>';
+  // to-do list with status switches
+  const open = mine.filter(x => x.kind === 'task' && x.status !== 'done').sort((a, b) => a.end < b.end ? -1 : 1);
+  if (open.length) h += '<section class="sec-head"><div><div class="eyebrow">TO DO</div><h2>まだ終わっていないタスク</h2></div></section><div class="tbl-wrap"><table><thead><tr><th>期限</th><th>クライアント</th><th>タスク</th>' + (me ? '' : '<th>担当</th>') + '<th>状態</th></tr></thead><tbody>' +
+    open.map(x => '<tr class="' + (teamLate(x) ? 'late' : '') + '"><td class="num">' + esc(x.end.slice(5).replace('-', '/')) + '</td><td>' + esc(x.client) + '</td><td style="white-space:normal">' + esc(x.title) + '</td>' + (me ? '' : '<td>' + esc(x.who || '—') + '</td>') + '<td><select data-tteam="' + esc(x.cid + '|' + x.id) + '" aria-label="状態">' + Object.entries(TASK_ST).map(([k, l]) => '<option value="' + k + '"' + (x.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td></tr>').join('') + '</tbody></table></div>';
+  h += '</div><details class="more no-print"><summary>自分用のリンク</summary><div class="hint">表示する人を選んだ状態で、右上の「共有」→「リンクをコピー」を押すと、その人のスケジュールが直接開くリンクになります（末尾が <code>#team-担当者ID</code>）。自分用のブックマークにも使えます。</div></details>';
+  return h;
+};
 
 /* ---- simple simulation sheet (plan) and the same layout for actuals ---- */
 function simRows() {
@@ -2923,6 +2998,11 @@ A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []
 A.print = () => window.print();
 A.briefReset = el => arm(el, () => { const b = briefOf(curMonth()); ['results', 'actions', 'noteStories', 'notePref'].forEach(k => delete b[k]); save('自動の下書きに戻しました'); render(); });
 A.driveCheck = () => driveCheck(true);
+A.teamSpan = el => { ui.teamSpan = +el.dataset.n; render(); };
+A.teamShift = el => { ui.teamFrom = addDays(ui.teamFrom || weekStart(addDays(today(), -7)), +el.dataset.n); render(); };
+A.teamToday = () => { ui.teamFrom = null; render(); };
+A.teamNew = () => { ui.teamForm = !ui.teamForm; render(); };
+A.teamPdf = () => { const me = S.editors.find(e => e.id === ui.teamWho); makePdf([...document.getElementById('teamSheet').children], (me ? me.name : '全員') + '_スケジュール_' + today() + '.pdf', 'flow'); };
 A.planView = el => { ui.planView = el.dataset.k; render(); };
 A.planAdd = el => {
   const cid = ui.planClient; if (!cid) return;
@@ -2972,6 +3052,8 @@ function route() {
   // #plan-<client id> opens one client's content plan directly (shareable link)
   if (/^plan-/.test(h)) { ui.planClient = h.slice(5); return 'plan'; }
   if (h === 'plan') ui.planClient = null;
+  if (/^team-/.test(h)) { ui.teamWho = h.slice(5); return 'team'; }
+  if (h === 'team') ui.teamWho = null;
   if (VIEWS[h]) return h;
   const q = new URLSearchParams(location.search).get('view');
   return VIEWS[q] ? q : 'dashboard';
@@ -3071,6 +3153,8 @@ document.addEventListener('change', e => {
   else if (t.id === 'simActN') { ui.simActN = +t.value; render(); }
   else if (t.id === 'simVsPlan') { ui.simVsPlan = t.checked; render(); }
   else if (d.plan && d.pid) { const x = plansOf(ui.planClient).find(y => y.id === d.pid); if (x) { x[d.plan] = t.value; save(false); if (t.tagName === 'SELECT' || d.plan === 'date' || d.plan === 'url') render(); } }
+  else if (t.id === 'teamWho') { location.hash = t.value ? 'team-' + t.value : 'team'; }
+  else if (d.tteam) { const [cid, id] = d.tteam.split('|'), tk = (S.tasks[cid] || []).find(x => x.id === id); if (tk) { tk.status = t.value; save('状態を更新しました'); render(); } }
   else if (t.id === 'planMonth') { if (t.value) { ui.planMonth = t.value; render(); } }
   else if (t.id === 'postMonth') { ui.postMonth = t.value; render(); }
   else if (t.id === 'postSort') { ui.postSort[ui.postType] = t.value; ui.postDir[ui.postType] = -1; render(); }
@@ -3140,6 +3224,10 @@ document.addEventListener('submit', e => {
     ui.newEditor = false; save('「' + name + '」を登録しました'); render();
   } else if (id === 'fileForm') {
     const c = client(); c.files = c.files || []; c.files.push({ id: uid(), name: $('#fName').value.trim(), url: $('#fUrl').value.trim(), memo: $('#fMemo').value.trim() }); save('追加しました'); render();
+  } else if (id === 'teamForm') {
+    const cid = $('#tmClient').value, st = $('#tmStart').value, en = $('#tmEnd').value; if (en < st) { toast('期限は開始日より後にしてください'); return; }
+    S.tasks[cid] = S.tasks[cid] || []; S.tasks[cid].push({ id: uid(), title: $('#tmTitle').value.trim(), assignee: $('#tmWho').value, channel: 'instagram', start: st, end: en, status: $('#tmSt').value });
+    ui.teamForm = false; save('タスクを追加しました'); render();
   } else if (id === 'postForm') {
     const date = $('#pDate').value; if (!date) return;
     const p = { id: 'man_' + uid(), type: ui.postType, date, month: date.slice(0, 7), caption: $('#pCap').value.trim(), permalink: $('#pLink').value.trim() };
