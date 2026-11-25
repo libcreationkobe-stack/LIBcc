@@ -352,7 +352,7 @@ td select { background: var(--field); border: 1px solid var(--line); border-radi
 .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
 .pcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: grid; min-width: 0; align-content: start; }
 .pthumb { position: relative; background: var(--side) center / cover no-repeat; color: var(--side-ink); display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 18px 14px 40px; overflow: hidden; }
-.pthumb:not(.img) { background-image: linear-gradient(160deg, var(--side), color-mix(in srgb, var(--side) 70%, var(--accent))); }
+.pthumb:not(.img) { background-image: linear-gradient(160deg, var(--side), var(--side-mix)); }
 .pthumb .ptype { font-size: 10px; letter-spacing: .14em; color: var(--accent); font-weight: 700; }
 .pthumb .pcap { font-size: 13px; font-weight: 700; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .pthumb .rank { position: absolute; top: 8px; left: 8px; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 13px; background: var(--accent); color: var(--accent-ink); font: 700 13px/26px var(--num); text-align: center; }
@@ -503,6 +503,36 @@ i.dnf { background: #F07083; } i.dnm { background: #4F7FDB; }
 .hm-head b { font-weight: 500; font-family: var(--num); }
 .tips { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; font-weight: 700; }
 @media (max-width: 900px) { .s8 { grid-template-columns: minmax(0, 1fr); } }
+.plan-sheet { display: grid; gap: 18px; }
+.pdf-title { display: none; font-size: 18px; font-weight: 900; }
+.pdfmode .pdf-title { display: block; }
+.pdfmode .no-print, .pdfmode .cal-add { display: none !important; }
+.pdfmode .plan-t select, .pdfmode .plan-t input, .pdfmode .plan-t textarea { border-color: transparent !important; background: transparent !important; appearance: none; -webkit-appearance: none; resize: none; }
+.pdfmode .ed { outline: none !important; } .pdfmode .ed:empty, .pdfmode .note-y:empty, .pdfmode .img-slot { display: none !important; }
+.plan-t td { vertical-align: top; }
+.plan-t input.cell, .plan-t textarea.cell { width: 100%; text-align: left; font-family: var(--body); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; font-size: 12.5px; }
+.plan-t .pd { width: 138px; } .plan-t .pt { width: 92px; } .plan-t .pth { min-width: 220px; } .plan-t .pu { min-width: 160px; } .plan-t .pm { min-width: 140px; }
+.plan-t select { padding: 5px 6px; }
+.plan-t tr.late td { background: var(--bad-soft); }
+.pst { border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
+select.pst { border-radius: 999px; }
+.pst.idea { background: var(--field); color: var(--muted); }
+.pst.shoot { background: var(--s3-soft); color: var(--s3); }
+.pst.edit { background: var(--s3-soft2); color: var(--s3); }
+.pst.review { background: var(--accent-soft); color: var(--accent); }
+.pst.ok { background: var(--good-soft); color: var(--good); }
+.pst.posted { background: var(--good); color: #fff; }
+.cal { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.cal-h, .cal-g { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-h b { font-size: 11px; color: var(--muted); padding: 6px 8px; background: var(--field); }
+.cal-d { min-height: 96px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); padding: 5px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.cal-d:nth-child(7n) { border-right: 0; } .cal-d.empty { background: var(--field); } .cal-d.now { box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-n { display: flex; justify-content: space-between; font: 600 12px var(--num); color: var(--muted); }
+.cal-add { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 2px; } .cal-add:hover { color: var(--accent); }
+.cal-i { display: block; border-radius: 4px; padding: 3px 6px; font-size: 10.5px; font-weight: 500; white-space: normal; overflow: hidden; }
+.cal-i b { display: block; font-weight: 700; }
+.cal-i.late { outline: 2px solid var(--bad); }
+@media (max-width: 700px) { .cal-d { min-height: 64px; } .cal-i b { display: none; } }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -704,6 +734,15 @@ function seed() {
     notes: { aurora: { recruit: { '2026-10': { summary: 'リーチ16万・プロフィール流入4,000と過去最高。LINE登録40、エントリー4、採用1。', outlook: 'プロフィール→LINEの移行率を上げるため、ハイライトに「社員の1日」を追加し、LINE特典を見直す。' } } } },
     targets: { aurora: { recruit: { rp: 2.5, pl: 1, le: 10, ei: 25, ih: 50, goal: 1, gReach: 150000, gProfile: 3500, gLine: 35, gEntry: 5, gInterview: 3 } } },
     goals: { aurora: { recruit: { '2026-05': { entry: 3, line: 20, reach: 90000, profileViews: 2000, interview: 1, hire: 0 }, '2026-06': { entry: 3, line: 25, reach: 100000, profileViews: 2400, interview: 2, hire: 1 }, '2026-07': { entry: 4, line: 28, reach: 115000, profileViews: 2800, interview: 2, hire: 1 }, '2026-08': { entry: 4, line: 30, reach: 125000, profileViews: 3200, interview: 2, hire: 1 }, '2026-09': { entry: 5, line: 35, reach: 140000, profileViews: 3500, interview: 3, hire: 1 } } } },
+    plans: { aurora: [
+      { id: 'pl1', date: '2026-11-04', time: '19:00', type: 'reel', theme: '【密着】新人スタッフの1日', status: 'posted', assignee: 'アプリ所有者', url: '', memo: '' },
+      { id: 'pl2', date: '2026-11-11', time: '19:00', type: 'reel', theme: '先輩インタビュー：未経験から2年', status: 'posted', assignee: 'アプリ所有者', url: '', memo: '' },
+      { id: 'pl3', date: '2026-11-15', time: '12:00', type: 'feed', theme: '採用説明会のお知らせ（12月）', status: 'review', assignee: 'アプリ所有者', url: '', memo: '日程をクライアントに確認中' },
+      { id: 'pl4', date: '2026-11-18', time: '19:00', type: 'reel', theme: '施工前と施工後のビフォーアフター', status: 'edit', assignee: 'アプリ所有者', url: '', memo: '' },
+      { id: 'pl5', date: '2026-11-25', time: '19:00', type: 'reel', theme: '給与と休日をはっきり答えます', status: 'shoot', assignee: 'アプリ所有者', url: '', memo: '撮影 11/22' },
+      { id: 'pl6', date: '2026-11-28', time: '21:00', type: 'story', theme: '質問箱：働き方について', status: 'idea', assignee: '', url: '', memo: '' },
+      { id: 'pl7', date: '2026-12-02', time: '19:00', type: 'reel', theme: '年末の現場あるある', status: 'idea', assignee: '', url: '', memo: '' }
+    ] },
     tasks: { aurora: [
       { id: uid(), title: '11月 リール台本（社員インタビュー）', assignee: 'アプリ所有者', channel: 'instagram', start: '2026-11-02', end: '2026-11-08', status: 'done' },
       { id: uid(), title: '撮影（現場密着）', assignee: 'アプリ所有者', channel: 'instagram', start: '2026-11-09', end: '2026-11-13', status: 'doing' },
@@ -742,7 +781,7 @@ const store = {
 let S = store.get() || seed();
 S.brand = Object.assign(defaultBrand(), S.brand || {});
 if (S.brand.appName === 'ATTRIA.') S.brand.appName = 'ORANGE INSIGHT.';
-['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => S[k] = S[k] || {});
+['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing', 'plans'].forEach(k => S[k] = S[k] || {});
 S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] }, S.drive || {});
 (() => { try { const pf = JSON.parse(localStorage.getItem('orange-insight-prefs')) || {}; if (pf.current) S.current = pf.current; if (pf.ver) S.ver = pf.ver; if (pf.month !== undefined) S.month = pf.month; } catch (e) { /* no saved preferences */ } })();
 /* ================= shared storage (artifact db) =================
@@ -755,7 +794,7 @@ S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] },
      blobs/<hash>        images (logo, thumbnails) kept out of the other documents
    Each viewer's own choices (client on screen, month, ...) stay in their browser. */
 const PREF_KEY = 'orange-insight-prefs';
-const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs', 'timing'];
+const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs', 'timing', 'plans'];
 const cloud = { db: null, user: null, canWrite: true, last: {}, timer: null, inflight: 0, applyPending: false, renderPending: false, remote: { meta: null, clients: {}, posts: {}, blobs: {}, drive: null }, status: '', myBlobs: new Set(), loaded: false };
 function defaultDrive() { return { folder: 'ATTRIA取り込み', imported: {}, log: [] }; }
 function prefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } }
@@ -991,6 +1030,7 @@ function applyTheme() {
   root.setProperty('--accent-soft', mix(v.accent, v.surface, dark ? .82 : .9));
   root.setProperty('--s0', v.accent); root.setProperty('--s1', v.ink); root.setProperty('--s2', mix(v.muted, v.surface, .25));
   root.setProperty('--s3', dark ? '#6FA0FF' : '#2F6FDE'); root.setProperty('--s4', dark ? '#4CCB92' : '#1F9D6B');
+  root.setProperty('--s3-soft', mix(dark ? '#6FA0FF' : '#2F6FDE', v.surface, .86)); root.setProperty('--s3-soft2', mix(dark ? '#6FA0FF' : '#2F6FDE', v.surface, .76)); root.setProperty('--side-mix', mix(v.side, v.accent, .3));
   root.setProperty('--display', DISPLAY_FONTS[b.display] || DISPLAY_FONTS.Anton);
   root.setProperty('--body', BODY_FONTS[b.body] || BODY_FONTS['Noto Sans JP']);
   root.setProperty('--radius', (b.radius || 0) + 'px');
@@ -1257,6 +1297,7 @@ const VIEWS = {
   sim: { label: '運用シミュレーション', group: 'ANALYTICS', icon: 'trend' },
   report: { label: '成果レポート', group: 'ANALYTICS', icon: 'report' },
   brief: { label: '簡易レポート', group: 'ANALYTICS', icon: 'report' },
+  plan: { label: '投稿管理', group: 'PRODUCTION', icon: 'tasks' },
   tasks: { label: '制作管理', group: 'PRODUCTION', icon: 'tasks' },
   targets: { label: '目標設定', group: 'SETTINGS', icon: 'target' },
   editors: { label: '編集者管理', group: 'SETTINGS', icon: 'editors' },
@@ -1691,6 +1732,140 @@ function timingSection(m, mode) {
   return '<section class="sec-head"><div><div class="eyebrow">TIMING · ' + mLabel(m) + '</div><h2>いつ投稿すると、伸びる？</h2><p>CCXの「曜日・時間帯」のCSVから作っています。</p></div></section><div class="panel">' + body + '</div>';
 }
 
+/* ---- content plan (投稿管理): one sheet per client, plus an all-clients overview ---- */
+const PLAN_TYPES = [['reel', 'リール'], ['feed', 'フィード'], ['story', 'ストーリーズ'], ['tiktok', 'TikTok'], ['short', 'YouTubeショート'], ['youtube', 'YouTube横動画']];
+const PLAN_ST = [['idea', '企画中'], ['shoot', '撮影待ち'], ['edit', '編集中'], ['review', '確認待ち'], ['ok', '承認済'], ['posted', '投稿済']];
+const ptl = k => (PLAN_TYPES.find(x => x[0] === k) || [k, k])[1], psl = k => (PLAN_ST.find(x => x[0] === k) || [k, k])[1];
+function plansOf(cid) { S.plans = S.plans || {}; return S.plans[cid] = S.plans[cid] || []; }
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const overdue = x => x.status !== 'posted' && x.date && x.date < today();
+function planMonth() { return ui.planMonth || thisMonth(); }
+// the posted URL links a plan row to the imported post, so its numbers show next to the plan
+function actualFor(cid, url) {
+  if (!url) return null;
+  const norm = u => String(u).replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
+  const all = Object.values(S.posts[cid] || {}).flat();
+  return all.find(p => p.permalink && norm(p.permalink) === norm(url)) || null;
+}
+function planStats(cid, m) {
+  const l = plansOf(cid).filter(x => (x.date || '').startsWith(m));
+  return { all: l.length, posted: l.filter(x => x.status === 'posted').length, review: l.filter(x => x.status === 'review').length, late: l.filter(overdue).length, list: l };
+}
+function planShareHelp(cid) {
+  return '<details class="more no-print"><summary>リンクで共有する／PDFで送る</summary><div class="hint" style="display:grid;gap:6px">' +
+    '<span><b>チーム内で共有：</b>このページを開いたまま、右上の「共有」→「リンクをコピー」を押すと、' + (cid ? 'このクライアントの投稿管理' : '全クライアントの投稿管理') + 'が直接開くリンクになります（末尾が <code>#' + (cid ? 'plan-' + esc(cid) : 'plan') + '</code>）。</span>' +
+    '<span><b>お客様に送る：</b>アプリのリンクを渡すと、他のクライアントのデータも見えてしまいます。お客様には「PDFで保存」したファイルを送ってください。</span></div></details>';
+}
+R.plan = () => {
+  const cid = ui.planClient && S.clients.find(c => c.id === ui.planClient) ? ui.planClient : null;
+  return cid ? planClientView(cid) : planAllView();
+};
+function planHead(title, lead, cid) {
+  return head('CONTENT PLAN', title, lead, '<input type="month" class="input" style="width:auto" id="planMonth" value="' + planMonth() + '" aria-label="対象の月">' +
+    (cid ? '<div class="seg">' + [['table', '表'], ['cal', 'カレンダー']].map(([k, l]) => '<button data-act="planView" data-k="' + k + '" class="' + ((ui.planView || 'table') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div><button class="btn" data-act="planAdd">' + I.plus + '投稿を追加</button>' : '') +
+    '<button class="btn dark" data-act="planPdf">' + I.print + 'PDFで保存</button>');
+}
+function planAllView() {
+  const m = planMonth(), t = today(), end = (() => { const d = new Date(); d.setDate(d.getDate() + 14); return d.toISOString().slice(0, 10); })();
+  const rows = S.clients.map(c => ({ c, st: planStats(c.id, m), next: plansOf(c.id).filter(x => x.status !== 'posted' && x.date >= t).sort((a, b) => a.date < b.date ? -1 : 1)[0] }));
+  const tot = k => rows.reduce((a, r) => a + r.st[k], 0);
+  const soon = S.clients.flatMap(c => plansOf(c.id).filter(x => x.date >= t && x.date <= end).map(x => ({ c, x }))).sort((a, b) => (a.x.date + (a.x.time || '')) < (b.x.date + (b.x.time || '')) ? -1 : 1);
+  const lateAll = S.clients.flatMap(c => plansOf(c.id).filter(overdue).map(x => ({ c, x })));
+  let h = planHead('投稿管理（全クライアント）', 'すべてのクライアントの投稿予定と進み具合を、1画面で。' + mLabel(m) + 'の集計です。');
+  h += '<div id="planSheet" class="plan-sheet"><div class="pdf-title">投稿管理（全クライアント）　' + mLabel(m) + '</div>';
+  h += '<div class="tiles"><div class="tile"><span class="lbl">' + I.tasks + '今月の予定</span><span class="val">' + tot('all') + '<small>本</small></span></div><div class="tile"><span class="lbl">' + I.check + '投稿済</span><span class="val">' + tot('posted') + '<small>本</small></span></div><div class="tile"><span class="lbl">' + I.eye + '確認待ち</span><span class="val">' + tot('review') + '<small>本</small></span></div><div class="tile' + (lateAll.length ? ' hero' : '') + '"><span class="lbl">' + I.info + '期限を過ぎて未投稿</span><span class="val">' + lateAll.length + '<small>本</small></span></div></div>';
+  h += '<div class="tbl-wrap"><table><thead><tr><th>クライアント</th><th class="n">予定</th><th class="n">投稿済</th><th style="width:22%">進み具合</th><th class="n">確認待ち</th><th class="n">期限切れ</th><th>次の投稿</th></tr></thead><tbody>' +
+    rows.map(r => '<tr><td><a href="#plan-' + esc(r.c.id) + '"><b>' + esc(r.c.name) + '</b></a></td><td class="n">' + r.st.all + '</td><td class="n">' + r.st.posted + '</td><td><div class="meter lg"><i class="' + (r.st.all && r.st.posted >= r.st.all ? 'ok' : '') + '" style="width:' + (r.st.all ? r.st.posted / r.st.all * 100 : 0).toFixed(0) + '%"></i></div></td><td class="n">' + (r.st.review ? '<span class="chip acc">' + r.st.review + '</span>' : '0') + '</td><td class="n">' + (r.st.late ? '<span class="chip bad">' + r.st.late + '</span>' : '0') + '</td><td>' + (r.next ? esc(r.next.date.slice(5).replace('-', '/')) + ' ' + esc(ptl(r.next.type)) + '　' + esc((r.next.theme || '').slice(0, 18)) : '<span class="hint">予定なし</span>') + '</td></tr>').join('') + '</tbody></table></div>';
+  h += '<section class="sec-head"><div><div class="eyebrow">NEXT 2 WEEKS</div><h2>これから2週間の投稿予定</h2></div></section>' +
+    (soon.length ? '<div class="tbl-wrap"><table><thead><tr><th>日付</th><th>時間</th><th>クライアント</th><th>種類</th><th>テーマ・内容</th><th>ステータス</th><th>担当</th></tr></thead><tbody>' + soon.map(({ c, x }) => '<tr><td class="num">' + esc(x.date.slice(5).replace('-', '/')) + '（' + WD[new Date(x.date).getDay()] + '）</td><td class="num">' + esc(x.time || '') + '</td><td><a href="#plan-' + esc(c.id) + '">' + esc(c.name) + '</a></td><td>' + esc(ptl(x.type)) + '</td><td style="white-space:normal">' + esc(x.theme || '') + '</td><td><span class="pst ' + x.status + '">' + psl(x.status) + '</span></td><td>' + esc(x.assignee || '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="panel">' + emptyBox('これから2週間の予定はまだありません', '各クライアントの投稿管理から予定を追加してください。', I.tasks) + '</div>') +
+    (lateAll.length ? '<section class="sec-head"><div><div class="eyebrow">OVERDUE</div><h2>期限を過ぎて、まだ投稿していないもの</h2></div></section><div class="tbl-wrap"><table><tbody>' + lateAll.map(({ c, x }) => '<tr><td class="num">' + esc(x.date.slice(5).replace('-', '/')) + '</td><td><a href="#plan-' + esc(c.id) + '">' + esc(c.name) + '</a></td><td>' + esc(ptl(x.type)) + '</td><td style="white-space:normal">' + esc(x.theme || '') + '</td><td><span class="pst ' + x.status + '">' + psl(x.status) + '</span></td></tr>').join('') + '</tbody></table></div>' : '');
+  h += '</div>' + planShareHelp(null);
+  return h;
+}
+function planClientView(cid) {
+  const c = S.clients.find(x => x.id === cid), m = planMonth(), st = planStats(cid, m), view = ui.planView || 'table';
+  const list = st.list.slice().sort((a, b) => (a.date + (a.time || '')) < (b.date + (b.time || '')) ? -1 : 1);
+  const byType = PLAN_TYPES.map(([k, l]) => [l, list.filter(x => x.type === k).length]).filter(x => x[1]);
+  let h = planHead(c.name + '　投稿管理', '<a href="#plan">← 全クライアントの一覧</a>　' + mLabel(m) + 'の投稿予定です。表のセルをそのまま書き換えられます。', cid);
+  h += '<div id="planSheet" class="plan-sheet"><div class="pdf-title">' + esc(c.name) + '　投稿管理　' + mLabel(m) + '</div>';
+  h += '<div class="tiles"><div class="tile"><span class="lbl">' + I.tasks + '今月の予定</span><span class="val">' + st.all + '<small>本</small></span><span class="sub">' + (byType.map(x => x[0] + ' ' + x[1]).join('・') || '—') + '</span></div><div class="tile"><span class="lbl">' + I.check + '投稿済</span><span class="val">' + st.posted + '<small>本</small></span><div class="meter"><i class="ok" style="width:' + (st.all ? st.posted / st.all * 100 : 0).toFixed(0) + '%"></i></div></div><div class="tile"><span class="lbl">' + I.eye + '確認待ち</span><span class="val">' + st.review + '<small>本</small></span></div><div class="tile' + (st.late ? ' hero' : '') + '"><span class="lbl">' + I.info + '期限を過ぎて未投稿</span><span class="val">' + st.late + '<small>本</small></span></div></div>';
+  if (view === 'cal') {
+    const [y, mo] = m.split('-').map(Number), first = new Date(y, mo - 1, 1).getDay(), days = new Date(y, mo, 0).getDate();
+    let cells = '';
+    for (let i = 0; i < first; i++) cells += '<div class="cal-d empty"></div>';
+    for (let d = 1; d <= days; d++) {
+      const ds = m + '-' + String(d).padStart(2, '0'), items = list.filter(x => x.date === ds);
+      cells += '<div class="cal-d' + (ds === today() ? ' now' : '') + '"><div class="cal-n">' + d + '<button class="cal-add no-print" data-act="planAdd" data-date="' + ds + '" aria-label="' + d + '日に追加">＋</button></div>' + items.map(x => '<div class="cal-i pst ' + x.status + (overdue(x) ? ' late' : '') + '" title="' + esc(psl(x.status) + ' ' + (x.theme || '')) + '">' + esc((x.time ? x.time + ' ' : '') + ptl(x.type)) + '<b>' + esc((x.theme || '').slice(0, 14)) + '</b></div>').join('') + '</div>';
+    }
+    h += '<div class="cal"><div class="cal-h">' + WD.map(w => '<b>' + w + '</b>').join('') + '</div><div class="cal-g">' + cells + '</div></div>';
+  } else {
+    h += list.length ? '<div class="tbl-wrap"><table class="plan-t"><thead><tr><th>投稿日</th><th>時間</th><th>種類</th><th>テーマ・内容</th><th>ステータス</th><th>担当</th><th>投稿URL</th><th class="n">実績</th><th>メモ</th><th class="no-print"></th></tr></thead><tbody>' +
+      list.map(x => {
+        const a = actualFor(cid, x.url);
+        return '<tr class="' + (overdue(x) ? 'late' : '') + '"><td><input class="cell pd" type="date" data-plan="date" data-pid="' + x.id + '" value="' + esc(x.date || '') + '"></td><td><input class="cell pt" type="time" data-plan="time" data-pid="' + x.id + '" value="' + esc(x.time || '') + '"></td>' +
+          '<td><select data-plan="type" data-pid="' + x.id + '" aria-label="種類">' + PLAN_TYPES.map(([k, l]) => '<option value="' + k + '"' + (x.type === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td>' +
+          '<td><textarea class="cell pth" rows="2" data-plan="theme" data-pid="' + x.id + '" placeholder="テーマ・内容" aria-label="テーマ・内容">' + esc(x.theme || '') + '</textarea></td>' +
+          '<td><select class="pst ' + x.status + '" data-plan="status" data-pid="' + x.id + '" aria-label="ステータス">' + PLAN_ST.map(([k, l]) => '<option value="' + k + '"' + (x.status === k ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></td>' +
+          '<td><select data-plan="assignee" data-pid="' + x.id + '" aria-label="担当"><option value="">—</option>' + S.editors.map(e => '<option' + (x.assignee === e.name ? ' selected' : '') + '>' + esc(e.name) + '</option>').join('') + '</select></td>' +
+          '<td><input class="cell pu" data-plan="url" data-pid="' + x.id + '" value="' + esc(x.url || '') + '" placeholder="投稿後に貼る" aria-label="投稿URL"></td>' +
+          '<td class="n">' + (a ? '<b>' + fmt(pval(a, 'views')) + '</b><span class="sub">ENG ' + fmtPct(pval(a, 'engRate')) + '</span>' : '<span class="hint">—</span>') + '</td>' +
+          '<td><textarea class="cell pm" rows="2" data-plan="memo" data-pid="' + x.id + '" aria-label="メモ">' + esc(x.memo || '') + '</textarea></td>' +
+          '<td class="no-print"><button class="btn sm ghost" data-act="planDel" data-id="' + x.id + '">削除</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="panel">' + emptyBox(mLabel(m) + 'の投稿予定はまだありません', '「投稿を追加」から予定を入れてください。カレンダー表示の「＋」からも追加できます。', I.tasks) + '</div>';
+    h += '<p class="hint">投稿URLを貼ると、取り込んだ投稿の数字（閲覧数・ENG率）が「実績」に出ます。期限を過ぎて未投稿の行は赤く表示します。</p>';
+  }
+  h += '</div>' + planShareHelp(cid);
+  return h;
+}
+/* ---- PDF: drawn in the page (the viewer has no print dialog) ---- */
+const PDF_LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
+function loadScript(src) {
+  return new Promise((res, rej) => { if (document.querySelector('script[src="' + src + '"]')) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('script')); document.head.appendChild(s); });
+}
+let pdfBusy = false;
+// mode 'page': each element is one page (fitted). mode 'flow': elements are stacked onto pages in order, a page break
+// falls between elements, and an element taller than a page is cut across pages.
+async function makePdf(nodes, filename, mode) {
+  if (pdfBusy) return; pdfBusy = true;
+  toast('PDFを作っています…');
+  try {
+    for (const s of PDF_LIBS) await loadScript(s);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+    const W = 297, H = 210, M = 8, GAP = 3, pw = W - 2 * M, ph = H - 2 * M, bg = getComputedStyle(document.body).backgroundColor;
+    document.body.classList.add('pdfmode');
+    let y = null; // current height used on the page (flow mode); null = no page yet
+    const newPage = () => { if (y !== null) pdf.addPage(); y = 0; };
+    for (const node of nodes) {
+      if (!node || !node.offsetHeight) continue;
+      const cv = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, logging: false });
+      const pxPerMm = cv.width / pw, hmm = cv.height / pxPerMm;
+      if (mode === 'page') {
+        newPage();
+        const r = Math.min(1, ph / hmm, pw / (cv.width / pxPerMm)), w = pw * r;
+        pdf.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M + (pw - w) / 2, M, w, hmm * r);
+        continue;
+      }
+      if (hmm <= ph) {
+        if (y === null || y + hmm > ph) newPage();
+        pdf.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M, M + y, pw, hmm); y += hmm + GAP;
+      } else {
+        const sliceH = Math.floor(ph * pxPerMm);
+        for (let top = 0; top < cv.height; top += sliceH) {
+          newPage();
+          const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(sliceH, cv.height - top);
+          const ctx = part.getContext('2d'); ctx.fillStyle = bg; ctx.fillRect(0, 0, part.width, part.height); ctx.drawImage(cv, 0, -top);
+          pdf.addImage(part.toDataURL('image/jpeg', .9), 'JPEG', M, M, pw, part.height / pxPerMm); y = part.height / pxPerMm + GAP;
+        }
+      }
+    }
+    if (y === null) { toast('PDFにする内容がありません'); return; }
+    await saveFile(filename, pdf.output('blob'));
+  } catch (e) {
+    toast('PDFを作れませんでした。通信状態を確かめて、もう一度押してください');
+  } finally { document.body.classList.remove('pdfmode'); pdfBusy = false; }
+}
+
 /* ---- simple simulation sheet (plan) and the same layout for actuals ---- */
 function simRows() {
   const v = VER[S.ver];
@@ -1826,7 +2001,7 @@ R.brief = () => {
   const acts = (goalTxt ? '★毎月の目標➡' + goalTxt + '\n' : '') + (() => { const o = ui.inReport; ui.inReport = true; const x = suggestions(m); ui.inReport = o; return x; })().slice(0, 2).map(s => '・' + s.t).join('\n');
   const sumImg = ((((S.briefs[S.current] || {})[S.ver] || {})[m]) || {}).img;
   let h = head('BRIEF REPORT', '簡易レポート', cLead() + '　文字はスライド上で直接クリックして書き換えられます。数字は取り込んだデータから自動で入ります。',
-    monthSelect() + '<div class="seg">' + [['tool', 'ツールのデザイン'], ['classic', 'いつものデザイン']].map(([k, l]) => '<button data-act="briefStyle" data-k="' + k + '" class="' + ((S.brand.briefStyle === 'classic' ? 'classic' : 'tool') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<button class="btn ghost" data-act="briefReset">文章を自動の下書きに戻す</button>');
+    monthSelect() + '<div class="seg">' + [['tool', 'ツールのデザイン'], ['classic', 'いつものデザイン']].map(([k, l]) => '<button data-act="briefStyle" data-k="' + k + '" class="' + ((S.brand.briefStyle === 'classic' ? 'classic' : 'tool') === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>' + '<button class="btn dark" data-act="briefPdf">' + I.print + 'PDFで保存</button><button class="btn ghost" data-act="briefReset">文章を自動の下書きに戻す</button>');
   h += sampleBar();
   const au = ui.auto;
   h += '<div class="panel no-print"><label class="drop" id="briefDrop" for="briefFile" style="padding:20px"><div class="inner">' + I.upload + '<b>CSVをここにドロップすると、そのままレポートに反映します</b><span>Instagram・TikTok・YouTube・Meta広告の書き出し、フォロワー属性、コンテンツのCSV（何枚でもOK）</span></div></label><input type="file" id="briefFile" accept=".csv,.tsv,.txt,text/csv" multiple hidden>' +
@@ -2038,7 +2213,7 @@ R.tasks = () => {
 R.report = () => {
   const c = client(); if (!c) return noClient('成果を、伝えよう。');
   const m = curMonth(), b = S.brand, v = VER[S.ver], r = rec('instagram', m) || {}, n = note(m);
-  let h = head('PERFORMANCE REPORT', '成果を、伝えよう。', cLead() + '　データのない項目は表示しません。', monthSelect() + (inIframe ? '' : '<button class="btn dark" data-act="print">' + I.print + '印刷・PDF保存</button>') + '<a class="btn" href="#input">コメントを編集</a>');
+  let h = head('PERFORMANCE REPORT', '成果を、伝えよう。', cLead() + '　データのない項目は表示しません。', monthSelect() + '<button class="btn dark" data-act="reportPdf">' + I.print + 'PDFで保存</button>' + '<a class="btn" href="#input">コメントを編集</a>');
   h += sampleBar();
   if (!monthsOf().length && !FOL_CH.some(([c]) => demoForCh(m, c)) && !postsOf().some(x => x.month === m)) return h + '<div class="panel">' + emptyBox('レポートにできる数字がありません', 'CSVを取り込むか、月次データ入力から始めてください。', I.report) + '</div>';
   ui.inReport = true;
@@ -2635,13 +2810,13 @@ const A = {};
 A.openClient = el => { S.current = el.dataset.id; if (el.dataset.ver) S.ver = el.dataset.ver; else { const c = client(); if (c && !(c.versions || []).includes(S.ver) && c.versions.length) S.ver = c.versions[0]; } S.month = null; save(false); location.hash = el.dataset.to || 'dashboard'; render(); };
 A.delClient = el => arm(el, () => {
   const id = el.dataset.id; S.clients = S.clients.filter(c => c.id !== id);
-  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => delete S[k][id]);
+  ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing', 'plans'].forEach(k => delete S[k][id]);
   S.editors.forEach(e => e.clients = e.clients.filter(x => x !== id));
   if (S.current === id) S.current = S.clients[0] ? S.clients[0].id : null; save('削除しました'); render();
 });
 A.dropSamples = el => arm(el, () => {
   const ids = S.clients.filter(c => c.sample).map(c => c.id);
-  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing'].forEach(k => delete S[k][id]));
+  S.clients = S.clients.filter(c => !c.sample); ids.forEach(id => ['records', 'targets', 'demo', 'notes', 'tasks', 'goals', 'posts', 'sims', 'briefs', 'timing', 'plans'].forEach(k => delete S[k][id]));
   S.current = S.clients[0] ? S.clients[0].id : null; save('サンプルを削除しました'); location.hash = 'clients'; render();
 });
 A.toggleNewClient = () => { ui.newClient = !ui.newClient; render(); if (ui.newClient) setTimeout(() => $('#cName') && $('#cName').focus()); };
@@ -2731,10 +2906,10 @@ async function saveFile(filename, text) {
   if (!downloadsP) downloadsP = (window.claude && typeof window.claude.use === 'function') ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null);
   const dl = await downloadsP;
   if (dl) {
-    try { await dl.save({ filename, data: '\uFEFF' + text }); toast('保存しました'); } catch (e) { if (e && e.code !== 'declined') toast('ここでは保存できませんでした。下のテキストをコピーしてください'); }
+    try { await dl.save({ filename, data: text instanceof Blob ? text : '\uFEFF' + text }); toast('保存しました'); } catch (e) { if (e && e.code !== 'declined') toast('ここでは保存できませんでした。下のテキストをコピーしてください'); }
     return;
   }
-  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\uFEFF' + text], { type: 'text/csv' })); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { /* the textarea below stays as a fallback */ }
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob(['\uFEFF' + text], { type: 'text/csv' })); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { /* the textarea below stays as a fallback */ }
 }
 function copyText(text, box) {
   const fallback = () => { if (box) { box.focus(); box.select(); } toast('選択しました。Ctrl+C / ⌘+C でコピーしてください'); };
@@ -2748,6 +2923,17 @@ A.delTask = el => arm(el, () => { S.tasks[S.current] = (S.tasks[S.current] || []
 A.print = () => window.print();
 A.briefReset = el => arm(el, () => { const b = briefOf(curMonth()); ['results', 'actions', 'noteStories', 'notePref'].forEach(k => delete b[k]); save('自動の下書きに戻しました'); render(); });
 A.driveCheck = () => driveCheck(true);
+A.planView = el => { ui.planView = el.dataset.k; render(); };
+A.planAdd = el => {
+  const cid = ui.planClient; if (!cid) return;
+  const m = planMonth(), d = el.dataset.date || (today().startsWith(m) ? today() : m + '-01');
+  plansOf(cid).push({ id: 'pl' + uid(), date: d, time: '19:00', type: 'reel', theme: '', status: 'idea', assignee: '', url: '', memo: '' });
+  ui.planView = el.dataset.date ? ui.planView : 'table'; save('追加しました'); render();
+};
+A.planDel = el => arm(el, () => { const l = plansOf(ui.planClient), i = l.findIndex(x => x.id === el.dataset.id); if (i >= 0) l.splice(i, 1); save('削除しました'); render(); });
+A.planPdf = () => { const c = S.clients.find(x => x.id === ui.planClient); makePdf([...document.getElementById('planSheet').children], (c ? c.name + '_' : '全クライアント_') + '投稿管理_' + planMonth() + '.pdf', 'flow'); };
+A.briefPdf = () => { const c = client(); makePdf([...document.querySelectorAll('.slides .slide')], (c ? c.name : '') + '_簡易レポート_' + curMonth() + '.pdf', 'page'); };
+A.reportPdf = () => { const c = client(); const doc = document.querySelector('article.doc'); makePdf(doc ? [...doc.children].flatMap(el => el.tagName === 'SECTION' && el.children.length > 2 ? [...el.children] : [el]) : [], (c ? c.name : '') + '_成果レポート_' + curMonth() + '.pdf', 'flow'); };
 A.briefStyle = el => { S.brand.briefStyle = el.dataset.k; save(false); render(); };
 A.autoClose = () => { ui.auto = null; render(); };
 A.briefImgClear = () => { delete briefOf(curMonth()).img; save('画像を外しました'); render(); };
@@ -2783,6 +2969,9 @@ function arm(el, fn) {
 /* ================= render ================= */
 function route() {
   const h = location.hash.replace('#', '');
+  // #plan-<client id> opens one client's content plan directly (shareable link)
+  if (/^plan-/.test(h)) { ui.planClient = h.slice(5); return 'plan'; }
+  if (h === 'plan') ui.planClient = null;
   if (VIEWS[h]) return h;
   const q = new URLSearchParams(location.search).get('view');
   return VIEWS[q] ? q : 'dashboard';
@@ -2833,6 +3022,7 @@ document.addEventListener('input', e => {
   else if (d.note) { noteEdit(m)[d.note] = t.value; saveSoon(); }
   else if (d.sim) { const sm = simOf(); sm.vals[d.sim] = sm.vals[d.sim] || []; sm.vals[d.sim][+d.si] = toNum(t.value); saveSoon(); }
   else if (d.simf) { simOf()[d.simf] = t.value; saveSoon(); }
+  else if (d.plan && d.pid && t.tagName !== 'SELECT') { const x = plansOf(ui.planClient).find(y => y.id === d.pid); if (x) { x[d.plan] = t.value; saveSoon(); } }
   else if (d.drivefolder !== undefined) { S.drive.folder = t.value; saveSoon(); }
   else if (d.brief) { briefOf(m)[d.brief] = t.innerText.replace(/\n$/, ''); saveSoon(); }
   else if (d.goal) { const g = goalEdit(d.gm), v = toNum(t.value); if (v === null) delete g[d.goal]; else g[d.goal] = v; saveSoon(); }
@@ -2880,6 +3070,8 @@ document.addEventListener('change', e => {
   else if (t.id === 'simStart') { if (t.value) { simOf().start = t.value; save(false); render(); } }
   else if (t.id === 'simActN') { ui.simActN = +t.value; render(); }
   else if (t.id === 'simVsPlan') { ui.simVsPlan = t.checked; render(); }
+  else if (d.plan && d.pid) { const x = plansOf(ui.planClient).find(y => y.id === d.pid); if (x) { x[d.plan] = t.value; save(false); if (t.tagName === 'SELECT' || d.plan === 'date' || d.plan === 'url') render(); } }
+  else if (t.id === 'planMonth') { if (t.value) { ui.planMonth = t.value; render(); } }
   else if (t.id === 'postMonth') { ui.postMonth = t.value; render(); }
   else if (t.id === 'postSort') { ui.postSort[ui.postType] = t.value; ui.postDir[ui.postType] = -1; render(); }
   else if (d.thumb && t.files && t.files[0]) readThumb(t.files[0], d.thumb);
