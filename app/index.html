@@ -602,6 +602,8 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .slip-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .a4-amt.net { margin-top: 0; }
 .pdfmode .a4 { box-shadow: none; }
+.ostat { font-size: 11.5px; color: var(--muted); white-space: nowrap; } .ostat.ok { color: var(--good); } .ostat.bad { color: var(--bad); font-weight: 700; white-space: normal; }
+.build { font: 10px var(--num); opacity: .5; margin-top: 6px; letter-spacing: .05em; }
 .auto-res { margin-top: 12px; display: grid; gap: 8px; font-size: 12.5px; }
 .auto-res > div { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; }
 .auto-res > div b { display: block; font-size: 12px; overflow-wrap: anywhere; }
@@ -864,7 +866,7 @@ S.drive = Object.assign({ folder: 'ATTRIA取り込み', imported: {}, log: [] },
    Each viewer's own choices (client on screen, month, ...) stay in their browser. */
 const PREF_KEY = 'orange-insight-prefs';
 const CLIENT_KEYS = ['records', 'demo', 'notes', 'targets', 'tasks', 'goals', 'sims', 'briefs', 'timing', 'plans'];
-const cloud = { db: null, user: null, canWrite: true, last: {}, timer: null, inflight: 0, applyPending: false, renderPending: false, remote: { meta: null, clients: {}, posts: {}, blobs: {}, drive: null }, status: '', myBlobs: new Set(), loaded: false };
+const cloud = { rev: {}, wroteAt: {}, db: null, user: null, canWrite: true, last: {}, timer: null, inflight: 0, applyPending: false, renderPending: false, remote: { meta: null, clients: {}, posts: {}, blobs: {}, drive: null }, status: '', myBlobs: new Set(), loaded: false };
 function defaultDrive() { return { folder: 'ATTRIA取り込み', imported: {}, log: [] }; }
 function prefs() { try { return JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch (e) { return {}; } }
 function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify({ current: S.current, ver: S.ver, month: S.month, driveAuto: !!ui.driveAuto })); } catch (e) { /* private window: preferences are per visit */ } }
@@ -916,6 +918,22 @@ function applyRemote() {
   applyTheme();
   if (editingNow()) cloud.renderPending = true; else render();
 }
+/* Every write carries a revision number (_rev). A copy of a document older than one we already wrote or saw
+   can still arrive afterwards; it is ignored, so it can neither undo an edit on screen nor be written back. */
+function remotePut(p, b) {
+  const R = cloud.remote, [coll, id] = p.split('/');
+  if (p === 'app/meta') { if (b) R.meta = b; return; }
+  if (p === 'app/drive') { R.drive = b; return; }
+  const map = coll === 'clients' ? R.clients : coll === 'posts' ? R.posts : coll === 'blobs' ? R.blobs : null; if (!map) return;
+  if (b === null) delete map[id]; else map[id] = coll === 'blobs' ? b.data : b;
+}
+function freshDoc(p, data) { if (data === undefined) return undefined; const r = (data && data._rev) || 0; if (r < (cloud.rev[p] || 0)) return null; cloud.rev[p] = r; const c = Object.assign({}, data); delete c._rev; return c; }
+function mergeColl(coll, qs, prev, val) {
+  const out = {};
+  qs.docs.forEach(d => { const f = freshDoc(coll + '/' + d.id, d.data()); if (f) out[d.id] = val(f); else if (d.id in prev) out[d.id] = prev[d.id]; });
+  Object.keys(prev).forEach(id => { const w = cloud.wroteAt[coll + '/' + id]; if (!(id in out) && w && Date.now() - w < 20000) out[id] = prev[id]; });
+  return out;
+}
 function setCloud(st) { cloud.status = st; const el = document.getElementById('cloudStat'); if (!el) return; const t = { ok: ['共有中', 'チームで同じデータを見ています'], saving: ['保存中…', ''], error: ['保存できません', '保存に失敗しました。下の案内を見てください'], ro: ['閲覧のみ', '編集するには、共有設定で「Contributor」以上にしてもらってください'], offline: ['つながりません', '共有データにつながりません。このブラウザのデータを表示しています'], local: ['', ''] }[st] || ['', '']; el.textContent = t[0]; el.title = t[1]; el.className = 'cloud ' + st; el.hidden = !t[0]; }
 async function flush() {
   cloud.timer = null;
@@ -928,9 +946,10 @@ async function flush() {
   cloud.inflight++; setCloud('saving');
   try {
     for (const [p, b, j] of ops) {
-      const ref = cloud.db.doc(p);
+      const ref = cloud.db.doc(p), r = (cloud.rev[p] || 0) + 1;
       if (b === null) { await ref.delete(); delete cloud.last[p]; }
-      else { await ref.set(b); cloud.last[p] = j; if (p.startsWith('blobs/')) cloud.myBlobs.add(p); }
+      else { await ref.set(Object.assign({}, b, { _rev: r })); cloud.last[p] = j; if (p.startsWith('blobs/')) cloud.myBlobs.add(p); }
+      cloud.rev[p] = r; cloud.wroteAt[p] = Date.now(); remotePut(p, b);
     }
     setCloud('ok');
   } catch (e) {
@@ -976,11 +995,11 @@ async function cloudInit() {
     else { clearTimeout(timer); cloud.db = null; setCloud('local'); toast('まだ共有データがありません。オーナーが一度開くと共有が始まります'); return; }
   }
   const sub = (refOrQuery, apply) => refOrQuery.onSnapshot(apply, () => setCloud('offline'));
-  sub(db.doc('app/meta'), snap => { if (snap.exists) { cloud.remote.meta = snap.data(); if (!snap.metadata.fromCache) { cloud.loaded = true; clearTimeout(timer); setCloud(cloud.canWrite ? 'ok' : 'ro'); } applyRemote(); } });
-  sub(db.doc('app/drive'), snap => { cloud.remote.drive = snap.exists ? snap.data() : null; applyRemote(); });
-  sub(db.collection('clients'), qs => { cloud.remote.clients = Object.fromEntries(qs.docs.map(d => [d.id, d.data()])); applyRemote(); });
-  sub(db.collection('posts'), qs => { cloud.remote.posts = Object.fromEntries(qs.docs.map(d => [d.id, d.data()])); applyRemote(); });
-  sub(db.collection('blobs'), qs => { cloud.remote.blobs = Object.fromEntries(qs.docs.map(d => [d.id, d.data().data])); applyRemote(); });
+  sub(db.doc('app/meta'), snap => { if (snap.exists) { const f = freshDoc('app/meta', snap.data()); if (f) cloud.remote.meta = f; if (!snap.metadata.fromCache) { cloud.loaded = true; clearTimeout(timer); setCloud(cloud.canWrite ? 'ok' : 'ro'); } applyRemote(); } });
+  sub(db.doc('app/drive'), snap => { if (snap.exists) { const f = freshDoc('app/drive', snap.data()); if (!f) return; cloud.remote.drive = f; } else cloud.remote.drive = null; applyRemote(); });
+  sub(db.collection('clients'), qs => { cloud.remote.clients = mergeColl('clients', qs, cloud.remote.clients, x => x); applyRemote(); });
+  sub(db.collection('posts'), qs => { cloud.remote.posts = mergeColl('posts', qs, cloud.remote.posts, x => x); applyRemote(); });
+  sub(db.collection('blobs'), qs => { cloud.remote.blobs = mergeColl('blobs', qs, cloud.remote.blobs, x => x.data); applyRemote(); });
   officeCloud(db, user);
   if (ui.driveAuto) setTimeout(() => driveCheck(false), 1500);
 }
@@ -1111,7 +1130,7 @@ function applyTheme() {
   $('#brandName').innerHTML = splitName(b.appName);
   $('#brandMark').innerHTML = burst(v.accent);
   // LIB creation logo is dark ink; flip it to light on a dark sidebar
-  $('#sideFoot').innerHTML = '<img src="' + LOGO_LIB + '" alt="LIB creation." style="filter:' + (lum(v.side) < .45 ? 'brightness(0) invert(1)' : 'none') + '">';
+  $('#sideFoot').innerHTML = '<img src="' + LOGO_LIB + '" alt="LIB creation." style="filter:' + (lum(v.side) < .45 ? 'brightness(0) invert(1)' : 'none') + '"><div class="build">ver. ' + APP_BUILD + '</div>';
 }
 
 /* ================= charts ================= */
@@ -2118,6 +2137,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
+const APP_BUILD = '2026.11.25-4';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2127,7 +2147,7 @@ const DEF_PAY = [{ k: '基本給', v: 0 }, { k: '残業手当', v: 0 }, { k: '�
 const kvList = l => (l || []).map(i => Array.isArray(i) ? { k: i[0], v: i[1] } : i);
 function officeNorm() { O.staff.forEach(st => { st.pay = kvList(st.pay); st.ded = kvList(st.ded); }); Object.values(O.slips).forEach(x => { x.pay = kvList(x.pay); x.ded = kvList(x.ded); }); }
 let O = { issuer: {}, invTpl: null, bill: {}, inv: {}, staff: [], slipTpl: null, payDay: 25, slips: {} };
-const office = { db: null, billOK: true, payOK: true, last: {}, dirty: new Set(), timer: null, got: { billing: false, payroll: false } };
+const office = { rev: {}, wroteAt: {}, db: null, billOK: true, payOK: true, last: {}, dirty: new Set(), timer: null, got: { billing: false, payroll: false } };
 (() => { try { const o = JSON.parse(localStorage.getItem(OFFICE_KEY)); if (o) O = Object.assign(O, o); officeNorm(); } catch (e) { /* nothing saved yet */ } })();
 function officeDocs() {
   const d = {};
@@ -2143,28 +2163,62 @@ function oSave(msg) {
   if (msg) toast(msg);
 }
 let oSaveT; function oSaveSoon() { clearTimeout(oSaveT); oSaveT = setTimeout(() => oSave(false), 400); }
+// key order does not matter when comparing what we have with what the store has
+function stable(v) { return JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, kk) => { o[kk] = x[kk]; return o; }, {}) : x); }
+function oStatus(ok, msg) { office.status = { ok, msg, at: new Date().toTimeString().slice(0, 5) }; const el = document.getElementById('oStat'); if (el) el.outerHTML = oStatHtml(); }
+function oStatHtml() { const st = office.status; if (!office.db) return '<span id="oStat" class="ostat">このブラウザに保存</span>'; if (!st) return '<span id="oStat" class="ostat">共有データに保存</span>'; return '<span id="oStat" class="ostat ' + (st.ok ? 'ok' : 'bad') + '">' + (st.ok ? '保存しました ' + st.at : '保存できませんでした ' + st.at + '（' + esc(st.msg) + '）') + '</span>'; }
+// paths edited here and not yet in the store
+function oPending() {
+  const docs = officeDocs(), out = new Set();
+  const blank = { 'billing/settings': stable({ issuer: {}, invTpl: null, bill: {} }), 'payroll/staff': stable({ staff: [], slipTpl: null, payDay: 25 }) };
+  for (const [p, b] of Object.entries(docs)) { const j = stable(b); if (j !== office.last[p] && !(!(p in office.last) && blank[p] === j)) out.add(p); }
+  for (const p of Object.keys(office.last)) if (!(p in docs)) out.add(p);
+  return { docs, out };
+}
 async function oFlush() {
   office.timer = null; if (!office.db) return;
-  const docs = officeDocs(), ops = [];
-  for (const [p, b] of Object.entries(docs)) {
+  if (office.inflight) { office.again = true; return; }
+  const { docs, out } = oPending(), ops = [];
+  for (const p of out) {
     const kind = p.split('/')[0];
     if (!(kind === 'billing' ? office.billOK : office.payOK) || !office.got[kind]) continue; // never write over what has not been read yet
-    const j = JSON.stringify(b); if (office.last[p] !== j) ops.push([p, b, j]);
+    ops.push([p, p in docs ? docs[p] : null]);
   }
-  for (const p of Object.keys(office.last)) if (!(p in docs) && office.got[p.split('/')[0]]) ops.push([p, null]);
-  for (const [p, b, j] of ops) {
-    try { if (b === null) { await office.db.doc(p).delete(); delete office.last[p]; } else { await office.db.doc(p).set(b); office.last[p] = j; } }
-    catch (e) { toast(e && e.code === 'permission_denied' ? 'この内容を保存する権限がありません' : '保存できませんでした（' + ((e && (e.code || e.message)) || 'error') + '）。もう一度お試しください', 6000); continue; }
+  if (!ops.length) return;
+  office.inflight = true; let bad = null;
+  for (const [p, b] of ops) {
+    // every write carries a revision number, so an older copy arriving later can be told apart and ignored
+    const r = (office.rev[p] || 0) + 1;
+    try { if (b === null) { await office.db.doc(p).delete(); delete office.last[p]; } else { await office.db.doc(p).set(Object.assign({}, b, { _rev: r })); office.last[p] = stable(b); office.wroteAt[p] = Date.now(); } office.rev[p] = r; }
+    catch (e) { bad = (e && (e.code || e.message)) || 'error'; }
   }
+  office.inflight = false;
+  if (bad) { oStatus(false, bad); toast(bad === 'permission_denied' ? 'この内容を保存する権限がありません' : '保存できませんでした（' + bad + '）。もう一度お試しください', 6000); }
+  else oStatus(true);
+  if (office.again) { office.again = false; oFlush(); }
 }
+// a snapshot from the store: take it, except for what was changed here and is not written yet
 function officeApply(kind, qs) {
-  if (office.timer) return; // our own edit is about to be written
+  const first = !office.got[kind], { docs: local, out: pend } = oPending();
+  const keep = p => !first && pend.has(p);
+  const merged = {}, seen = new Set();
+  const stale = new Set();
+  qs.docs.forEach(d => {
+    const p = kind + '/' + d.id; seen.add(p);
+    const b = JSON.parse(JSON.stringify(d.data() || {})), r = b._rev || 0; delete b._rev;
+    if (r < (office.rev[p] || 0)) stale.add(p); // older than what we have already written or seen
+    if (keep(p) || stale.has(p)) { if (p in local) merged[p] = local[p]; return; }
+    office.rev[p] = r; merged[p] = b; office.last[p] = stable(b);
+  });
+  // missing from this copy: keep it if it was made here and not written yet, or if this copy is older than our write
+  Object.keys(local).forEach(p => { if (p.startsWith(kind + '/') && !seen.has(p) && ((keep(p) && !(p in office.last)) || (office.wroteAt[p] && Date.now() - office.wroteAt[p] < 20000))) merged[p] = local[p]; }); // made here, not written yet
+  Object.keys(office.last).forEach(p => { if (p.startsWith(kind + '/') && !seen.has(p) && !keep(p) && !(p in merged)) delete office.last[p]; });
   if (kind === 'billing') {
-    O.inv = {};
-    qs.docs.forEach(d => { const b = d.data(); if (d.id === 'settings') { O.issuer = b.issuer || {}; O.invTpl = b.invTpl || null; O.bill = b.bill || {}; } else if (d.id.startsWith('i_')) O.inv[b.id] = b; office.last['billing/' + d.id] = JSON.stringify(b); });
+    const st = merged['billing/settings'] || {}; O.issuer = st.issuer || {}; O.invTpl = st.invTpl || null; O.bill = st.bill || {}; O.inv = {};
+    Object.entries(merged).forEach(([p, b]) => { if (p.startsWith('billing/i_')) O.inv[b.id] = b; });
   } else {
-    O.slips = {};
-    qs.docs.forEach(d => { const b = d.data(); if (d.id === 'staff') { O.staff = b.staff || []; O.slipTpl = b.slipTpl || null; O.payDay = b.payDay || 25; } else if (d.id.startsWith('s_')) O.slips[b.id] = b; office.last['payroll/' + d.id] = JSON.stringify(b); });
+    const st = merged['payroll/staff'] || {}; O.staff = st.staff || []; O.slipTpl = st.slipTpl || null; O.payDay = st.payDay ?? 25; O.slips = {};
+    Object.entries(merged).forEach(([p, b]) => { if (p.startsWith('payroll/s_')) O.slips[b.id] = b; });
   }
   officeNorm();
   office.got[kind] = true;
@@ -2245,15 +2299,18 @@ function mailBox(kind, id, vars, to, cc, tpl) {
 function mailFields() { const st = ui.mail || {}; return { to: mails(st.to), cc: mails(st.cc), subject: (st.subject || '').trim(), body: st.body || '' }; }
 
 /* ---- invoices ---- */
-function billOf(cid) {
+// read-only view (does not add anything to the saved data)
+function billView(cid) {
   const c = S.clients.find(x => x.id === cid) || {};
-  return O.bill[cid] = Object.assign({ on: false, toName: c.company || c.name || '', honor: '御中', person: '', email: '', cc: '', day: 0, dueM: 1, dueD: 0, title: '{月}分 SNS運用代行費', items: [{ name: 'SNS運用代行費', qty: 1, unit: '式', price: 0 }], note: '' }, O.bill[cid] || {});
+  return Object.assign({ on: false, toName: c.company || c.name || '', honor: '御中', person: '', email: '', cc: '', day: 0, dueM: 1, dueD: 0, title: '{月}分 SNS運用代行費', items: [{ name: 'SNS運用代行費', qty: 1, unit: '式', price: 0 }], note: '' }, O.bill[cid] || {});
 }
+// for editing: stores the settings so the change is saved
+function billOf(cid) { return O.bill[cid] = billView(cid); }
 const invTpl = () => Object.assign({}, DEF_INV_TPL, O.invTpl || {});
 function invTotals(x) { const sub = (x.items || []).reduce((s, i) => s + Math.round(n0(i.qty) * n0(i.price)), 0), tax = Math.floor(sub * n0(x.rate) / 100); return { sub, tax, total: sub + tax }; }
 function invFor(cid, m) { return Object.values(O.inv).find(x => x.cid === cid && x.month === m); }
 function invMake(cid, m) {
-  const b = billOf(cid), c = S.clients.find(x => x.id === cid), mm = Number(m.slice(5)) + '月';
+  const b = billView(cid), c = S.clients.find(x => x.id === cid), mm = Number(m.slice(5)) + '月';
   const seq = Object.values(O.inv).filter(x => x.month === m).length + 1;
   const x = { id: uid(), cid, month: m, no: m.replace('-', '') + '-' + String(seq).padStart(3, '0'), issue: dayIn(m, b.day), due: dayIn(addMonth(m, n0(b.dueM)), b.dueD), title: fill(b.title, { 月: mm }), toName: b.toName || (c ? c.name : ''), honor: b.honor, person: b.person, items: JSON.parse(JSON.stringify(b.items)), rate: 10, note: b.note || '', status: 'draft', log: [] };
   O.inv[x.id] = x; return x;
@@ -2290,7 +2347,7 @@ R.invoice = () => {
   const tab = ui.invTab || 'month';
   // drafts are made from the settings as they are when the monthly list is opened
   if (tab === 'month') { const made = invAuto(); if (made) setTimeout(() => toast('今月の請求書を' + made + '件作りました。内容を確認してください'), 50); }
-  let h = head('INVOICE', '請求書', '毎月の請求日になると、その月の請求書が「確認待ち」で作られます。確認して、PDFをダウンロードして完了にするか、そのままGmailで送れます。',
+  let h = head('INVOICE', '請求書', '毎月の請求日になると、その月の請求書が「確認待ち」で作られます。確認して、PDFをダウンロードして完了にするか、そのままGmailで送れます。　' + oStatHtml(),
     '<div class="seg">' + [['month', '月ごとの請求'], ['clients', '請求先の設定'], ['issuer', '発行元・メール文面']].map(([k, l]) => '<button data-act="invTab" data-k="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>');
   if (tab === 'issuer') return h + invIssuer();
   if (tab === 'clients') return h + invClients();
@@ -2318,7 +2375,7 @@ function invIssuer() {
 function invClients() {
   if (!S.clients.length) return '<div class="panel">' + emptyBox('クライアントがいません', 'クライアント一覧から登録してください。', I.clients) + '</div>';
   return '<div class="bill-list">' + S.clients.map(c => {
-    const b = billOf(c.id), sub = (b.items || []).reduce((s, i) => s + n0(i.qty) * n0(i.price), 0), f = (k, l, ph, type) => '<label class="field"><span>' + l + '</span><input data-bs="' + k + '" data-cid="' + c.id + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(b[k] == null ? '' : b[k]) + '" placeholder="' + esc(ph || '') + '"></label>';
+    const b = billView(c.id), sub = (b.items || []).reduce((s, i) => s + n0(i.qty) * n0(i.price), 0), f = (k, l, ph, type) => '<label class="field"><span>' + l + '</span><input data-bs="' + k + '" data-cid="' + c.id + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(b[k] == null ? '' : b[k]) + '" placeholder="' + esc(ph || '') + '"></label>';
     return '<details class="panel bill"' + (ui.billOpen === c.id ? ' open' : '') + ' data-bill="' + c.id + '"><summary><label class="switch" title="毎月請求する"><input type="checkbox" data-bson="' + c.id + '"' + (b.on ? ' checked' : '') + '><i></i></label><b>' + esc(c.name) + '</b><span class="hint">' + (b.on ? '毎月' + (b.day ? b.day + '日' : '末日') + '・' + yen(Math.floor(sub * 1.1)) + '（税込）' : '請求しない') + '</span></summary>' +
       '<div class="grid3" style="margin-top:14px">' + f('toName', '宛名（会社名）', c.name) + '<label class="field"><span>敬称</span><select data-bs="honor" data-cid="' + c.id + '">' + ['御中', '様', '殿'].map(o => '<option' + (b.honor === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>' + f('person', 'ご担当者名', '例：佐藤') +
       f('email', '送り先メール', 'client@example.com', 'email') + f('cc', 'CC（カンマ区切り）', '') + f('title', '件名（{月} は「11月」に）', '') +
@@ -2329,7 +2386,7 @@ function invClients() {
   }).join('') + '</div>';
 }
 function invDetail(x) {
-  const c = S.clients.find(y => y.id === x.cid) || {}, b = billOf(x.cid), t = invTotals(x);
+  const c = S.clients.find(y => y.id === x.cid) || {}, b = billView(x.cid), t = invTotals(x);
   let h = head('INVOICE', esc(c.name || '') + '　' + mLabel(x.month) + 'の請求書', '<a href="#invoice">← 請求書の一覧</a>　状態：<span class="ist ' + x.status + '">' + INV_ST[x.status] + '</span>' + (x.sentAt ? '　送信 ' + esc(x.sentAt.slice(0, 16).replace('T', ' ')) + '（' + esc(x.sentTo || '') + '）' : '') + (x.doneAt ? '　完了 ' + esc(x.doneAt.slice(0, 10)) : ''),
     '<button class="btn" data-act="invPdf" data-id="' + x.id + '">' + I.print + 'PDFをダウンロードして完了</button><button class="btn dark" data-act="invOk" data-id="' + x.id + '">OK → Gmailで送る</button>');
   if (ui.mail && ui.mail.id === x.id) h += mailBox('inv', x.id, invVars(x), b.email, b.cc, invTpl());
@@ -2368,7 +2425,7 @@ R.payroll = () => {
   const x = ui.slipId && O.slips[ui.slipId];
   if (x) return slipDetail(x);
   const tab = ui.payTab || 'month';
-  let h = head('PAYROLL', '給与明細', '毎月の明細を作って、PDFで保存するか、本人にGmailで送れます。' + (office.db ? '<b>このページはアプリのオーナーだけが見られます。</b>' : ''),
+  let h = head('PAYROLL', '給与明細', '毎月の明細を作って、PDFで保存するか、本人にGmailで送れます。' + (office.db ? '<b>このページはアプリのオーナーだけが見られます。</b>' : '') + '　' + oStatHtml(),
     '<div class="seg">' + [['month', '月ごとの明細'], ['staff', 'スタッフ・メール文面']].map(([k, l]) => '<button data-act="payTab" data-k="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + l + '</button>').join('') + '</div>');
   h += '<div class="note"><span class="dot"></span><div><b>金額は手入力です</b>所得税・社会保険料などは自動で計算しません。給与ソフトや税理士さんの計算結果を入れてください（前月の明細があれば、作るときに同じ金額を引き継ぎます）。</div></div>';
   if (tab === 'staff') return h + payStaff();
@@ -3357,7 +3414,7 @@ A.invPdf = async el => {
   const ok = await docPdf('請求書_' + (c.name || '') + '_' + x.month + '_' + x.no + '.pdf');
   if (ok) { x.status = x.status === 'sent' ? 'sent' : 'done'; x.doneAt = stamp(); oSave(x.status === 'done' ? '完了にしました' : false); render(); }
 };
-A.invOk = el => { const x = O.inv[el.dataset.id]; if (x.status === 'draft') { x.status = 'ok'; oSave(false); } const b = billOf(x.cid); ui.mail = { id: x.id, mode: 'tpl', to: b.email || '', cc: b.cc || '' }; render(); const m = document.getElementById('mailBox'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+A.invOk = el => { const x = O.inv[el.dataset.id]; if (x.status === 'draft') { x.status = 'ok'; oSave(false); } const b = billView(x.cid); ui.mail = { id: x.id, mode: 'tpl', to: b.email || '', cc: b.cc || '' }; render(); const m = document.getElementById('mailBox'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 A.mailMode = el => { ui.mail.mode = el.dataset.k; render(); };
 A.mailClose = () => { ui.mail = null; render(); };
 async function sendDoc(el, kind) {
