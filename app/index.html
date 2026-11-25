@@ -2122,10 +2122,13 @@ const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', do
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
 const DEF_SLIP_TPL = { subject: '{月}分 給与明細のお知らせ', body: '{名前} さん\n\nお疲れさまです。\n{月}分の給与明細をお送りします。\n添付のPDFをご確認ください。\n\n差引支給額：{金額}\n支給日：{支給日}\n\n内容に不明点があれば、お知らせください。' };
-const DEF_PAY = [['基本給', 0], ['残業手当', 0], ['通勤手当', 0]], DEF_DED = [['健康保険', 0], ['厚生年金', 0], ['雇用保険', 0], ['所得税', 0], ['住民税', 0]];
+// items are {k: name, v: amount} (the shared store does not keep arrays inside arrays)
+const DEF_PAY = [{ k: '基本給', v: 0 }, { k: '残業手当', v: 0 }, { k: '通勤手当', v: 0 }], DEF_DED = [{ k: '健康保険', v: 0 }, { k: '厚生年金', v: 0 }, { k: '雇用保険', v: 0 }, { k: '所得税', v: 0 }, { k: '住民税', v: 0 }];
+const kvList = l => (l || []).map(i => Array.isArray(i) ? { k: i[0], v: i[1] } : i);
+function officeNorm() { O.staff.forEach(st => { st.pay = kvList(st.pay); st.ded = kvList(st.ded); }); Object.values(O.slips).forEach(x => { x.pay = kvList(x.pay); x.ded = kvList(x.ded); }); }
 let O = { issuer: {}, invTpl: null, bill: {}, inv: {}, staff: [], slipTpl: null, payDay: 25, slips: {} };
 const office = { db: null, billOK: true, payOK: true, last: {}, dirty: new Set(), timer: null, got: { billing: false, payroll: false } };
-(() => { try { const o = JSON.parse(localStorage.getItem(OFFICE_KEY)); if (o) O = Object.assign(O, o); } catch (e) { /* nothing saved yet */ } })();
+(() => { try { const o = JSON.parse(localStorage.getItem(OFFICE_KEY)); if (o) O = Object.assign(O, o); officeNorm(); } catch (e) { /* nothing saved yet */ } })();
 function officeDocs() {
   const d = {};
   d['billing/settings'] = { issuer: O.issuer, invTpl: O.invTpl, bill: O.bill };
@@ -2151,7 +2154,7 @@ async function oFlush() {
   for (const p of Object.keys(office.last)) if (!(p in docs) && office.got[p.split('/')[0]]) ops.push([p, null]);
   for (const [p, b, j] of ops) {
     try { if (b === null) { await office.db.doc(p).delete(); delete office.last[p]; } else { await office.db.doc(p).set(b); office.last[p] = j; } }
-    catch (e) { toast(e && e.code === 'permission_denied' ? 'この内容を保存する権限がありません' : '保存できませんでした。もう一度お試しください'); return; }
+    catch (e) { toast(e && e.code === 'permission_denied' ? 'この内容を保存する権限がありません' : '保存できませんでした（' + ((e && (e.code || e.message)) || 'error') + '）。もう一度お試しください', 6000); continue; }
   }
 }
 function officeApply(kind, qs) {
@@ -2163,6 +2166,7 @@ function officeApply(kind, qs) {
     O.slips = {};
     qs.docs.forEach(d => { const b = d.data(); if (d.id === 'staff') { O.staff = b.staff || []; O.slipTpl = b.slipTpl || null; O.payDay = b.payDay || 25; } else if (d.id.startsWith('s_')) O.slips[b.id] = b; office.last['payroll/' + d.id] = JSON.stringify(b); });
   }
+  officeNorm();
   office.got[kind] = true;
   if (['invoice', 'payroll'].includes(route())) { if (editingNow()) cloud.renderPending = true; else render(); }
 }
@@ -2343,15 +2347,15 @@ function invDetail(x) {
 /* ---- payslips ---- */
 const slipTpl = () => Object.assign({}, DEF_SLIP_TPL, O.slipTpl || {});
 function slipFor(sid, m) { return Object.values(O.slips).find(x => x.sid === sid && x.month === m); }
-function slipTotals(x) { const pay = (x.pay || []).reduce((s, i) => s + n0(i[1]), 0), ded = (x.ded || []).reduce((s, i) => s + n0(i[1]), 0); return { pay, ded, net: pay - ded }; }
+function slipTotals(x) { const pay = (x.pay || []).reduce((s, i) => s + n0(i.v), 0), ded = (x.ded || []).reduce((s, i) => s + n0(i.v), 0); return { pay, ded, net: pay - ded }; }
 function slipMake(st, m) {
   const prev = slipFor(st.id, addMonth(m, -1));
-  const x = { id: uid(), sid: st.id, month: m, payDay: dayIn(m, O.payDay), name: st.name, days: prev ? prev.days : '', hours: prev ? prev.hours : '', ot: '', pay: JSON.parse(JSON.stringify(prev ? prev.pay : st.pay || DEF_PAY)), ded: JSON.parse(JSON.stringify(prev ? prev.ded : st.ded || DEF_DED)), note: '', status: 'draft' };
+  const x = { id: uid(), sid: st.id, month: m, payDay: dayIn(m, O.payDay), name: st.name, days: prev ? prev.days : '', hours: prev ? prev.hours : '', ot: '', pay: JSON.parse(JSON.stringify(kvList(prev ? prev.pay : st.pay || DEF_PAY))), ded: JSON.parse(JSON.stringify(kvList(prev ? prev.ded : st.ded || DEF_DED))), note: '', status: 'draft' };
   O.slips[x.id] = x; return x;
 }
 function slipVars(x) { return { 名前: x.name, 月: Number(x.month.slice(0, 4)) + '年' + Number(x.month.slice(5)) + '月', 金額: yen(slipTotals(x).net), 支給日: jpDate(x.payDay), 会社: O.issuer.name || '' }; }
 function slipDoc(x) {
-  const t = slipTotals(x), tbl = (title, list, total) => '<table class="a4-t slip"><thead><tr><th colspan="2">' + title + '</th></tr></thead><tbody>' + list.filter(i => i[0]).map(i => '<tr><td>' + esc(i[0]) + '</td><td class="n">' + yen(i[1]) + '</td></tr>').join('') + '<tr class="sum"><td>' + title + '合計</td><td class="n">' + yen(total) + '</td></tr></tbody></table>';
+  const t = slipTotals(x), tbl = (title, list, total) => '<table class="a4-t slip"><thead><tr><th colspan="2">' + title + '</th></tr></thead><tbody>' + list.filter(i => i.k).map(i => '<tr><td>' + esc(i.k) + '</td><td class="n">' + yen(i.v) + '</td></tr>').join('') + '<tr class="sum"><td>' + title + '合計</td><td class="n">' + yen(total) + '</td></tr></tbody></table>';
   return '<div class="a4 slip-doc" id="docSheet"><div class="a4-top"><h1>給与明細書</h1><dl><dt>対象月</dt><dd>' + esc(Number(x.month.slice(0, 4)) + '年' + Number(x.month.slice(5)) + '月分') + '</dd><dt>支給日</dt><dd>' + esc(jpDate(x.payDay)) + '</dd></dl></div>' +
     '<div class="a4-two"><div class="a4-to">' + esc(x.name) + '<small>様</small></div><div class="a4-from"><b>' + esc(O.issuer.name || '') + '</b>' + (O.issuer.addr ? '<span>' + esc(O.issuer.addr) + '</span>' : '') + '</div></div>' +
     '<table class="a4-t att"><thead><tr><th>出勤日数</th><th>労働時間</th><th>残業時間</th></tr></thead><tbody><tr><td class="n">' + esc(x.days || '—') + (x.days ? '日' : '') + '</td><td class="n">' + esc(x.hours || '—') + (x.hours ? '時間' : '') + '</td><td class="n">' + esc(x.ot || '—') + (x.ot ? '時間' : '') + '</td></tr></tbody></table>' +
@@ -2389,7 +2393,7 @@ function slipDetail(x) {
   let h = head('PAYROLL', esc(x.name) + 'さん　' + mLabel(x.month) + 'の給与明細', '<a href="#payroll">← 明細の一覧</a>　状態：' + SLIP_ST[x.status] + (x.sentAt ? '　送付 ' + esc(x.sentAt.slice(0, 16).replace('T', ' ')) : ''),
     '<button class="btn" data-act="slipPdf" data-id="' + x.id + '">' + I.print + 'PDFで保存</button><button class="btn dark" data-act="slipOk" data-id="' + x.id + '">確定 → Gmailで送る</button>');
   if (ui.mail && ui.mail.id === x.id) h += mailBox('slip', x.id, slipVars(x), st.email || '', '', slipTpl());
-  const rowsOf = g => (x[g] || []).map((i, k) => '<tr><td><input class="cell" data-sli="' + k + '" data-g="' + g + '" data-k="0" value="' + esc(i[0]) + '"></td><td><input class="cell n" data-sli="' + k + '" data-g="' + g + '" data-k="1" value="' + esc(i[1]) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="sliDel" data-g="' + g + '" data-k="' + k + '">削除</button></td></tr>').join('');
+  const rowsOf = g => (x[g] || []).map((i, k) => '<tr><td><input class="cell" data-sli="' + k + '" data-g="' + g + '" data-k="k" value="' + esc(i.k) + '"></td><td><input class="cell n" data-sli="' + k + '" data-g="' + g + '" data-k="v" value="' + esc(i.v) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="sliDel" data-g="' + g + '" data-k="' + k + '">削除</button></td></tr>').join('');
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-sl="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
   h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div><div class="grid2">' + f('payDay', '支給日', 'date') + f('days', '出勤日数') + f('hours', '労働時間') + f('ot', '残業時間') + '</div>' +
     ['pay', 'ded'].map(g => '<div class="tbl-wrap" style="margin-top:12px"><table class="items-t"><thead><tr><th>' + (g === 'pay' ? '支給項目' : '控除項目') + '</th><th>金額</th><th></th></tr></thead><tbody>' + rowsOf(g) + '</tbody></table></div><button class="btn sm" style="margin-top:6px" data-act="sliAdd" data-g="' + g + '">' + I.plus + '項目を追加</button>').join('') +
@@ -3380,7 +3384,7 @@ A.slipTplReset = () => { O.slipTpl = null; oSave('最初の文面に戻しまし
 A.slipMake = el => { const st = O.staff.find(s => s.id === el.dataset.sid); const x = slipMake(st, el.dataset.m); oSave('明細を作りました'); location.hash = 'payroll-' + x.id; };
 A.slipMakeAll = el => { let n = 0; O.staff.forEach(st => { if (!slipFor(st.id, el.dataset.m)) { slipMake(st, el.dataset.m); n++; } }); oSave(n + '人分の明細を作りました'); render(); };
 A.slipOpen = el => { location.hash = 'payroll-' + el.dataset.id; };
-A.sliAdd = el => { const x = O.slips[ui.slipId]; x[el.dataset.g].push(['', 0]); oSave(false); render(); };
+A.sliAdd = el => { const x = O.slips[ui.slipId]; x[el.dataset.g].push({ k: '', v: 0 }); oSave(false); render(); };
 A.sliDel = el => { const x = O.slips[ui.slipId]; x[el.dataset.g].splice(+el.dataset.k, 1); oSave(false); render(); };
 A.slipBack = el => { O.slips[el.dataset.id].status = 'draft'; oSave('下書きに戻しました'); render(); };
 A.slipDel = el => arm(el, () => { delete O.slips[el.dataset.id]; ui.mail = null; oSave('削除しました'); location.hash = 'payroll'; });
@@ -3408,7 +3412,7 @@ function officeInput(t, d, isChange) {
   if (d.stf) { const st = O.staff.find(s => s.id === d.sid); if (st) { st[d.stf] = t.value; oSaveSoon(); } return true; }
   if (d.sl || d.sli !== undefined) {
     const x = O.slips[ui.slipId]; if (!x) return true;
-    if (d.sl) x[d.sl] = t.value; else x[d.g][+d.sli][+d.k] = d.k === '1' ? n0(String(t.value).replace(/[,，¥円]/g, '')) : t.value;
+    if (d.sl) x[d.sl] = t.value; else x[d.g][+d.sli][d.k] = d.k === 'v' ? n0(String(t.value).replace(/[,，¥円]/g, '')) : t.value;
     oSaveSoon(); refreshDoc(slipDoc(x), 'slipSum', '差引支給額 ' + yen(slipTotals(x).net)); return true;
   }
   if (isChange && t.id === 'invMonth') { if (t.value) { ui.invMonth = t.value; render(); } return true; }
