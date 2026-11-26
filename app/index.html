@@ -621,6 +621,9 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .chk li > span { flex: 1; min-width: 0; } .chk li small { margin-left: 6px; font-size: 10px; color: var(--accent); font-weight: 700; }
 .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.iss-q.need input { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.iss-q { margin-bottom: 12px; }
+.a4-foot .miss { color: var(--bad) !important; font-weight: 700; letter-spacing: 0; }
 .slip-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .a4-amt.net { margin-top: 0; }
 .pdfmode .a4 { box-shadow: none; }
@@ -2159,7 +2162,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
-const APP_BUILD = '2026.11.26-3';
+const APP_BUILD = '2026.11.26-4';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2346,6 +2349,7 @@ function invAuto() {
   return n;
 }
 function invVars(x) { const c = S.clients.find(y => y.id === x.cid) || {}; return { 宛名: x.toName || '', 敬称: x.honor || '', 担当者: x.person ? x.person + ' 様' : '', 月: Number(x.month.slice(0, 4)) + '年' + Number(x.month.slice(5)) + '月', 金額: yen(invTotals(x).total), 期限: jpDate(x.due), 発行元: O.issuer.name || '', 請求書番号: x.no, クライアント: c.name || '' }; }
+function footName() { const n = String(O.issuer.name || '').trim(); return n ? '<span>' + esc(n) + '</span>' : '<span class="no-print miss">← 会社名が未入力です</span>'; }
 function invDoc(x) {
   const t = invTotals(x), is = O.issuer || {};
   const rows = (x.items || []).filter(i => i.name || n0(i.price));
@@ -2360,7 +2364,7 @@ function invDoc(x) {
     '<table class="a4-sum"><tr><th>小計</th><td>' + yen(t.sub) + '</td></tr><tr><th>消費税（' + n0(x.rate) + '%）</th><td>' + yen(t.tax) + '</td></tr><tr class="tot"><th>合計</th><td>' + yen(t.total) + '</td></tr><tr class="small"><th>' + n0(x.rate) + '%対象</th><td>' + yen(t.sub) + '（消費税 ' + yen(t.tax) + '）</td></tr></table>' +
     (is.bank ? '<div class="a4-box"><b>お振込先</b><span>' + esc(is.bank).replace(/\n/g, '<br>') + '</span><small>※恐れ入りますが、振込手数料はご負担ください。</small></div>' : '') +
     (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') +
-    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation."><span>' + esc(is.name || '') + '</span></div></div>';
+    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation.">' + footName() + '</div></div>';
 }
 R.invoice = () => {
   if (office.db && !office.billOK) return head('INVOICE', '請求書', '') + lockedBox('請求書', '共有設定で「Editor」以上の人');
@@ -2415,7 +2419,7 @@ function invDetail(x) {
   if (ui.mail && ui.mail.id === x.id) h += mailBox('inv', x.id, invVars(x), b.email, b.cc, invTpl());
   h += checkBox('inv', x) + previewHtml('inv', x);
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-inv="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
-  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">内容を確認・修正</h3></div><div class="grid2">' + f('toName', '宛名') + '<label class="field"><span>敬称</span><select data-inv="honor">' + ['御中', '様', '殿'].map(o => '<option' + (x.honor === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>' + f('person', 'ご担当者名') + f('no', '請求書番号') + f('issue', '請求日', 'date') + f('due', 'お支払期限', 'date') + '</div>' +
+  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">内容を確認・修正</h3></div>' + '<label class="field iss-q' + (O.issuer.name ? '' : ' need') + '"><span>あなたの会社名（請求書・明細の下端と右上に載ります）</span><input data-iss="name" value="' + esc(O.issuer.name || '') + '" placeholder="例：株式会社LIB creation"></label>' + '<div class="grid2">' + f('toName', '宛名') + '<label class="field"><span>敬称</span><select data-inv="honor">' + ['御中', '様', '殿'].map(o => '<option' + (x.honor === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>' + f('person', 'ご担当者名') + f('no', '請求書番号') + f('issue', '請求日', 'date') + f('due', 'お支払期限', 'date') + '</div>' +
     '<label class="field" style="margin-top:12px"><span>件名</span><input data-inv="title" value="' + esc(x.title) + '"></label>' +
     '<div class="tbl-wrap" style="margin-top:12px"><table class="items-t"><thead><tr><th>品目</th><th>数量</th><th>単位</th><th>単価</th><th></th></tr></thead><tbody>' + x.items.map((i, k) => '<tr><td><input class="cell" data-ii="' + k + '" data-k="name" value="' + esc(i.name) + '"></td><td><input class="cell n" data-ii="' + k + '" data-k="qty" value="' + esc(i.qty) + '" inputmode="decimal"></td><td><input class="cell" data-ii="' + k + '" data-k="unit" value="' + esc(i.unit || '') + '"></td><td><input class="cell n" data-ii="' + k + '" data-k="price" value="' + esc(i.price) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="invDelItem" data-k="' + k + '">削除</button></td></tr>').join('') + '</tbody></table></div>' +
     '<div class="row" style="margin-top:8px"><button class="btn sm" data-act="invAddItem">' + I.plus + '品目を追加</button><span class="hint" id="invSum">税込 ' + yen(t.total) + '</span></div>' +
@@ -2464,6 +2468,7 @@ function docRules(kind, x) {
   if (kind === 'inv') {
     const t = invTotals(x), b = billView(x.cid), reg = String(O.issuer.reg || '').trim();
     if (!String(x.toName || '').trim()) add('warn', '宛名が空です');
+    { const m = String(x.toName || '').match(/[\s　]*(様|御中|殿)$/); if (m && x.honor) add('typo', '宛名の最後に「' + m[1] + '」があり、敬称「' + x.honor + '」と重なっています（「' + (x.toName + x.honor) + '」になります）', 'x.toName', m[0], ''); }
     if (!String(O.issuer.name || '').trim()) add('warn', '発行元の会社名が空です（「発行元・メール文面」で設定）');
     if (!reg) add('info', '登録番号が空です（適格請求書として出す場合は必要です）');
     else if (!/^T\d{13}$/.test(reg.replace(/[\s-]/g, ''))) add('warn', '登録番号は「T」と13桁の数字です（今：' + reg + '）');
@@ -2542,7 +2547,7 @@ function slipDoc(x) {
     (() => { const cols = [['出勤日数', x.days, '日'], ['労働時間', x.hours, '時間'], ['残業時間', x.ot, '時間']].filter(c => String(c[1] || '').trim()); return cols.length ? '<table class="a4-t att"><thead><tr>' + cols.map(c => '<th>' + c[0] + '</th>').join('') + '</tr></thead><tbody><tr>' + cols.map(c => '<td class="n">' + esc(c[1]) + (/^[\d.]+$/.test(String(c[1]).trim()) ? c[2] : '') + '</td>').join('') + '</tr></tbody></table>' : ''; })() +
     '<div class="slip-two">' + tbl('支給', x.pay || [], t.pay) + tbl('控除', x.ded || [], t.ded) + '</div>' +
     '<div class="a4-amt net"><span>差引支給額</span><b>' + yen(t.net) + '</b></div>' + (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') +
-    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation."><span>' + esc(O.issuer.name || '') + '</span></div></div>';
+    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation.">' + footName() + '</div></div>';
 }
 R.payroll = () => {
   if (office.db && !office.payOK) return head('PAYROLL', '給与明細', '') + lockedBox('給与明細', 'アプリのオーナー');
@@ -2578,7 +2583,7 @@ function slipDetail(x) {
   h += checkBox('slip', x) + previewHtml('slip', x);
   const rowsOf = g => (x[g] || []).map((i, k) => '<tr><td><input class="cell" data-sli="' + k + '" data-g="' + g + '" data-k="k" value="' + esc(i.k) + '"></td><td><input class="cell n" data-sli="' + k + '" data-g="' + g + '" data-k="v" value="' + esc(i.v) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="sliDel" data-g="' + g + '" data-k="' + k + '">削除</button></td></tr>').join('');
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-sl="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
-  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div><div class="grid2">' + f('payDay', '支給日', 'date') + '</div>' +
+  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div>' + '<label class="field iss-q' + (O.issuer.name ? '' : ' need') + '"><span>あなたの会社名（請求書・明細の下端と右上に載ります）</span><input data-iss="name" value="' + esc(O.issuer.name || '') + '" placeholder="例：株式会社LIB creation"></label>' + '<div class="grid2">' + f('payDay', '支給日', 'date') + '</div>' +
     '<details class="more"' + (x.days || x.hours || x.ot ? ' open' : '') + '><summary>勤怠を入れる（任意・入れたものだけ明細に載ります）</summary><div class="grid2" style="margin-top:10px">' + f('days', '出勤日数') + f('hours', '労働時間') + f('ot', '残業時間') + '</div></details>' +
     ['pay', 'ded'].map(g => '<div class="tbl-wrap" style="margin-top:12px"><table class="items-t slip-in"><thead><tr><th>' + (g === 'pay' ? '支給項目' : '控除項目') + '</th><th>金額（円）</th><th></th></tr></thead><tbody>' + rowsOf(g) + '</tbody></table></div><button class="btn sm" style="margin-top:6px" data-act="sliAdd" data-g="' + g + '">' + I.plus + '項目を追加</button>').join('') +
     '<div class="hint" id="slipSum" style="margin-top:10px">差引支給額 ' + yen(slipTotals(x).net) + '</div><label class="field" style="margin-top:12px"><span>備考</span><textarea data-sl="note" rows="3">' + esc(x.note || '') + '</textarea></label>' +
@@ -3585,11 +3590,17 @@ A.slipBack = el => { O.slips[el.dataset.id].status = 'draft'; oSave('下書き�
 A.slipDel = el => arm(el, () => { delete O.slips[el.dataset.id]; ui.mail = null; oSave('削除しました'); location.hash = 'payroll'; });
 A.slipPdf = async el => { const x = O.slips[el.dataset.id]; const ok = await docPdf('給与明細_' + x.name + '_' + x.month + '.pdf'); if (ok && x.status === 'draft') { x.status = 'fixed'; oSave('確定にしました'); render(); } };
 A.slipOk = el => { const x = O.slips[el.dataset.id], st = O.staff.find(s => s.id === x.sid) || {}; if (x.status === 'draft') { x.status = 'fixed'; oSave(false); } ui.mail = { id: x.id, mode: 'tpl', to: st.email || '', cc: '' }; render(); const m = document.getElementById('mailBox'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-function refreshDoc(html, sumId, sumText) { const d = document.getElementById('docHold'); if (d) d.innerHTML = html; const s = document.getElementById(sumId); if (s) s.textContent = sumText; }
+function refreshDoc(html, sumId, sumText) { const d = document.getElementById('docHold'); if (d) d.innerHTML = html; const s = sumId && document.getElementById(sumId); if (s) s.textContent = sumText; }
 // input handler for office pages; returns true when it handled the event
 function officeInput(t, d, isChange) {
   if (d.mail) { ui.mail[d.mail] = t.value; return true; }
-  if (d.iss) { O.issuer[d.iss] = t.value; oSaveSoon(); return true; }
+  if (d.iss) {
+    O.issuer[d.iss] = t.value; oSaveSoon();
+    const xi = ui.invId && O.inv[ui.invId], xs = ui.slipId && O.slips[ui.slipId];
+    if (route() === 'invoice' && xi) refreshDoc(invDoc(xi)); else if (route() === 'payroll' && xs) refreshDoc(slipDoc(xs));
+    if (d.iss === 'name') { const q = t.closest('.iss-q'); if (q) q.classList.toggle('need', !t.value.trim()); }
+    return true;
+  }
   if (d.itpl) { O.invTpl = Object.assign(invTpl(), { [d.itpl]: t.value }); oSaveSoon(); return true; }
   if (d.stpl) { O.slipTpl = Object.assign(slipTpl(), { [d.stpl]: t.value }); oSaveSoon(); return true; }
   if (d.bson) { if (isChange) { billOf(d.bson).on = t.checked; oSave(t.checked ? '毎月請求するようにしました' : '請求しないようにしました'); ui.billOpen = d.bson; render(); } return true; }
