@@ -601,6 +601,9 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .a4-kv th, .a4-sum th { background: none !important; color: #555; }
 .a4-sum { margin-left: auto; width: 300px; border-collapse: collapse; } .a4-sum th { text-align: left; font-weight: 500; padding: 4px 8px; } .a4-sum td { text-align: right; padding: 4px 8px; font-family: var(--num); } .a4-sum .tot th, .a4-sum .tot td { border-top: 2px solid #1a1a1a; font-weight: 800; font-size: 15px; } .a4-sum .small th, .a4-sum .small td { font-size: 10.5px; color: #666; }
 .a4-box { border: 1px solid #ccc; padding: 10px 14px; display: grid; gap: 4px; } .a4-box small { color: #666; font-size: 10.5px; }
+.a4-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fff; color: #000; }
+.a4-foot img { height: 38px; width: auto; filter: brightness(0); }
+.a4-foot span { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #000; }
 .slip-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .a4-amt.net { margin-top: 0; }
 .pdfmode .a4 { box-shadow: none; }
@@ -2139,7 +2142,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
-const APP_BUILD = '2026.11.26-1';
+const APP_BUILD = '2026.11.26-2';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2339,7 +2342,8 @@ function invDoc(x) {
     Array.from({ length: Math.max(0, 6 - rows.length) }, () => '<tr class="blank"><td></td><td></td><td></td><td></td><td></td></tr>').join('') + '</tbody></table>' +
     '<table class="a4-sum"><tr><th>小計</th><td>' + yen(t.sub) + '</td></tr><tr><th>消費税（' + n0(x.rate) + '%）</th><td>' + yen(t.tax) + '</td></tr><tr class="tot"><th>合計</th><td>' + yen(t.total) + '</td></tr><tr class="small"><th>' + n0(x.rate) + '%対象</th><td>' + yen(t.sub) + '（消費税 ' + yen(t.tax) + '）</td></tr></table>' +
     (is.bank ? '<div class="a4-box"><b>お振込先</b><span>' + esc(is.bank).replace(/\n/g, '<br>') + '</span><small>※恐れ入りますが、振込手数料はご負担ください。</small></div>' : '') +
-    (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') + '</div>';
+    (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') +
+    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation."><span>' + esc(is.name || '') + '</span></div></div>';
 }
 R.invoice = () => {
   if (office.db && !office.billOK) return head('INVOICE', '請求書', '') + lockedBox('請求書', '共有設定で「Editor」以上の人');
