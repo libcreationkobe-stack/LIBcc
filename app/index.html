@@ -604,6 +604,23 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .a4-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #fff; color: #000; }
 .a4-foot img { height: 38px; width: auto; filter: brightness(0); }
 .a4-foot span { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: #000; }
+.pv { position: fixed; inset: 0; z-index: 80; background: rgba(20,20,20,.72); display: flex; flex-direction: column; }
+.pv-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pv-body { flex: 1; min-height: 0; display: flex; gap: 16px; padding: 16px; overflow: auto; }
+.pv-page { flex: 1 1 auto; min-width: 0; min-height: 60vh; display: flex; justify-content: center; align-items: flex-start; }
+.pv-scale { overflow: hidden; flex: none; }
+.pv-page { min-height: 0; }
+.pv-mail { flex: 0 0 360px; background: var(--surface); border-radius: var(--radius); padding: 18px; align-self: flex-start; max-height: 100%; overflow: auto; }
+.pv-mail dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12.5px; margin: 10px 0; } .pv-mail dt { color: var(--muted); } .pv-mail dd { margin: 0; word-break: break-all; }
+.pv-text { white-space: pre-wrap; font-size: 13px; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 12px; }
+@media (max-width: 900px) { .pv-body { flex-direction: column; } .pv-mail { flex: none; } }
+.chk { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.chk li { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 6px; background: var(--field); font-size: 13px; }
+.chk li > b { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; color: #fff; background: var(--muted); }
+.chk li.typo > b { background: var(--accent); } .chk li.warn > b { background: var(--bad); }
+.chk li > span { flex: 1; min-width: 0; } .chk li small { margin-left: 6px; font-size: 10px; color: var(--accent); font-weight: 700; }
+.spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .slip-two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .a4-amt.net { margin-top: 0; }
 .pdfmode .a4 { box-shadow: none; }
@@ -2142,7 +2159,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
-const APP_BUILD = '2026.11.26-2';
+const APP_BUILD = '2026.11.26-3';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2299,7 +2316,7 @@ function mailBox(kind, id, vars, to, cc, tpl) {
     '<label class="field" style="margin-top:12px"><span>件名</span><input data-mail="subject" value="' + esc(st.subject) + '"' + (st.mode === 'tpl' ? ' readonly' : '') + '></label>' +
     '<label class="field" style="margin-top:12px"><span>本文</span><textarea data-mail="body" rows="11"' + (st.mode === 'tpl' ? ' readonly' : '') + '>' + esc(st.body) + '</textarea></label>' +
     '<p class="hint">' + (st.mode === 'tpl' ? 'テンプレートの文面です。変えたいときは「カスタム」に切り替えると編集できます（テンプレート自体は「' + (kind === 'inv' ? '発行元・メール文面' : 'スタッフ・メール文面') + '」で変更）。' : 'この送信だけの文面です。') + 'あなたのGmailから送られ、送信済みフォルダに残ります。</p>' +
-    '<div class="row" style="margin-top:12px"><button class="btn dark" data-act="' + kind + 'Send" data-id="' + esc(id) + '">' + I.upload + 'この内容で送信する</button><button class="btn" data-act="' + kind + 'Send" data-id="' + esc(id) + '" data-draft="1">Gmailの下書きに保存</button><button class="btn ghost" data-act="mailClose">閉じる</button></div></div>';
+    '<div class="row" style="margin-top:12px"><button class="btn dark" data-act="' + kind + 'Send" data-id="' + esc(id) + '">' + I.upload + 'この内容で送信する</button><button class="btn" data-act="' + kind + 'Send" data-id="' + esc(id) + '" data-draft="1">Gmailの下書きに保存</button><button class="btn ghost" data-act="docPreview" data-id="' + esc(id) + '">送る前にプレビュー</button><button class="btn ghost" data-act="docCheck" data-k="' + kind + '" data-id="' + esc(id) + '">誤字脱字チェック</button><button class="btn ghost" data-act="mailClose">閉じる</button></div></div>';
 }
 function mailFields() { const st = ui.mail || {}; return { to: mails(st.to), cc: mails(st.cc), subject: (st.subject || '').trim(), body: st.body || '' }; }
 
@@ -2394,8 +2411,9 @@ function invClients() {
 function invDetail(x) {
   const c = S.clients.find(y => y.id === x.cid) || {}, b = billView(x.cid), t = invTotals(x);
   let h = head('INVOICE', esc(c.name || '') + '　' + mLabel(x.month) + 'の請求書', '<a href="#invoice">← 請求書の一覧</a>　状態：<span class="ist ' + x.status + '">' + INV_ST[x.status] + '</span>' + (x.sentAt ? '　送信 ' + esc(x.sentAt.slice(0, 16).replace('T', ' ')) + '（' + esc(x.sentTo || '') + '）' : '') + (x.doneAt ? '　完了 ' + esc(x.doneAt.slice(0, 10)) : ''),
-    '<button class="btn" data-act="invPdf" data-id="' + x.id + '">' + I.print + 'PDFをダウンロードして完了</button><button class="btn dark" data-act="invOk" data-id="' + x.id + '">OK → Gmailで送る</button>');
+    '<button class="btn" data-act="docPreview" data-id="' + x.id + '">プレビュー</button><button class="btn" data-act="docCheck" data-k="inv" data-id="' + x.id + '">誤字脱字チェック</button><button class="btn" data-act="invPdf" data-id="' + x.id + '">' + I.print + 'PDFをダウンロードして完了</button><button class="btn dark" data-act="invOk" data-id="' + x.id + '">OK → Gmailで送る</button>');
   if (ui.mail && ui.mail.id === x.id) h += mailBox('inv', x.id, invVars(x), b.email, b.cc, invTpl());
+  h += checkBox('inv', x) + previewHtml('inv', x);
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-inv="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
   h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">内容を確認・修正</h3></div><div class="grid2">' + f('toName', '宛名') + '<label class="field"><span>敬称</span><select data-inv="honor">' + ['御中', '様', '殿'].map(o => '<option' + (x.honor === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>' + f('person', 'ご担当者名') + f('no', '請求書番号') + f('issue', '請求日', 'date') + f('due', 'お支払期限', 'date') + '</div>' +
     '<label class="field" style="margin-top:12px"><span>件名</span><input data-inv="title" value="' + esc(x.title) + '"></label>' +
@@ -2406,6 +2424,105 @@ function invDetail(x) {
     '<div class="doc-wrap"><div id="docHold">' + invDoc(x) + '</div></div></div>';
   return h;
 }
+
+/* ---- preview and proofreading for invoices and payslips ---- */
+// the text fields of one document, as {path: [label, text]}; paths are what docSet() understands
+function docTexts(kind, x) {
+  const t = {};
+  if (kind === 'inv') {
+    t['x.toName'] = ['宛名', x.toName]; t['x.person'] = ['ご担当者名', x.person]; t['x.title'] = ['件名', x.title]; t['x.note'] = ['備考', x.note];
+    (x.items || []).forEach((i, k) => { t['x.items.' + k + '.name'] = ['品目' + (k + 1), i.name]; });
+    t['iss.name'] = ['発行元：会社名', O.issuer.name]; t['iss.addr'] = ['発行元：住所', O.issuer.addr]; t['iss.bank'] = ['お振込先', O.issuer.bank]; t['iss.person'] = ['発行元：担当者', O.issuer.person];
+  } else {
+    t['x.name'] = ['名前', x.name]; t['x.note'] = ['備考', x.note];
+    ['pay', 'ded'].forEach(g => (x[g] || []).forEach((i, k) => { t['x.' + g + '.' + k + '.k'] = [(g === 'pay' ? '支給' : '控除') + '項目' + (k + 1), i.k]; }));
+  }
+  if (ui.mail && ui.mail.id === x.id) { const mf = mailFields(); t['mail.subject'] = ['メール件名', mf.subject]; t['mail.body'] = ['メール本文', mf.body]; }
+  Object.keys(t).forEach(k => { if (!String(t[k][1] || '').trim()) delete t[k]; });
+  return t;
+}
+function docSet(x, path, val) {
+  const [root, ...rest] = path.split('.');
+  if (root === 'mail') { if (!ui.mail) return; ui.mail.mode = 'custom'; ui.mail[rest[0]] = val; return; }
+  let o = root === 'iss' ? O.issuer : x;
+  for (let i = 0; i < rest.length - 1; i++) o = o[isNaN(rest[i]) ? rest[i] : +rest[i]];
+  o[rest[rest.length - 1]] = val;
+}
+// checks that need no AI: missing or inconsistent items, and obvious slips of the pen
+function docRules(kind, x) {
+  const out = [], add = (level, msg, path, wrong, right) => out.push({ level, msg, path, wrong, right });
+  const texts = docTexts(kind, x);
+  Object.entries(texts).forEach(([p, [label, s]]) => {
+    s = String(s);
+    let m;
+    if ((m = s.match(/([。、！？!?])\1+/))) add('typo', label + '：「' + m[0] + '」と記号が重なっています', p, m[0], m[1]);
+    if ((m = s.match(/[ 　]{2,}/)) && p !== 'mail.body') add('info', label + '：空白が続いています', p, m[0], ' ');
+    if ((m = s.match(/(を|が|に|は|で|と|へ|も)\1(?!し)/))) add('typo', label + '：「' + m[0] + '」と同じ助詞が重なっています', p, m[0], m[1]);
+    if ((m = s.match(/\{[^{}]{1,8}\}/))) add('warn', label + '：「' + m[0] + '」が置きかわっていません', p);
+    if (/です。です|ます。ます|致します。致します/.test(s)) add('typo', label + '：同じ文末が重なっています', p);
+  });
+  if (kind === 'inv') {
+    const t = invTotals(x), b = billView(x.cid), reg = String(O.issuer.reg || '').trim();
+    if (!String(x.toName || '').trim()) add('warn', '宛名が空です');
+    if (!String(O.issuer.name || '').trim()) add('warn', '発行元の会社名が空です（「発行元・メール文面」で設定）');
+    if (!reg) add('info', '登録番号が空です（適格請求書として出す場合は必要です）');
+    else if (!/^T\d{13}$/.test(reg.replace(/[\s-]/g, ''))) add('warn', '登録番号は「T」と13桁の数字です（今：' + reg + '）');
+    if (!String(O.issuer.bank || '').trim()) add('info', 'お振込先が空です');
+    if (x.due && x.issue && x.due < x.issue) add('warn', 'お支払期限が請求日より前になっています');
+    if (!t.total) add('warn', '請求金額が0円です');
+    (x.items || []).forEach((i, k) => { if (n0(i.price) && !String(i.name || '').trim()) add('warn', (k + 1) + '行目：単価があるのに品目名が空です'); if (String(i.name || '').trim() && !n0(i.price)) add('info', (k + 1) + '行目「' + i.name + '」の単価が0円です'); });
+    if (x.title && !x.title.includes(String(Number(x.month.slice(5))) + '月')) add('info', '件名に「' + Number(x.month.slice(5)) + '月」が入っていません（' + x.title + '）');
+    const to = ui.mail && ui.mail.id === x.id ? mails(ui.mail.to) : mails(b.email);
+    if (!to.length) add('info', '送り先メールが未設定です'); else to.filter(a => !okMail(a)).forEach(a => add('warn', 'メールアドレスの形が正しくありません：' + a));
+  } else {
+    const t = slipTotals(x), st = O.staff.find(s => s.id === x.sid) || {};
+    if (t.net < 0) add('warn', '差引支給額がマイナスです');
+    if (!t.pay) add('warn', '総支給額が0円です');
+    ['pay', 'ded'].forEach(g => (x[g] || []).forEach((i, k) => { if (n0(i.v) && !String(i.k || '').trim()) add('warn', (g === 'pay' ? '支給' : '控除') + (k + 1) + '行目：金額があるのに項目名が空です'); }));
+    if (!st.email) add('info', '本人のメールアドレスが未設定です（スタッフ・メール文面で設定）');
+  }
+  return out;
+}
+async function docAiCheck(kind, x) {
+  const sample = await getSampler(); if (!sample) return null;
+  const texts = docTexts(kind, x), body = {};
+  Object.entries(texts).forEach(([p, [, s]]) => { body[p] = String(s).slice(0, 2000); });
+  if (!Object.keys(body).length) return [];
+  const prompt = 'あなたは日本語のビジネス文書の校正者です。次のJSONは' + (kind === 'inv' ? '請求書とその送付メール' : '給与明細とその送付メール') + 'の各欄の文字です（キーは欄の識別子）。\n' +
+    '誤字・脱字・変換ミス・敬語や表記の明らかな誤り・社名や敬称の不自然な重複だけを指摘してください。言い回しの好みや文体の書き換えは指摘しないでください。人名・社名・住所・口座番号は、明らかな誤記以外は指摘しないでください。\n' +
+    '返答はJSONのみ：{"issues":[{"field":"欄の識別子","wrong":"元の文字（欄の中にそのまま含まれる短い部分）","right":"直した文字","reason":"短い理由"}]}。問題がなければ {"issues":[]}。\n\n' + JSON.stringify(body);
+  const r = await sample.json(prompt, { modelTier: 'quick', cache: false });
+  return ((r && r.issues) || []).filter(i => i && body[i.field] !== undefined && typeof i.wrong === 'string' && i.wrong && String(texts[i.field][1]).includes(i.wrong) && typeof i.right === 'string' && i.right !== i.wrong)
+    .slice(0, 30).map(i => ({ level: 'typo', msg: texts[i.field][0] + '：「' + i.wrong + '」→「' + i.right + '」' + (i.reason ? '（' + i.reason + '）' : ''), path: i.field, wrong: i.wrong, right: i.right, ai: true }));
+}
+function checkBox(kind, x) {
+  const c = ui.check; if (!c || c.id !== x.id) return '';
+  const list = c.rules.concat(c.ai || []), icon = { typo: '✎', warn: '!', info: 'i' };
+  return '<div class="panel check-box no-print" id="checkBox"><div class="panel-h"><div><div class="eyebrow">CHECK</div><h3 class="bar-title">誤字脱字・入力チェック</h3></div><button class="btn sm ghost" data-act="checkClose">閉じる</button></div>' +
+    (list.length ? '<ul class="chk">' + list.map((i, n) => '<li class="' + i.level + '"><b>' + icon[i.level] + '</b><span>' + esc(i.msg) + (i.ai ? '<small>AI</small>' : '') + '</span>' + (i.path && i.wrong !== undefined && i.right !== undefined ? '<button class="btn sm" data-act="checkFix" data-n="' + n + '">直す</button>' : '') + '</li>').join('') + '</ul>' : '') +
+    '<p class="hint">' + (c.ai === 'loading' ? '<span class="spin"></span>AIが文面を読んでいます…' : c.ai === 'none' ? 'AIでの誤字チェックは claude.ai 上で開いたときに使えます（上は入力内容のチェックです）。' : c.ai === 'error' ? 'AIでの誤字チェックができませんでした。もう一度押してください。' : !list.length ? '問題は見つかりませんでした。' : 'AIの指摘は参考です。「直す」を押すとその欄が書きかわります。') + '</p></div>';
+}
+async function runCheck(kind, x) {
+  ui.check = { id: x.id, kind, rules: docRules(kind, x), ai: 'loading' }; render();
+  const el = document.getElementById('checkBox'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  let ai;
+  try { ai = await docAiCheck(kind, x); } catch (e) { ai = 'error'; }
+  if (!ui.check || ui.check.id !== x.id) return;
+  ui.check.ai = ai === null ? 'none' : ai; render();
+}
+function previewHtml(kind, x) {
+  if (!ui.preview || ui.preview !== x.id) return '';
+  const doc = (kind === 'inv' ? invDoc(x) : slipDoc(x)).replace('id="docSheet"', '');
+  const mf = ui.mail && ui.mail.id === x.id ? mailFields() : null, c = kind === 'inv' ? S.clients.find(y => y.id === x.cid) || {} : null;
+  const fname = kind === 'inv' ? '請求書_' + (c.name || '') + '_' + x.month + '.pdf' : '給与明細_' + x.name + '_' + x.month + '.pdf';
+  return '<div class="pv no-print" role="dialog" aria-label="プレビュー"><div class="pv-bar"><b>プレビュー</b><span class="hint">PDFとメールはこの見た目で作られます</span><span style="flex:1"></span>' +
+    '<button class="btn sm" data-act="' + (kind === 'inv' ? 'invPdf' : 'slipPdf') + '" data-id="' + x.id + '">' + I.print + 'PDFをダウンロード</button><button class="btn sm dark" data-act="pvClose">閉じる</button></div>' +
+    '<div class="pv-body"><div class="pv-page"><div class="pv-scale">' + doc + '</div></div>' +
+    (mf ? '<div class="pv-mail"><div class="eyebrow">EMAIL</div><dl><dt>宛先</dt><dd>' + esc(mf.to.join(', ') || '（未入力）') + '</dd>' + (mf.cc.length ? '<dt>CC</dt><dd>' + esc(mf.cc.join(', ')) + '</dd>' : '') + '<dt>件名</dt><dd><b>' + esc(mf.subject) + '</b></dd><dt>添付</dt><dd>📎 ' + esc(fname) + '</dd></dl><div class="pv-text">' + esc(mf.body) + '</div></div>' : '') + '</div></div>';
+}
+// the A4 page is laid out at 680px wide and scaled to fit the window
+function fitPreview() { const p = document.querySelector('.pv-page'), s = document.querySelector('.pv-scale'), a = s && s.firstElementChild; if (!p || !a) return; const k = Math.max(.3, Math.min(1.2, (p.clientWidth - 8) / 680, (window.innerHeight - 110) / 962)); a.style.transform = 'scale(' + k + ')'; a.style.transformOrigin = 'top left'; s.style.width = 680 * k + 'px'; s.style.height = a.offsetHeight * k + 'px'; }
+window.addEventListener('resize', fitPreview);
 
 /* ---- payslips ---- */
 const slipTpl = () => Object.assign({}, DEF_SLIP_TPL, O.slipTpl || {});
@@ -2424,7 +2541,8 @@ function slipDoc(x) {
     // attendance is optional: only the columns that were filled in are printed
     (() => { const cols = [['出勤日数', x.days, '日'], ['労働時間', x.hours, '時間'], ['残業時間', x.ot, '時間']].filter(c => String(c[1] || '').trim()); return cols.length ? '<table class="a4-t att"><thead><tr>' + cols.map(c => '<th>' + c[0] + '</th>').join('') + '</tr></thead><tbody><tr>' + cols.map(c => '<td class="n">' + esc(c[1]) + (/^[\d.]+$/.test(String(c[1]).trim()) ? c[2] : '') + '</td>').join('') + '</tr></tbody></table>' : ''; })() +
     '<div class="slip-two">' + tbl('支給', x.pay || [], t.pay) + tbl('控除', x.ded || [], t.ded) + '</div>' +
-    '<div class="a4-amt net"><span>差引支給額</span><b>' + yen(t.net) + '</b></div>' + (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') + '</div>';
+    '<div class="a4-amt net"><span>差引支給額</span><b>' + yen(t.net) + '</b></div>' + (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') +
+    '<div class="a4-foot"><img src="' + LOGO_LIB + '" alt="LIB creation."><span>' + esc(O.issuer.name || '') + '</span></div></div>';
 }
 R.payroll = () => {
   if (office.db && !office.payOK) return head('PAYROLL', '給与明細', '') + lockedBox('給与明細', 'アプリのオーナー');
@@ -2455,8 +2573,9 @@ function payStaff() {
 function slipDetail(x) {
   const st = O.staff.find(s => s.id === x.sid) || {};
   let h = head('PAYROLL', esc(x.name) + 'さん　' + mLabel(x.month) + 'の給与明細', '<a href="#payroll">← 明細の一覧</a>　状態：' + SLIP_ST[x.status] + (x.sentAt ? '　送付 ' + esc(x.sentAt.slice(0, 16).replace('T', ' ')) : ''),
-    '<button class="btn" data-act="slipPdf" data-id="' + x.id + '">' + I.print + 'PDFで保存</button><button class="btn dark" data-act="slipOk" data-id="' + x.id + '">確定 → Gmailで送る</button>');
+    '<button class="btn" data-act="docPreview" data-id="' + x.id + '">プレビュー</button><button class="btn" data-act="docCheck" data-k="slip" data-id="' + x.id + '">誤字脱字チェック</button><button class="btn" data-act="slipPdf" data-id="' + x.id + '">' + I.print + 'PDFで保存</button><button class="btn dark" data-act="slipOk" data-id="' + x.id + '">確定 → Gmailで送る</button>');
   if (ui.mail && ui.mail.id === x.id) h += mailBox('slip', x.id, slipVars(x), st.email || '', '', slipTpl());
+  h += checkBox('slip', x) + previewHtml('slip', x);
   const rowsOf = g => (x[g] || []).map((i, k) => '<tr><td><input class="cell" data-sli="' + k + '" data-g="' + g + '" data-k="k" value="' + esc(i.k) + '"></td><td><input class="cell n" data-sli="' + k + '" data-g="' + g + '" data-k="v" value="' + esc(i.v) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="sliDel" data-g="' + g + '" data-k="' + k + '">削除</button></td></tr>').join('');
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-sl="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
   h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div><div class="grid2">' + f('payDay', '支給日', 'date') + '</div>' +
@@ -3407,6 +3526,17 @@ const A = {};
 /* ---- office actions ---- */
 function docPdf(filename, asBlob) { return makePdf([document.getElementById('docSheet')], filename, 'page', { portrait: true, blob: asBlob, bg: '#ffffff' }); }
 function stamp() { return new Date().toISOString(); }
+A.docPreview = el => { ui.preview = el.dataset.id; render(); fitPreview(); };
+A.pvClose = () => { ui.preview = null; render(); };
+A.docCheck = el => { const kind = el.dataset.k, x = kind === 'inv' ? O.inv[el.dataset.id] : O.slips[el.dataset.id]; if (x) runCheck(kind, x); };
+A.checkClose = () => { ui.check = null; render(); };
+A.checkFix = el => {
+  const c = ui.check, list = c.rules.concat(Array.isArray(c.ai) ? c.ai : []), it = list[+el.dataset.n]; if (!it) return;
+  const x = c.kind === 'inv' ? O.inv[c.id] : O.slips[c.id], t = docTexts(c.kind, x)[it.path]; if (!t) return;
+  docSet(x, it.path, String(t[1]).replace(it.wrong, it.right));
+  if (Array.isArray(c.ai)) c.ai = c.ai.filter(i => i !== it);
+  c.rules = docRules(c.kind, x); oSave('直しました'); render();
+};
 A.invTab = el => { ui.invTab = el.dataset.k; render(); };
 A.invOpen = el => { location.hash = 'invoice-' + el.dataset.id; };
 A.invMake = el => { const x = invMake(el.dataset.cid, el.dataset.m); oSave('請求書を作りました'); location.hash = 'invoice-' + x.id; };
@@ -3690,6 +3820,7 @@ function renderNow() {
   const c = client();
   $('#crumb').innerHTML = esc(meta.group) + '　/　<b>' + esc(meta.label) + '</b>' + (c && !['clients', 'editors', 'design', 'team', 'invoice', 'payroll'].includes(v) ? '　· ' + esc(c.name) : '');
   $('#main').innerHTML = '<div class="wrap">' + R[v]() + '</div>';
+  if (document.querySelector('.pv')) fitPreview();
   document.title = (S.brand.appName || 'ORANGE INSIGHT').replace(/\.$/, '') + ' | ' + meta.label;
 }
 
@@ -3837,7 +3968,7 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); submitByHand(t.form);
 });
 document.addEventListener('submit', onFormSubmit);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.gpop) { ui.gpop = null; render(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ui.preview) { ui.preview = null; render(); return; } if (e.key === 'Escape' && ui.gpop) { ui.gpop = null; render(); } });
 function onFormSubmit(e) {
   e.preventDefault();
   const id = e.target.id;
