@@ -579,6 +579,8 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .items-t input.cell { width: 100%; font-family: var(--body); background: var(--field); border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; font-size: 13px; min-width: 60px; }
 .items-t th:nth-child(2), .items-t th:nth-child(3) { width: 62px; } .items-t th:nth-child(4) { width: 110px; }
 .items-t td { padding: 6px 4px; }
+.items-t input.cell { text-align: left; }
+.items-t.slip-in th:nth-child(2) { width: 130px; } .items-t.slip-in th:nth-child(3) { width: 56px; }
 .items-t input.cell.n { text-align: right; font-family: var(--num); }
 .doc-split { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 1100px) { .doc-split { grid-template-columns: minmax(0, 1fr); } }
@@ -2137,7 +2139,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
-const APP_BUILD = '2026.11.25-4';
+const APP_BUILD = '2026.11.26-1';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2412,10 +2414,11 @@ function slipMake(st, m) {
 }
 function slipVars(x) { return { 名前: x.name, 月: Number(x.month.slice(0, 4)) + '年' + Number(x.month.slice(5)) + '月', 金額: yen(slipTotals(x).net), 支給日: jpDate(x.payDay), 会社: O.issuer.name || '' }; }
 function slipDoc(x) {
-  const t = slipTotals(x), tbl = (title, list, total) => '<table class="a4-t slip"><thead><tr><th colspan="2">' + title + '</th></tr></thead><tbody>' + list.filter(i => i.k).map(i => '<tr><td>' + esc(i.k) + '</td><td class="n">' + yen(i.v) + '</td></tr>').join('') + '<tr class="sum"><td>' + title + '合計</td><td class="n">' + yen(total) + '</td></tr></tbody></table>';
+  const t = slipTotals(x), tbl = (title, list, total) => '<table class="a4-t slip"><thead><tr><th colspan="2">' + title + '</th></tr></thead><tbody>' + list.filter(i => i.k && n0(i.v) !== 0).map(i => '<tr><td>' + esc(i.k) + '</td><td class="n">' + yen(i.v) + '</td></tr>').join('') + '<tr class="sum"><td>' + title + '合計</td><td class="n">' + yen(total) + '</td></tr></tbody></table>';
   return '<div class="a4 slip-doc" id="docSheet"><div class="a4-top"><h1>給与明細書</h1><dl><dt>対象月</dt><dd>' + esc(Number(x.month.slice(0, 4)) + '年' + Number(x.month.slice(5)) + '月分') + '</dd><dt>支給日</dt><dd>' + esc(jpDate(x.payDay)) + '</dd></dl></div>' +
     '<div class="a4-two"><div class="a4-to">' + esc(x.name) + '<small>様</small></div><div class="a4-from"><b>' + esc(O.issuer.name || '') + '</b>' + (O.issuer.addr ? '<span>' + esc(O.issuer.addr) + '</span>' : '') + '</div></div>' +
-    '<table class="a4-t att"><thead><tr><th>出勤日数</th><th>労働時間</th><th>残業時間</th></tr></thead><tbody><tr><td class="n">' + esc(x.days || '—') + (x.days ? '日' : '') + '</td><td class="n">' + esc(x.hours || '—') + (x.hours ? '時間' : '') + '</td><td class="n">' + esc(x.ot || '—') + (x.ot ? '時間' : '') + '</td></tr></tbody></table>' +
+    // attendance is optional: only the columns that were filled in are printed
+    (() => { const cols = [['出勤日数', x.days, '日'], ['労働時間', x.hours, '時間'], ['残業時間', x.ot, '時間']].filter(c => String(c[1] || '').trim()); return cols.length ? '<table class="a4-t att"><thead><tr>' + cols.map(c => '<th>' + c[0] + '</th>').join('') + '</tr></thead><tbody><tr>' + cols.map(c => '<td class="n">' + esc(c[1]) + (/^[\d.]+$/.test(String(c[1]).trim()) ? c[2] : '') + '</td>').join('') + '</tr></tbody></table>' : ''; })() +
     '<div class="slip-two">' + tbl('支給', x.pay || [], t.pay) + tbl('控除', x.ded || [], t.ded) + '</div>' +
     '<div class="a4-amt net"><span>差引支給額</span><b>' + yen(t.net) + '</b></div>' + (x.note ? '<div class="a4-box"><b>備考</b><span>' + esc(x.note).replace(/\n/g, '<br>') + '</span></div>' : '') + '</div>';
 }
@@ -2452,8 +2455,9 @@ function slipDetail(x) {
   if (ui.mail && ui.mail.id === x.id) h += mailBox('slip', x.id, slipVars(x), st.email || '', '', slipTpl());
   const rowsOf = g => (x[g] || []).map((i, k) => '<tr><td><input class="cell" data-sli="' + k + '" data-g="' + g + '" data-k="k" value="' + esc(i.k) + '"></td><td><input class="cell n" data-sli="' + k + '" data-g="' + g + '" data-k="v" value="' + esc(i.v) + '" inputmode="numeric"></td><td><button class="btn sm ghost" data-act="sliDel" data-g="' + g + '" data-k="' + k + '">削除</button></td></tr>').join('');
   const f = (k, l, type) => '<label class="field"><span>' + l + '</span><input data-sl="' + k + '"' + (type ? ' type="' + type + '"' : '') + ' value="' + esc(x[k] || '') + '"></label>';
-  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div><div class="grid2">' + f('payDay', '支給日', 'date') + f('days', '出勤日数') + f('hours', '労働時間') + f('ot', '残業時間') + '</div>' +
-    ['pay', 'ded'].map(g => '<div class="tbl-wrap" style="margin-top:12px"><table class="items-t"><thead><tr><th>' + (g === 'pay' ? '支給項目' : '控除項目') + '</th><th>金額</th><th></th></tr></thead><tbody>' + rowsOf(g) + '</tbody></table></div><button class="btn sm" style="margin-top:6px" data-act="sliAdd" data-g="' + g + '">' + I.plus + '項目を追加</button>').join('') +
+  h += '<div class="doc-split"><div class="panel no-print"><div class="panel-h"><h3 class="bar-title">金額を入力</h3></div><div class="grid2">' + f('payDay', '支給日', 'date') + '</div>' +
+    '<details class="more"' + (x.days || x.hours || x.ot ? ' open' : '') + '><summary>勤怠を入れる（任意・入れたものだけ明細に載ります）</summary><div class="grid2" style="margin-top:10px">' + f('days', '出勤日数') + f('hours', '労働時間') + f('ot', '残業時間') + '</div></details>' +
+    ['pay', 'ded'].map(g => '<div class="tbl-wrap" style="margin-top:12px"><table class="items-t slip-in"><thead><tr><th>' + (g === 'pay' ? '支給項目' : '控除項目') + '</th><th>金額（円）</th><th></th></tr></thead><tbody>' + rowsOf(g) + '</tbody></table></div><button class="btn sm" style="margin-top:6px" data-act="sliAdd" data-g="' + g + '">' + I.plus + '項目を追加</button>').join('') +
     '<div class="hint" id="slipSum" style="margin-top:10px">差引支給額 ' + yen(slipTotals(x).net) + '</div><label class="field" style="margin-top:12px"><span>備考</span><textarea data-sl="note" rows="3">' + esc(x.note || '') + '</textarea></label>' +
     '<div class="row" style="margin-top:14px">' + (x.status !== 'draft' ? '<button class="btn sm ghost" data-act="slipBack" data-id="' + x.id + '">下書きに戻す</button>' : '') + '<button class="btn sm ghost" data-act="slipDel" data-id="' + x.id + '">この明細を削除</button></div></div>' +
     '<div class="doc-wrap"><div id="docHold">' + slipDoc(x) + '</div></div></div>';
