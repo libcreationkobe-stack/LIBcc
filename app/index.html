@@ -585,6 +585,7 @@ details.bill > summary::-webkit-details-marker { display: none; }
 .doc-split { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 18px; align-items: start; }
 @media (max-width: 1100px) { .doc-split { grid-template-columns: minmax(0, 1fr); } }
 .doc-wrap { overflow-x: auto; }
+#docHold { overflow: hidden; margin: 0 auto; }
 .a4 { width: 680px; max-width: none; min-height: 962px; margin: 0 auto; background: #fff; color: #1a1a1a; padding: 52px 50px; box-shadow: 0 2px 18px rgba(0,0,0,.08); font-family: var(--body); font-size: 12.5px; line-height: 1.6; display: flex; flex-direction: column; gap: 20px; }
 .a4-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a1a1a; padding-bottom: 12px; }
 .a4-top h1 { font-size: 26px; letter-spacing: .3em; margin: 0; font-weight: 900; }
@@ -1956,24 +1957,24 @@ async function makePdf(nodes, filename, mode, opts) {
     const newPage = () => { if (y !== null) pdf.addPage(); y = 0; };
     for (const node of nodes) {
       if (!node || !node.offsetHeight) continue;
-      const cv = await window.html2canvas(node, { scale: 2, backgroundColor: bg, useCORS: true, logging: false });
+      const cv = await window.html2canvas(node, { scale: opts.scale || 2, backgroundColor: bg, useCORS: true, logging: false });
       const pxPerMm = cv.width / pw, hmm = cv.height / pxPerMm;
       if (mode === 'page') {
         newPage();
         const r = Math.min(1, ph / hmm, pw / (cv.width / pxPerMm)), w = pw * r;
-        pdf.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M + (pw - w) / 2, M, w, hmm * r);
+        pdf.addImage(cv.toDataURL('image/jpeg', opts.q || .9), 'JPEG', M + (pw - w) / 2, M, w, hmm * r);
         continue;
       }
       if (hmm <= ph) {
         if (y === null || y + hmm > ph) newPage();
-        pdf.addImage(cv.toDataURL('image/jpeg', .9), 'JPEG', M, M + y, pw, hmm); y += hmm + GAP;
+        pdf.addImage(cv.toDataURL('image/jpeg', opts.q || .9), 'JPEG', M, M + y, pw, hmm); y += hmm + GAP;
       } else {
         const sliceH = Math.floor(ph * pxPerMm);
         for (let top = 0; top < cv.height; top += sliceH) {
           newPage();
           const part = document.createElement('canvas'); part.width = cv.width; part.height = Math.min(sliceH, cv.height - top);
           const ctx = part.getContext('2d'); ctx.fillStyle = bg; ctx.fillRect(0, 0, part.width, part.height); ctx.drawImage(cv, 0, -top);
-          pdf.addImage(part.toDataURL('image/jpeg', .9), 'JPEG', M, M, pw, part.height / pxPerMm); y = part.height / pxPerMm + GAP;
+          pdf.addImage(part.toDataURL('image/jpeg', opts.q || .9), 'JPEG', M, M, pw, part.height / pxPerMm); y = part.height / pxPerMm + GAP;
         }
       }
     }
@@ -2162,7 +2163,7 @@ function ganttInput(t, d, isChange) {
      payroll/staff         staff list and mail template                            read/write: owner only
      payroll/s_<id>        one payslip                                             read/write: owner only */
 const OFFICE_KEY = 'orange-insight-office';
-const APP_BUILD = '2026.11.26-4';
+const APP_BUILD = '2026.11.27-1';
 const INV_ST = { draft: '確認待ち', ok: '確認OK', sent: '送信済み', done: '完了' };
 const SLIP_ST = { draft: '下書き', fixed: '確定', sent: '送付済み' };
 const DEF_INV_TPL = { subject: '【請求書】{月}分のご請求（{発行元}）', body: '{宛名} {敬称}\n{担当者}\n\nいつもお世話になっております。\n{発行元}です。\n\n{月}分のご請求書をお送りいたします。\n添付のPDFをご確認ください。\n\nご請求金額：{金額}（税込）\nお支払期限：{期限}\n\nご不明な点がございましたら、お気軽にご連絡ください。\n今後ともよろしくお願いいたします。' };
@@ -2285,9 +2286,9 @@ const okMail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 function blobB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); }); }
 async function gmailSend({ to, cc, subject, body, blob, filename, draft }) {
   const mcp = await getMcp(); if (!mcp) throw { code: 'no_mcp' };
-  let fileArgs = false; try { const lt = await mcp.listTools(); fileArgs = !!(lt && lt.fileArgs); } catch (e) { /* older viewer: send inline */ }
-  const content = fileArgs ? { $file: { data: blob, name: 'document_' + Date.now() + '.pdf', type: 'application/pdf' } } : await blobB64(blob);
-  if (!fileArgs && content.length > 900000) throw { code: 'too_big' };
+  // the PDF goes inline as base64 (the platform's file hand-off does not take PDFs); a call's input is capped near 1 MiB
+  const content = await blobB64(blob);
+  if (content.length > 950000) throw { code: 'too_big' };
   const input = { to, subject, body, attachments: [{ content, filename, mimeType: 'application/pdf' }] };
   if (cc && cc.length) input.cc = cc;
   return mcp.callTool('Gmail', draft ? 'create_draft' : 'send_message', input, { cache: false });
@@ -2526,6 +2527,13 @@ function previewHtml(kind, x) {
     (mf ? '<div class="pv-mail"><div class="eyebrow">EMAIL</div><dl><dt>宛先</dt><dd>' + esc(mf.to.join(', ') || '（未入力）') + '</dd>' + (mf.cc.length ? '<dt>CC</dt><dd>' + esc(mf.cc.join(', ')) + '</dd>' : '') + '<dt>件名</dt><dd><b>' + esc(mf.subject) + '</b></dd><dt>添付</dt><dd>📎 ' + esc(fname) + '</dd></dl><div class="pv-text">' + esc(mf.body) + '</div></div>' : '') + '</div></div>';
 }
 // the A4 page is laid out at 680px wide and scaled to fit the window
+function fitDoc() {
+  const h = document.getElementById('docHold'), a = h && h.querySelector('.a4'); if (!a) return;
+  const w = h.parentElement.clientWidth, k = Math.min(1, w / 680);
+  a.style.transform = k < 1 ? 'scale(' + k + ')' : ''; a.style.transformOrigin = 'top left';
+  h.style.height = k < 1 ? a.offsetHeight * k + 'px' : ''; h.style.width = k < 1 ? 680 * k + 'px' : '';
+}
+window.addEventListener('resize', fitDoc);
 function fitPreview() { const p = document.querySelector('.pv-page'), s = document.querySelector('.pv-scale'), a = s && s.firstElementChild; if (!p || !a) return; const k = Math.max(.3, Math.min(1.2, (p.clientWidth - 8) / 680, (window.innerHeight - 110) / 962)); a.style.transform = 'scale(' + k + ')'; a.style.transformOrigin = 'top left'; s.style.width = 680 * k + 'px'; s.style.height = a.offsetHeight * k + 'px'; }
 window.addEventListener('resize', fitPreview);
 
@@ -3529,7 +3537,11 @@ function drivePanel(compact) {
 /* ================= actions ================= */
 const A = {};
 /* ---- office actions ---- */
-function docPdf(filename, asBlob) { return makePdf([document.getElementById('docSheet')], filename, 'page', { portrait: true, blob: asBlob, bg: '#ffffff' }); }
+async function docPdf(filename, asBlob, light) {
+  const d = document.getElementById('docSheet'); if (!d) return null;
+  const tf = d.style.transform; d.style.transform = ''; // the on-screen fit is not part of the PDF
+  try { return await makePdf([d], filename, 'page', Object.assign({ portrait: true, blob: asBlob, bg: '#ffffff' }, light ? { scale: 1.4, q: .78 } : {})); } finally { d.style.transform = tf; }
+}
 function stamp() { return new Date().toISOString(); }
 A.docPreview = el => { ui.preview = el.dataset.id; render(); fitPreview(); };
 A.pvClose = () => { ui.preview = null; render(); };
@@ -3568,7 +3580,8 @@ async function sendDoc(el, kind) {
   try {
     const c = isInv ? (S.clients.find(y => y.id === x.cid) || {}) : null;
     const filename = isInv ? '請求書_' + (c.name || '') + '_' + x.month + '.pdf' : '給与明細_' + x.name + '_' + x.month + '.pdf';
-    const blob = await docPdf(filename, true); if (!blob) throw { code: 'pdf' };
+    let blob = await docPdf(filename, true); if (!blob) throw { code: 'pdf' };
+    if (blob.size > 690000) { blob = await docPdf(filename, true, true); if (!blob) throw { code: 'pdf' }; }
     await gmailSend({ to: mf.to, cc: mf.cc, subject: mf.subject, body: mf.body, blob, filename, draft });
     if (!draft) { x.status = 'sent'; x.sentAt = stamp(); x.sentTo = mf.to.join(', '); }
     else x.draftAt = stamp();
@@ -3590,7 +3603,7 @@ A.slipBack = el => { O.slips[el.dataset.id].status = 'draft'; oSave('下書き�
 A.slipDel = el => arm(el, () => { delete O.slips[el.dataset.id]; ui.mail = null; oSave('削除しました'); location.hash = 'payroll'; });
 A.slipPdf = async el => { const x = O.slips[el.dataset.id]; const ok = await docPdf('給与明細_' + x.name + '_' + x.month + '.pdf'); if (ok && x.status === 'draft') { x.status = 'fixed'; oSave('確定にしました'); render(); } };
 A.slipOk = el => { const x = O.slips[el.dataset.id], st = O.staff.find(s => s.id === x.sid) || {}; if (x.status === 'draft') { x.status = 'fixed'; oSave(false); } ui.mail = { id: x.id, mode: 'tpl', to: st.email || '', cc: '' }; render(); const m = document.getElementById('mailBox'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
-function refreshDoc(html, sumId, sumText) { const d = document.getElementById('docHold'); if (d) d.innerHTML = html; const s = sumId && document.getElementById(sumId); if (s) s.textContent = sumText; }
+function refreshDoc(html, sumId, sumText) { const d = document.getElementById('docHold'); if (d) { d.innerHTML = html; fitDoc(); } const s = sumId && document.getElementById(sumId); if (s) s.textContent = sumText; }
 // input handler for office pages; returns true when it handled the event
 function officeInput(t, d, isChange) {
   if (d.mail) { ui.mail[d.mail] = t.value; return true; }
@@ -3832,6 +3845,7 @@ function renderNow() {
   $('#crumb').innerHTML = esc(meta.group) + '　/　<b>' + esc(meta.label) + '</b>' + (c && !['clients', 'editors', 'design', 'team', 'invoice', 'payroll'].includes(v) ? '　· ' + esc(c.name) : '');
   $('#main').innerHTML = '<div class="wrap">' + R[v]() + '</div>';
   if (document.querySelector('.pv')) fitPreview();
+  if (document.getElementById('docHold')) fitDoc();
   document.title = (S.brand.appName || 'ORANGE INSIGHT').replace(/\.$/, '') + ' | ' + meta.label;
 }
 
